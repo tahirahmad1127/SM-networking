@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>207795231930-rskouf2arh96jbuljleh3htet5m7fnub.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.207795231930-rskouf2arh96jbuljleh3htet5m7fnub</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>207795231930-otbd6b1sq8ri7t5a51bas4p1pu0ki9ak.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAl0DZqcpqOwrRFmjPpjH8_3Nq8lctCbgU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>207795231930</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.karyana.karyanaAgent</string>
+	<key>PROJECT_ID</key>
+	<string>karyana-dev</string>
+	<key>STORAGE_BUCKET</key>
+	<string>karyana-dev.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:207795231930:ios:0054da050e0006eb5e3683</string>
+</dict>
+</plist>

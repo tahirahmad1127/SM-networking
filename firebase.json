@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"sm-networking","appId":"1:772818925094:android:f26d8785abdbe5ef8018e7","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"sm-networking","configurations":{"android":"1:772818925094:android:f26d8785abdbe5ef8018e7","ios":"1:772818925094:ios:be55b83c1166a6758018e7"}}}}}}

@@ -215,12 +215,7 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                                 fontWeight: FontWeight.w600,
                                 color: FrontendConfigs.kPrimaryColor,
                               ),
-                            CustomText(
-                              text: "Stock: ${widget.model.stock.toString()}",
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey,
-                            ),
+
                           ],
                         ),
                       ],

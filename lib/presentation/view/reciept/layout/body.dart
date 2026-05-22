@@ -131,7 +131,7 @@ class ReceiptBody extends StatelessWidget {
                             height: 18,
                           ),
                           Text(
-                            "Prime Link",
+                            "SM Networking",
                             style: TextStyle(
                                 fontFamily: "KronaOne",
                                 fontWeight: FontWeight.w400,
@@ -180,13 +180,7 @@ class ReceiptBody extends StatelessWidget {
                           SizedBox(
                             height: 18,
                           ),
-                          SizedBox(
-                            width: MediaQuery.of(context).size.width + 2,
-                            child: Image.asset(
-                              "assets/images/receipt_divider.png",
-                              fit: BoxFit.fitWidth,
-                            ),
-                          ),
+                          _DashedDivider(),
                           SizedBox(
                             height: 18,
                           ),
@@ -199,7 +193,7 @@ class ReceiptBody extends StatelessWidget {
                                   children: [
                                     _rowWidget(
                                         title: 'Order by:',
-                                        details: model.retailerUser!.name
+                                        details: model.warehouseManager!.name
                                             .toString()),
                                     SizedBox(
                                       height: 18,
@@ -255,20 +249,14 @@ class ReceiptBody extends StatelessWidget {
                                     _rowWidget(
                                         title: 'Total Bill:',
                                         details:
-                                            '${model.total!.toStringAsFixed(0)} Rs'),
+                                        '${model.total!.toStringAsFixed(0)} Rs'),
                                     SizedBox(
                                       height: 18,
                                     ),
                                   ],
                                 ),
                               ),
-                              SizedBox(
-                                width: MediaQuery.of(context).size.width + 2,
-                                child: Image.asset(
-                                  "assets/images/receipt_divider.png",
-                                  fit: BoxFit.fitWidth,
-                                ),
-                              ),
+                              _DashedDivider(),
                               SizedBox(
                                 height: 18,
                               ),
@@ -296,9 +284,7 @@ class ReceiptBody extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Image.asset(
-                      "assets/images/receipt_bottom.png",
-                    ),
+                    _ZigzagBottom(),
                     SizedBox(
                       height: 30,
                     )
@@ -337,4 +323,77 @@ class ReceiptBody extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Clean dashed divider — replaces receipt_divider.png (which had red arrow tips)
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: CustomPaint(
+        size: Size(double.infinity, 1),
+        painter: _DashedLinePainter(),
+      ),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.shade300
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 6.0;
+    const dashSpace = 4.0;
+    double startX = 0;
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Zigzag bottom edge — replaces receipt_bottom.png
+class _ZigzagBottom extends StatelessWidget {
+  const _ZigzagBottom();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(double.infinity, 20),
+      painter: _ZigzagPainter(),
+    );
+  }
+}
+
+class _ZigzagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white..style = PaintingStyle.fill;
+    final path = Path();
+    path.moveTo(0, 0);
+
+    const toothWidth = 16.0;
+    final teethCount = (size.width / toothWidth).ceil();
+    for (int i = 0; i < teethCount; i++) {
+      final x = i * toothWidth;
+      path.lineTo(x + toothWidth / 2, size.height);
+      path.lineTo(x + toothWidth, 0);
+    }
+    path.lineTo(size.width, 0);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

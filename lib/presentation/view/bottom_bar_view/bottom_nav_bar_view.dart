@@ -149,7 +149,7 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               ),
             ),
 
-            // 1️⃣ Customers
+            // 1️⃣ Distributers
             IconButton(
               padding: const EdgeInsets.all(3),
               enableFeedback: false,
@@ -157,11 +157,11 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               icon: pageIndex == 1
                   ? activeNavItem(
                 icon: const Icon(Icons.storefront),
-                label: "Customers",
+                label: "Distributors",
               )
                   : inactiveNavItem(
                 icon: const Icon(Icons.storefront),
-                label: "Customers",
+                label: "Distributors",
               ),
             ),
 

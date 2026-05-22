@@ -19,7 +19,13 @@ class CategoryListingModel {
 
   factory CategoryListingModel.fromJson(Map<String, dynamic> json) => CategoryListingModel(
     msg: json["msg"],
-    data: json["data"] == null ? [] : List<CategoryModel>.from(json["data"]!.map((x) => CategoryModel.fromJson(x))),
+    data: json["data"] == null
+        ? []
+        : List<CategoryModel>.from(
+      (json["data"] as List)
+          .where((x) => x is Map<String, dynamic>)
+          .map((x) => CategoryModel.fromJson(x as Map<String, dynamic>)),
+    ),
   );
 
   Map<String, dynamic> toJson() => {
@@ -60,7 +66,12 @@ class CategoryModel {
     urduName: json["urduName"],
     englishName: json["englishName"],
     image: json["image"],
-    cityId: json["cityID"] == null ? null : CityId.fromJson(json["cityID"]),
+    // cityID can be a full object OR just a string ID — handle both safely
+    cityId: json["cityID"] == null
+        ? null
+        : json["cityID"] is Map<String, dynamic>
+        ? CityId.fromJson(json["cityID"] as Map<String, dynamic>)
+        : CityId(id: json["cityID"].toString()),
     isDeleted: json["isDeleted"],
     isActive: json["isActive"],
     adminVerified: json["adminVerified"],

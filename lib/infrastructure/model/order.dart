@@ -34,8 +34,8 @@ class OrderListingModel {
 
 class OrderModel {
   final String? id;
-  final RetailerUser? retailerUser;
-  final SaleUser? saleUser;
+  final RetailerUser? warehouseManager;
+  final SaleUser? salesPerson;
   final String? shippingAddress;
   final String? phoneNumber;
   final String? expectedDelivery;
@@ -54,8 +54,8 @@ class OrderModel {
 
   OrderModel({
     this.id,
-    this.retailerUser,
-    this.saleUser,
+    this.warehouseManager,
+    this.salesPerson,
     this.shippingAddress,
     this.phoneNumber,
     this.expectedDelivery,
@@ -75,8 +75,8 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
     id: json["_id"],
-    retailerUser: json["RetailerUser"] == null ? null : RetailerUser.fromJson(json["RetailerUser"]),
-    saleUser: json["SaleUser"] == null ? null : SaleUser.fromJson(json["SaleUser"]),
+    warehouseManager: json["warehouseManager"] == null ? null : RetailerUser.fromJson(json["warehouseManager"]),
+    salesPerson: json["salesPerson"] == null ? null : SaleUser.fromJson(json["salesPerson"]),
     shippingAddress: json["shippingAddress"],
     phoneNumber: json["phoneNumber"],
     expectedDelivery: json["expectedDelivery"],
@@ -96,8 +96,8 @@ class OrderModel {
 
   Map<String, dynamic> toJson() => {
     "_id": id,
-    "RetailerUser": retailerUser?.toJson(),
-    "SaleUser": saleUser?.toJson(),
+    "warehouseManager": warehouseManager?.toJson(),
+    "salesPerson": salesPerson?.toJson(),
     "shippingAddress": shippingAddress,
     "phoneNumber": phoneNumber,
     "expectedDelivery": expectedDelivery,

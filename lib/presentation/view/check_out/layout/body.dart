@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/application/cart_provider.dart';
-import 'package:sm_networking/application/coupon_bloc/coupon_bloc.dart';
+// import 'package:sm_networking/application/coupon_bloc/coupon_bloc.dart';
 import 'package:sm_networking/application/retailer_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
@@ -13,17 +13,15 @@ import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/infrastructure/model/create_order.dart';
 import 'package:sm_networking/infrastructure/model/retailer.dart';
 import 'package:sm_networking/infrastructure/services/retailer.dart';
-import 'package:sm_networking/presentation/elements/auth_field.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
-import 'package:string_validator/string_validator.dart';
 
 import '../../../../application/location.dart';
 import '../../../../application/order_bloc/order_bloc.dart';
 import '../../../../application/visit_bloc/visit_bloc.dart';
-import '../../../../infrastructure/model/coupon.dart';
+// import '../../../../infrastructure/model/coupon.dart';
 import '../../../../infrastructure/model/visit.dart';
 import '../../../../injection_container.dart';
 import '../../../elements/app_button.dart';
@@ -43,7 +41,6 @@ class _CheckOutBodyState extends State<CheckOutBody> {
   final TextEditingController couponController = TextEditingController();
   RetailerModel? selectedRetailer;
   List<RetailerModel> retailersList = [];
-  bool isLoading = false;
 
   @override
   void initState() {
@@ -81,7 +78,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
       providers: [
         BlocProvider(create: (_) => sl<OrderBloc>()),
         BlocProvider(create: (_) => sl<VisitBloc>()),
-        BlocProvider(create: (_) => sl<CouponBloc>()),
+        // BlocProvider(create: (_) => sl<CouponBloc>()),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -108,6 +105,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
               }
             },
           ),
+          /*
           BlocListener<CouponBloc, CouponState>(
             listener: (context, state) {
               if (state is CouponLoading) {
@@ -141,11 +139,12 @@ class _CheckOutBodyState extends State<CheckOutBody> {
               }
             },
           )
+          */
         ],
         child: BlocBuilder<OrderBloc, OrderState>(
           builder: (context, state) {
             return LoadingOverlay(
-              isLoading: isLoading || state is OrderLoading,
+              isLoading: state is OrderLoading,
               progressIndicator: const ProcessingWidget(),
               color: Colors.transparent,
               child: SafeArea(
@@ -274,6 +273,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             );
                           }),
                       const SizedBox(height: 5),
+                      /*
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 18.0),
                         child: Row(
@@ -440,6 +440,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                           ),
                         ),
                       ],
+                      */
 
                       const SizedBox(height: 16),
 
@@ -495,8 +496,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             ),
                             const SizedBox(height: 8),
 
-                            if (cart.hasCouponApplied() ||
-                                cart.getTotalBulkDiscount() > 0) ...[
+                            if (cart.getTotalBulkDiscount() > 0) ...[
                               Row(
                                 mainAxisAlignment:
                                 MainAxisAlignment.spaceBetween,
@@ -546,6 +546,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 ),
                                 const SizedBox(height: 8),
                               ],
+                              /*
                               if (cart.hasCouponApplied()) ...[
                                 Row(
                                   mainAxisAlignment:
@@ -575,6 +576,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 ),
                                 const SizedBox(height: 8),
                               ],
+                              */
                               Divider(
                                   color: Colors.grey.shade300, thickness: 1),
                               const SizedBox(height: 4),

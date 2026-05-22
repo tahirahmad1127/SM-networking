@@ -1,81 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/application/user_provider.dart';
+import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../application/order_bloc/order_bloc.dart';
-import '../../../../../infrastructure/model/order.dart';
-import '../../../../../infrastructure/services/order.dart';
 import '../../../../../injection_container.dart';
-import '../../../../../utils/utils.dart';
-import '../../../../elements/loaders.dart';
-import '../../../../elements/no_data_found.dart';
-import '../../../../elements/processing_widget.dart';
 import '../../no_data_found_view.dart';
 import '../../order_details/order_details_view.dart';
 import '../../widgets/order_card.dart';
 
-class CompletedTabBar extends StatelessWidget {
+class CompletedTabBar extends StatefulWidget {
   const CompletedTabBar({super.key});
 
   @override
+  State<CompletedTabBar> createState() => _CompletedTabBarState();
+}
+
+class _CompletedTabBarState extends State<CompletedTabBar>
+    with AutomaticKeepAliveClientMixin {
+  late final OrderBloc _bloc;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _bloc = sl<OrderBloc>();
+    final userId = Provider.of<UserProvider>(context, listen: false)
+        .getSalesUserDetails()!
+        .user!
+        .id
+        .toString();
+    _bloc.add(GetCompletedOrderEvent(userId));
+  }
+
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
+
+  void _refresh() {
+    final userId = Provider.of<UserProvider>(context, listen: false)
+        .getSalesUserDetails()!
+        .user!
+        .id
+        .toString();
+    _bloc.add(GetCompletedOrderEvent(userId));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    var user = Provider.of<UserProvider>(context);
-    return BlocProvider(
-      create: (context) => sl<OrderBloc>(),
+    super.build(context);
+    return BlocProvider.value(
+      value: _bloc,
       child: BlocBuilder<OrderBloc, OrderState>(
         builder: (context, state) {
-          if (state is OrderInitial) {
-            BlocProvider.of<OrderBloc>(context).add(GetCompletedOrderEvent(
-                user.getSalesUserDetails()!.user!.id.toString()));
-
-            return const Center(
-              child: ProcessingWidget(),
-            );
-          } else if (state is OrderLoading) {
-            return const Center(
-              child: ProcessingWidget(),
-            );
+          if (state is OrderLoading || state is OrderInitial) {
+            return const Center(child: ProcessingWidget());
           } else if (state is OrderLoaded) {
-            return state.model.data!.isEmpty
-                ? NoDataFoundView()
-                : ListView.builder(
-                shrinkWrap: true,
-                itemCount: state.model.data!.length,
-                itemBuilder: (context, i) {
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => OrderDetailsView(
-                                model: state.model.data![i],
-                              ))).then((val) {
-                        if (val == true) {
-                          BlocProvider.of<OrderBloc>(context).add(
-                              GetCompletedOrderEvent(user
-                                  .getSalesUserDetails()!
-                                  .user!
-                                  .id
-                                  .toString()));
-                        }
-                      });
-                    },
-                    child: OrderCard(
-                      status: 'Completed',
-                      model: state.model.data![i],
-                    ),
-                  );
-                });
+            if (state.model.data!.isEmpty) return const NoDataFoundView();
+            return ListView.builder(
+              itemCount: state.model.data!.length,
+              itemBuilder: (context, i) {
+                final order = state.model.data![i];
+                return InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OrderDetailsView(model: order),
+                      ),
+                    ).then((val) {
+                      if (val == true) _refresh();
+                    });
+                  },
+                  child: OrderCard(status: 'Completed', model: order),
+                );
+              },
+            );
           } else if (state is OrderFailed) {
-            return Center(
-              child: Text(state.message.toString()),
-            );
-          } else {
-            return const Center(
-              child: Text("Something went wrong"),
-            );
+            return Center(child: Text(state.message.toString()));
           }
+          return const Center(child: Text("Something went wrong"));
         },
       ),
     );

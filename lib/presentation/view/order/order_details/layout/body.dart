@@ -28,28 +28,28 @@ class _OrderDetailsBodyState extends State<OrderDetailsBody> {
   initState() {
     stepperData = widget.model.statuses!
         .map((e) => StepperData(
-            title: StepperText(
-             e.status.toString(),
-              textStyle: const TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12),
-            ),
-            subtitle: StepperText(
-              "${DateFormat.yMMMEd().format(e.date!)} ${DateFormat.jm().format(e.date!)}",
-              textStyle: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14),
-            ),
-            iconWidget: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: FrontendConfigs.kTextFieldColor,
-                  borderRadius: FrontendConfigs.kAppBorder),
-              child:
-                  Icon(Icons.check_circle, color: FrontendConfigs.kGreenColor),
-            )))
+        title: StepperText(
+          e.status.toString(),
+          textStyle: const TextStyle(
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+              fontSize: 12),
+        ),
+        subtitle: StepperText(
+          "${DateFormat.yMMMEd().format(e.date!)} ${DateFormat.jm().format(e.date!)}",
+          textStyle: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w500,
+              fontSize: 14),
+        ),
+        iconWidget: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+              color: FrontendConfigs.kTextFieldColor,
+              borderRadius: FrontendConfigs.kAppBorder),
+          child:
+          Icon(Icons.check_circle, color: FrontendConfigs.kGreenColor),
+        )))
         .toList();
     super.initState();
   }
@@ -75,7 +75,7 @@ class _OrderDetailsBodyState extends State<OrderDetailsBody> {
                       child: IconButton(
                           onPressed: () {
                             _launchUrl(
-                                "https://wa.me/+923350059585?text=${Uri.parse("Welcome to Karyana!")}");
+                                "https://wa.me/+923164936106?text=${Uri.parse("Welcome to SM Networking!")}");
                           },
                           icon: SvgPicture.asset("assets/icons/whatsapp.svg")),
                     ),
@@ -111,7 +111,7 @@ class _OrderDetailsBodyState extends State<OrderDetailsBody> {
                       activeIndex: getSelectedIndex(),
                       // Height that will be applied to all the stepper icons
                       iconHeight:
-                          40, // Width that will be applied to all the stepper icons
+                      40, // Width that will be applied to all the stepper icons
                     )
                   ],
                 ),

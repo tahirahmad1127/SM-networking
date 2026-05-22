@@ -603,7 +603,7 @@ class _AttendanceBodyState extends State<AttendanceBody>
                             ),
                             const SizedBox(height: 8),
                             CustomText(
-                              text: "Check-in: ${checkInProvider.formattedAllowedCheckInTime} - ${checkInProvider.formattedAllowedCheckOutTime}",
+                              text: "Shift Duration: ${checkInProvider.formattedAllowedCheckInTime} - ${checkInProvider.formattedAllowedCheckOutTime}",
                               fontSize: 13,
                               color: Colors.grey.shade500,
                             ),

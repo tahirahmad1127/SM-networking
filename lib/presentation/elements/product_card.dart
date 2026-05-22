@@ -217,12 +217,7 @@ class _ProductCardState extends State<ProductCard> {
                                   fontWeight: FontWeight.w600,
                                   color: FrontendConfigs.kPrimaryColor,
                                 ),
-                              CustomText(
-                                text: "Stock: ${widget.model.stock}",
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey,
-                              ),
+
                             ],
                           ),
                         ],
@@ -368,36 +363,6 @@ class _ProductCardState extends State<ProductCard> {
                               onChanged: (val) {
                                 if (val.isEmpty) return;
                                 final entered = int.tryParse(val) ?? 0;
-                                // ✅ Use raw stock directly — no getStock() which can return 0
-                                final rawStock = widget.model.stock?.toInt() ?? 0;
-                                if (entered >= rawStock) {
-                                  getFlushBar(context,
-                                      title:
-                                      "Sorry! You cannot order more than ${rawStock} items.");
-                                  cartController =
-                                      TextEditingController(text: rawStock.toString());
-                                  setState(() {});
-                                  cart.addItem(CartModel(
-                                      name: widget.model.englishTitle.toString(),
-                                      id: widget.model.id.toString(),
-                                      price: widget.model.isDiscounted == true
-                                          ? getDiscountPrice(
-                                          regularPrice: widget.model.price!,
-                                          discount: widget.model.discount!)
-                                          .toString()
-                                          : isCtnSelected
-                                          ? (widget.model.cortanSize! *
-                                          widget.model.price!)
-                                          .toString()
-                                          : widget.model.price!.toString(),
-                                      image: widget.model.image.toString(),
-                                      offer: widget.model.isDiscounted!,
-                                      productDetails: widget.model,
-                                      quantity: rawStock,
-                                      totalQuantity: rawStock,
-                                      type: isCtnSelected ? "ctn" : "piece"));
-                                  return;
-                                }
                                 cart.addItem(CartModel(
                                     name: widget.model.englishTitle.toString(),
                                     id: widget.model.id.toString(),
@@ -415,7 +380,7 @@ class _ProductCardState extends State<ProductCard> {
                                     offer: widget.model.isDiscounted!,
                                     productDetails: widget.model,
                                     quantity: entered,
-                                    totalQuantity: rawStock,
+                                    totalQuantity: 0,
                                     type: isCtnSelected ? "ctn" : "piece"));
                                 log(cart
                                     .getItemQuantity(widget.model.id.toString())
@@ -429,19 +394,11 @@ class _ProductCardState extends State<ProductCard> {
                             ),
                           )),
 
-                    // ✅ + Button: use raw stock, not getStock()
                     InkWell(
                       borderRadius: FrontendConfigs.kAppBorder,
                       onTap: () async {
-                        final rawStock = widget.model.stock?.toInt() ?? 0;
                         final currentQty =
                         cart.getItemQuantity(widget.model.id.toString());
-                        if (rawStock > 0 && currentQty >= rawStock) {
-                          getFlushBar(context,
-                              title:
-                              "Sorry! You cannot order more than $rawStock items.");
-                          return;
-                        }
                         cart.addItem(CartModel(
                             name: widget.model.englishTitle.toString(),
                             id: widget.model.id.toString(),
@@ -459,7 +416,7 @@ class _ProductCardState extends State<ProductCard> {
                             offer: widget.model.isDiscounted!,
                             productDetails: widget.model,
                             quantity: currentQty + 1,
-                            totalQuantity: rawStock,
+                            totalQuantity: 0,
                             type: isCtnSelected ? "ctn" : "piece"));
                         cartController = TextEditingController(
                             text: (currentQty + 1).toString());
@@ -470,15 +427,7 @@ class _ProductCardState extends State<ProductCard> {
                         width: 35,
                         decoration: BoxDecoration(
                             borderRadius: FrontendConfigs.kAppBorder,
-                            color: () {
-                              final rawStock =
-                                  widget.model.stock?.toInt() ?? 0;
-                              final currentQty = cart.getItemQuantity(
-                                  widget.model.id.toString());
-                              return (rawStock > 0 && currentQty >= rawStock)
-                                  ? Colors.grey
-                                  : Colors.black;
-                            }()),
+                            color: Colors.black),
                         child: const Icon(Icons.add, color: Colors.white),
                       ),
                     )
@@ -492,18 +441,7 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  // getStock() kept for any other uses but no longer used for add-item gating
-  int getStock() {
-    if (isCtnSelected) {
-      if ((widget.model.stock! / widget.model.cortanSize!) < 1) {
-        return 0;
-      } else {
-        return (widget.model.stock! / widget.model.cortanSize!).toInt();
-      }
-    } else {
-      return widget.model.stock!.toInt();
-    }
-  }
+
 }
 
 /// Bulk Discount Dialog

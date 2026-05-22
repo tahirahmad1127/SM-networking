@@ -48,7 +48,6 @@ class ProductModel {
   final String? urduDescription;
   final String? englishDescription;
   final num? price;
-  final int? stock;
   final int? cortanSize;
   final int? piecesPerBox;
   final String? packaging;
@@ -95,7 +94,6 @@ class ProductModel {
     this.urduDescription,
     this.englishDescription,
     this.price,
-    this.stock,
     this.cortanSize,
     this.piecesPerBox,
     this.packaging,
@@ -135,7 +133,6 @@ class ProductModel {
     urduDescription: json["urduDescription"],
     englishDescription: json["englishDescription"],
     price: json["price"],
-    stock: json["stock"],
     cortanSize: json["cortanSize"],
     piecesPerBox: json["piecesPerBox"],
     packaging: json["packaging"],
@@ -209,7 +206,6 @@ class ProductModel {
     "urduDescription": urduDescription,
     "englishDescription": englishDescription,
     "price": price,
-    "stock": stock,
     "cortanSize": cortanSize,
     "piecesPerBox": piecesPerBox,
     "packaging": packaging,

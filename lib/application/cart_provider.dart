@@ -511,8 +511,18 @@ class CartProvider extends ChangeNotifier {
 
   List<CartModel> get cartItems => _cartList;
 
-  void emptyCart() {
+  void emptyCart() async {
     _cartList.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('CART_DATA');
+    notifyListeners();
+  }
+
+  /// Call this on logout to wipe all cart state (in-memory + persisted)
+  Future<void> clearData() async {
+    _cartList.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('CART_DATA');
     notifyListeners();
   }
 }

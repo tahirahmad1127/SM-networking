@@ -10,5 +10,6 @@ abstract class StatsEvent extends Equatable {
 
 class GetStatsEvent extends StatsEvent {
   final String userID;
-  const GetStatsEvent(this.userID);
+  final String role;
+  const GetStatsEvent(this.userID, this.role);
 }

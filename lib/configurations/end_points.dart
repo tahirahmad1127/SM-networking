@@ -3,29 +3,27 @@ class ApiEndPoints {
   static const String kWarehouseManagerLogin = "warehouse-manager/login";
   static const String kGetRetailers = "retailer/city/";
   static const String kUpdateRetailerLocation = "retailer/location/";
-  static const String kAddRetailer = "retailer/add";
+
+  /// sale-user/location/{id}  →  update distributor's shopLocation lat/lng
+  static const String kUpdateDistributorLocation = "sale-user/location/";
+
+  /// sale-user/register  →  register a new distributor (sales user)
+  static const String kRegisterDistributor = "sale-user/register";
+
   static const String kGetCategories = "category/";
 
-  /// Base product endpoint.  Append /{id} for single product,
-  /// /category/{categoryID}?page={n} for category listing,
-  /// or use kGetProductsByBrand for brand-filtered listing.
   static const String kGetProducts = "product";
-
-  /// product/brand/{brandID}  →  paginated products for a brand
   static const String kGetProductsByBrand = "product/brand/";
 
   static const String kGetOrders = "order/sale-person/status/";
   static const String kUpdateOrderStatus = "order/updatestatus/";
   static const String kAddOrder = "order/add";
 
-  /// brand/category/{categoryID}  →  list of brands for a category
   static const String kGetBrands = "brand/category/";
-
-  /// brand/{brandID}  →  brand detail + all products for that brand
-  /// (response shape: { brand: {...}, products: [...] })
   static const String kGetBrandDetail = "brand/";
-
   static const String kGetStats = "sale-user/sales/";
+  static const String kGetTargets = "targets/salesperson/";
+  static const String kGetTargetsOrderbooker = "targets/orderbooker/"; // ← ADDED
   static const String kGetTermsCondition = "setting/termsandconditions";
   static const String kGetPrivacyPolicy = "setting/privacypolicy";
   static const String kRegister = "user/register";
@@ -72,5 +70,17 @@ class ApiEndPoints {
   static const String kApplyCoupon = "coupons/validate-mobile";
   static const String kSendCoordinates = "tracking/ping";
   static const String kGetAllBanks = "bank/getall";
-  static const String kAddRecovery = "ledger/retailer/";
+  static const String kAddRecovery = "payment/create";
+  static const String kGetMyPayments = "payment/get-my-payment";
+  static const String kAddWholesaler = "wholesaler/add";
+  static const String kAddRetailer = "retailer/add";
+  static const String kGetRetailer = "retailer/";
+  static const String kGetWholesaler = "wholesaler/";
+
+
+  /// zone/  →  list of all zones
+  static const String kGetAllZones = "zone/";
+
+  /// town/zone/{zoneId}  →  towns belonging to a specific zone
+  static const String kGetTownsByZone = "town/zone/";
 }

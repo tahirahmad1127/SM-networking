@@ -6,6 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sm_networking/application/user_provider.dart';
+import 'package:sm_networking/application/cart_provider.dart';
+import 'package:sm_networking/application/checkIn_provider.dart';
+import 'package:sm_networking/application/visit_provider.dart';
+import 'package:sm_networking/application/retailer_provider.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/infrastructure/model/user.dart';
 import 'package:sm_networking/infrastructure/services/upload_file_services.dart';
@@ -15,6 +19,7 @@ import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
 import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
 import 'package:sm_networking/presentation/view/map/map_retailers.dart';
+import 'package:sm_networking/presentation/view/profile/my_recoveries_view.dart';
 import 'package:sm_networking/presentation/view/profile/layout/widgets/profile_card.dart';
 import 'package:launch_review_latest/launch_review_latest.dart';
 import 'package:loading_overlay/loading_overlay.dart';
@@ -22,12 +27,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:url_launcher/url_launcher.dart' ;
 
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/services/retailers_cache.dart';
 import '../../../elements/bottom_sheet/langauge.dart';
 import '../../../elements/custom_text.dart';
+import '../../../wholesaler_and_retailer/wholesailer_and_retailer.dart';
 import '../../privacy_policy/privacy_policy.dart';
 import '../../terms_condition/terms_condition.dart';
 
@@ -40,13 +45,15 @@ class ProfileBody extends StatefulWidget {
 
 class _ProfileBodyState extends State<ProfileBody> {
   bool value = false;
-
   File? _image;
   bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<UserProvider>(context);
+    final role = user.getSalesUserDetails()?.role ?? '';
+    final isTsm = role == 'warehouseManager' || role == 'orderBooker';
+
     return LoadingOverlay(
       isLoading: isLoading,
       progressIndicator: const ProcessingWidget(),
@@ -57,9 +64,9 @@ class _ProfileBodyState extends State<ProfileBody> {
             padding: const EdgeInsets.symmetric(horizontal: 18.0),
             child: Column(
               children: [
-                const SizedBox(
-                  height: 8,
-                ),
+                const SizedBox(height: 8),
+
+                // ── Profile Card ────────────────────────────────────────────
                 Container(
                   height: 97,
                   width: MediaQuery.of(context).size.width,
@@ -71,44 +78,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                     child: Row(
                       children: [
                         InkWell(
-                          onTap: () async {
-                            // await getProfileImage();
-                            // isLoading = true;
-                            // setState(() {});
-                            // if (_image != null) {
-                            //   try {
-                            //     await UploadFileServices()
-                            //         .getUrl(context,_image!)
-                            //         .then((value) async {
-                            //       await UserServices().updateUserImage(
-                            //           UserModel(
-                            //               docId: user
-                            //                   .getUserDetails()!
-                            //                   .docId
-                            //                   .toString(),
-                            //               image: value));
-                            //     });
-                            //     await UserServices()
-                            //         .fetchUserDetails(user
-                            //         .getUserDetails()!
-                            //         .docId
-                            //         .toString())
-                            //         .then((value) {
-                            //       user.saveUserDetails(value);
-                            //     });
-                            //     _image = null;
-                            //     isLoading = false;
-                            //     setState(() {});
-                            //     getFlushBar(context,
-                            //         title:
-                            //         "Profile has been updated successfully.");
-                            //   } catch (e) {
-                            //     isLoading = false;
-                            //     setState(() {});
-                            //     getFlushBar(context, title: e.toString());
-                            //   }
-                            // }
-                          },
+                          onTap: () async {},
                           child: _image != null
                               ? ClipRRect(
                             borderRadius: BorderRadius.circular(100),
@@ -122,7 +92,11 @@ class _ProfileBodyState extends State<ProfileBody> {
                               : ClipRRect(
                             borderRadius: BorderRadius.circular(100),
                             child: ExtendedImage.network(
-                              user.getSalesUserDetails()!.user!.image.toString(),
+                              user
+                                  .getSalesUserDetails()!
+                                  .user!
+                                  .image
+                                  .toString(),
                               height: 55,
                               width: 55,
                               fit: BoxFit.fill,
@@ -159,29 +133,32 @@ class _ProfileBodyState extends State<ProfileBody> {
                               },
                               borderRadius: const BorderRadius.all(
                                   Radius.circular(30.0)),
-                              //cancelToken: cancellationToken,
                             ),
                           ),
                         ),
-                        const SizedBox(
-                          width: 10,
-                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                user.getSalesUserDetails()!.user!.name.toString(),
+                                user
+                                    .getSalesUserDetails()!
+                                    .user!
+                                    .name
+                                    .toString(),
                                 style: FrontendConfigs.kTitleStyle,
                                 softWrap: true,
                                 maxLines: 2,
                               ),
-                              const SizedBox(
-                                height: 3,
-                              ),
+                              const SizedBox(height: 3),
                               CustomText(
-                                text: user.getSalesUserDetails()!.user!.phone.toString(),
+                                text: user
+                                    .getSalesUserDetails()!
+                                    .user!
+                                    .phone
+                                    .toString(),
                               ),
                             ],
                           ),
@@ -190,117 +167,146 @@ class _ProfileBodyState extends State<ProfileBody> {
                     ),
                   ),
                 ),
-                const SizedBox(
-                  height: 18,
+
+                const SizedBox(height: 18),
+
+                // ── My Recoveries ───────────────────────────────────────────
+                InkWell(
+                  borderRadius: FrontendConfigs.kAppBorder,
+                  onTap: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                            const MyRecoveriesView()));
+                  },
+                  child: ProfileCard(lebal: 'My Recoveries'),
                 ),
 
-                // InkWell(
-                //   borderRadius: FrontendConfigs.kAppBorder,
-                //   onTap: () {
-                //     Navigator.push(
-                //         context,
-                //         MaterialPageRoute(
-                //             builder: (context) => const CategoryListingView()));
-                //   },
-                //   child: ProfileCard(
-                //     lebal: TranslationHelper.getTranslatedText("View Products"),
+                // ── Wholesalers (TSM only) ──────────────────────────────────
+                // if (isTsm) ...[
+                //   const SizedBox(height: 12),
+                //   InkWell(
+                //     borderRadius: FrontendConfigs.kAppBorder,
+                //     onTap: () {
+                //       Navigator.push(
+                //           context,
+                //           MaterialPageRoute(
+                //               builder: (_) =>
+                //               const WholesalerRetailerListView(
+                //                   type: WholesalerRetailerType
+                //                       .wholesaler)));
+                //     },
+                //     child: ProfileCard(lebal: 'Wholesalers'),
                 //   ),
-                // ),
-                // const SizedBox(
-                //   height: 12,
-                // ),
-                InkWell(
-                  borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const TermsConditionView()));
-                  },
-                  child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText("terms_condition"),
-                  ),
-                ),
-                const SizedBox(
-                  height: 12,
-                ),
-                InkWell(
-                  borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const PrivacyPolicyView()));
-                  },
-                  child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText("privacy_policy"),
-                  ),
-                ),
-                const SizedBox(
-                  height: 12,
-                ),
+                // ],
+
+                // ── Retailers (TSM only) ────────────────────────────────────
+                // if (isTsm) ...[
+                //   const SizedBox(height: 12),
+                //   InkWell(
+                //     borderRadius: FrontendConfigs.kAppBorder,
+                //     onTap: () {
+                //       Navigator.push(
+                //           context,
+                //           MaterialPageRoute(
+                //               builder: (_) =>
+                //               const WholesalerRetailerListView(
+                //                   type:
+                //                   WholesalerRetailerType.retailer)));
+                //     },
+                //     child: ProfileCard(lebal: 'Retailers'),
+                //   ),
+                // ],
+
+                const SizedBox(height: 12),
+
+                // ── Help & Support ──────────────────────────────────────────
                 InkWell(
                   borderRadius: FrontendConfigs.kAppBorder,
                   onTap: () {
                     _launchUrl(
-                        "https://wa.me/+923350059585?text=${Uri.parse("Welcome to Karyana!")}");
+                        "https://wa.me/+923164936106?text=${Uri.parse("Welcome to SM Networking!")}");
                   },
                   child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText("help_support"),
+                    lebal: TranslationHelper.getTranslatedText(
+                        "help_support"),
                   ),
                 ),
-                const SizedBox(
-                  height: 12,
-                ),
+
+                const SizedBox(height: 12),
+
+                // ── Rate Our App ────────────────────────────────────────────
                 InkWell(
                   borderRadius: FrontendConfigs.kAppBorder,
                   onTap: () {
                     LaunchReviewLatest.launch();
                   },
                   child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText("rate_our_app"),
+                    lebal: TranslationHelper.getTranslatedText(
+                        "rate_our_app"),
                   ),
                 ),
-                const SizedBox(
-                  height: 12,
-                ),
+
+                const SizedBox(height: 12),
+
+                // ── About Us ────────────────────────────────────────────────
                 InkWell(
                   borderRadius: FrontendConfigs.kAppBorder,
                   onTap: () {
                     _launchUrl("https://karyana.co");
                   },
-                  child: ProfileCard(
-                    lebal: 'About Us',
-                  ),
+                  child: ProfileCard(lebal: 'About Us'),
                 ),
-                const SizedBox(
-                  height: 12,
-                ),
+
+                const SizedBox(height: 12),
+
+                // ── Logout ──────────────────────────────────────────────────
                 InkWell(
                   borderRadius: FrontendConfigs.kAppBorder,
                   onTap: () async {
-                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    SharedPreferences prefs =
+                    await SharedPreferences.getInstance();
                     showNavigationDialog(context,
-                        message: "Do you really want to logout from app?",
+                        message:
+                        "Do you really want to logout from app?",
                         buttonText: "Yes", navigation: () async {
+                          if (context.mounted) {
+                            await Provider.of<CartProvider>(context,
+                                listen: false)
+                                .clearData();
+                            await Provider.of<CheckInProvider>(context,
+                                listen: false)
+                                .clearData();
+                            await Provider.of<VisitProvider>(context,
+                                listen: false)
+                                .clearVisitData();
+                            Provider.of<UserProvider>(context,
+                                listen: false)
+                                .clearData();
+                          }
                           await FirebaseAuth.instance.signOut();
                           prefs.clear();
                           await RetailerCacheService.clearRetailersCache();
                           await RetailerCacheService.clearBanksCache();
                           Navigator.pushAndRemoveUntil(
                               context,
-                              MaterialPageRoute(builder: (context) => const LogInView()),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                  const LogInView()),
                                   (route) => false);
-                        }, secondButtonText: "No", showSecondButton: true);
+                        },
+                        secondButtonText: "No",
+                        showSecondButton: true);
                   },
                   child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText("logout"),
+                    lebal:
+                    TranslationHelper.getTranslatedText("logout"),
                     textColor: FrontendConfigs.kPrimaryColor,
                   ),
                 ),
-                const SizedBox(
-                  height: 18,
-                ),
+
+                const SizedBox(height: 18),
               ],
             ),
           ),
@@ -323,7 +329,6 @@ class _ProfileBodyState extends State<ProfileBody> {
       imageQuality: 20,
       source: ImageSource.gallery,
     );
-
     setState(() {
       if (pickedFile != null) {
         _image = File(pickedFile.path);

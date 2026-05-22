@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sm_networking/infrastructure/model/order.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/view/order/order_details/order_details_view.dart';
 
 import '../../../../configurations/frontend_configs.dart';
 
@@ -17,6 +16,20 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String upperStatus = status.toUpperCase();
+    String expectedDeliveryText = "-";
+    if (upperStatus == "COMPLETED" || upperStatus == "DELIVERED") {
+      expectedDeliveryText = "Delivered";
+    } else if (upperStatus == "CANCELLED") {
+      expectedDeliveryText = "-";
+    } else if (model.expectedDelivery != null) {
+      expectedDeliveryText = DateFormat("d MMM yyyy, h:mm a")
+          .format(DateTime.parse(model.expectedDelivery!).toLocal());
+    } else if (model.createdAt != null) {
+      expectedDeliveryText = DateFormat("d MMM yyyy, h:mm a")
+          .format(model.createdAt!.add(const Duration(hours: 24)));
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
       child: Container(
@@ -30,9 +43,7 @@ class OrderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(
-                height: 6,
-              ),
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -40,26 +51,21 @@ class OrderCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomText(
-                          text: "ID # ${(model.id ?? 'N/A').substring(0, model.id != null && model.id!.length >= 8 ? 8 : (model.id?.length ?? 0)).toUpperCase()}"),
-                      const SizedBox(
-                        height: 3,
-                      ),
+                          text:
+                          "ID # ${(model.id ?? 'N/A').substring(0, model.id != null && model.id!.length >= 8 ? 8 : (model.id?.length ?? 0)).toUpperCase()}"),
+                      const SizedBox(height: 3),
                       CustomText(
                         text: "${model.items?.length ?? 0} Items",
                         fontSize: 12,
                         color: FrontendConfigs.kAuthTextColor,
                       ),
-                      const SizedBox(
-                        height: 3,
-                      ),
+                      const SizedBox(height: 3),
                       CustomText(
-                        text: model.retailerUser?.name ?? 'N/A',
+                        text: model.warehouseManager?.name ?? 'N/A',
                         fontSize: 12,
                         color: FrontendConfigs.kAuthTextColor,
                       ),
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
                       Row(
                         children: [
                           Column(
@@ -71,11 +77,12 @@ class OrderCard extends StatelessWidget {
                                 color: FrontendConfigs.kAuthTextColor,
                               ),
                               CustomText(
-                                text: "${model.total?.toStringAsFixed(0) ?? '0'} Rs",
+                                text:
+                                "${model.total?.toStringAsFixed(0) ?? '0'} Rs",
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: FrontendConfigs.kPrimaryColor,
-                              )
+                              ),
                             ],
                           ),
                           Padding(
@@ -91,29 +98,24 @@ class OrderCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CustomText(
-                                text: "Expected Delivery",
+                                text: (upperStatus == "COMPLETED" || upperStatus == "DELIVERED")
+                                    ? "Delivery"
+                                    : "Expected Delivery",
                                 fontSize: 12,
                                 color: FrontendConfigs.kAuthTextColor,
                               ),
-                              if ((model.statuses?.length ?? 0) > 1 &&
-                                  model.status != "Cancelled" &&
-                                  model.expectedDelivery != null)
-                                CustomText(
-                                  text: DateFormat.yMMMEd().format(
-                                      DateTime.parse(model.expectedDelivery!)),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                )
-                              else
-                                CustomText(
-                                  text: "-",
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                )
+                              CustomText(
+                                text: expectedDeliveryText,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: (upperStatus == "COMPLETED" || upperStatus == "DELIVERED")
+                                    ? FrontendConfigs.kGreenColor
+                                    : null,
+                              ),
                             ],
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                   Container(
@@ -129,7 +131,7 @@ class OrderCard extends StatelessWidget {
                         color: getColor(),
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ],
@@ -140,16 +142,17 @@ class OrderCard extends StatelessWidget {
   }
 
   Color getColor() {
-    if (status == "Pending") {
+    final s = status.toUpperCase();
+    if (s == "PLACED" || s == "PENDING") {
       return Colors.black;
-    } else if (status == "Completed") {
+    } else if (s == "COMPLETED" || s == "DELIVERED") {
       return FrontendConfigs.kGreenColor;
-    } else if (status == "Cancelled") {
+    } else if (s == "CANCELLED") {
       return FrontendConfigs.kPrimaryColor;
-    } else if (status == "Processed") {
+    } else if (s == "PROCESSED") {
       return FrontendConfigs.kPrimaryColor;
     } else {
-      return Colors.white;
+      return Colors.black54;
     }
   }
 }

@@ -140,8 +140,8 @@ class OrderRepositoryImp extends OrderRepository {
         isRequiredHeader: true,
         hasBody: true,
         body: {
-          "RetailerUser": model.retailerUser.toString(),
-          "SaleUser": model.saleUser,
+          "warehouseManager": model.retailerUser.toString(),
+          "salesPerson": model.saleUser,
           "phoneNumber": model.phoneNumber,
           "paymentType": model.paymentType,
           "shippingAddress": model.shippingAddress,
@@ -156,18 +156,18 @@ class OrderRepositoryImp extends OrderRepository {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         });
-log( {
-  "RetailerUser": model.retailerUser.toString(),
-  "SaleUser": model.saleUser,
-  "phoneNumber": model.phoneNumber,
-  "paymentType": model.paymentType,
-  "shippingAddress": model.shippingAddress,
-  "city": model.city.toString(),
-  "bulkDiscount": model.bulkDiscount ?? 0,
-  "couponDiscount": model.couponDiscount ?? 0,
-  "couponCode": model.couponCode,
-  "items": model.items!.map((e) => e.toJson()).toList()
-}.toString());
+    log( {
+      "warehouseManager": model.retailerUser.toString(),
+      "salesPerson": model.saleUser,
+      "phoneNumber": model.phoneNumber,
+      "paymentType": model.paymentType,
+      "shippingAddress": model.shippingAddress,
+      "city": model.city.toString(),
+      "bulkDiscount": model.bulkDiscount ?? 0,
+      "couponDiscount": model.couponDiscount ?? 0,
+      "couponCode": model.couponCode,
+      "items": model.items!.map((e) => e.toJson()).toList()
+    }.toString());
 
     return data.fold((l) {
       log(l.error.toString());

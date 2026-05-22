@@ -16,6 +16,7 @@ import '../../../../infrastructure/model/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../infrastructure/services/auth.dart';
+import '../../../../infrastructure/services/install_session.dart';
 import '../../bottom_bar_view/bottom_nav_bar_view.dart';
 
 class SplashBody extends StatefulWidget {
@@ -29,14 +30,20 @@ class _SplashBodyState extends State<SplashBody> {
 
   Future<bool> getData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    if (await InstallSession.clearSessionIfReinstalled(prefs)) {
+      await FirebaseAuth.instance.signOut();
+      return Future.value(false);
+    }
+
     var userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (prefs.getString('USER_DATA') != null) {
-      // 1. Load cached data first
+      // 1. Load cached data first (includes distributors from last login)
       UserModel userModel = userModelFromJson(prefs.getString('USER_DATA')!);
       userProvider.saveSalesUserDetails(userModel);
 
-      // 2. Refresh from API in background
+      // 2. Refresh user profile from API — preserves distributors & role
       await _refreshUserDataFromAPI(userModel, userProvider);
 
       return Future.value(true);
@@ -45,39 +52,48 @@ class _SplashBodyState extends State<SplashBody> {
     }
   }
 
-  /// Fetch fresh user data from API
-  Future<void> _refreshUserDataFromAPI(UserModel currentUserModel, UserProvider userProvider) async {
+  /// Fetches a fresh user profile from the API and merges it with the cached
+  /// model, deliberately keeping [role] and [distributors] from the cache.
+  ///
+  /// WHY: getUserByID only returns a [] profile object — the server does
+  /// NOT re-send the distributors list on this endpoint. If we replace the
+  /// whole [UserModel] we silently discard distributors and they vanish on
+  /// every app restart after the first cold-launch login.
+  Future<void> _refreshUserDataFromAPI(
+      UserModel currentUserModel, UserProvider userProvider) async {
     try {
       debugPrint("🔄 Fetching latest user data from API...");
 
       final userId = currentUserModel.user?.id;
       if (userId == null) return;
 
-      // Call API
       final authRepository = AuthRepositoryImp();
       final result = await authRepository.getUserByID(userId);
 
       result.fold(
             (error) {
-          debugPrint("⚠️ Failed to refresh: ${error.error}");
+          // Cached data (with distributors) is already loaded — safe to ignore.
+          debugPrint("⚠️ Failed to refresh user profile: ${error.error}");
         },
             (freshUser) async {
-          debugPrint("✅ Fresh user data retrieved");
+          debugPrint("✅ Fresh user profile retrieved");
 
-          // Create updated model (keep same token)
+          // ✅ CRITICAL: keep role + distributors from the cached login response.
+          // Only the User profile object (name, times, etc.) is refreshed here.
           final updatedUserModel = UserModel(
             token: currentUserModel.token,
             user: freshUser,
+            role: currentUserModel.role,              // ← was missing — caused distributors to vanish
+            distributors: currentUserModel.distributors, // ← was missing — caused distributors to vanish
           );
 
-          // Update provider
+          // Update provider and persist the merged model
           userProvider.saveSalesUserDetails(updatedUserModel);
 
-          // Save to SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('USER_DATA', userModelToJson(updatedUserModel));
 
-          // Update check-in times
+          // Update check-in / check-out times
           if (mounted) {
             final checkInProvider = context.read<CheckInProvider>();
             final checkInTime = freshUser.checkInTime ?? "09:00";
@@ -96,7 +112,7 @@ class _SplashBodyState extends State<SplashBody> {
         },
       );
     } catch (e) {
-      debugPrint("❌ Error: $e");
+      debugPrint("❌ Error refreshing user data: $e");
     }
   }
 
@@ -106,8 +122,7 @@ class _SplashBodyState extends State<SplashBody> {
     Timer(const Duration(seconds: 3), () async {
       getData().then((value) {
         if (value == true) {
-          var userProvider =
-          Provider.of<UserProvider>(context, listen: false);
+          var userProvider = Provider.of<UserProvider>(context, listen: false);
           if (userProvider.getSalesUserDetails()!.user!.isActive == false) {
             getFlushBar(context,
                 title: "Sorry! Your account has been disabled by Karyana.");
@@ -123,9 +138,7 @@ class _SplashBodyState extends State<SplashBody> {
         } else {
           Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                  builder: (context) => const LogInView()));
-
+              MaterialPageRoute(builder: (context) => const LogInView()));
         }
       });
     });
@@ -140,9 +153,7 @@ class _SplashBodyState extends State<SplashBody> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Image.asset(
-            'assets/images/appLogo_clean.png',
-            // height: 150,
-            // width: 200,
+            'assets/images/whitelogo.png',
           ),
         ],
       ),

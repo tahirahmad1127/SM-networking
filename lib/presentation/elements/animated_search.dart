@@ -48,7 +48,7 @@ class _AnimatedSearchAppBarState extends State<AnimatedSearchAppBar> {
         secondChild: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-              hintText: 'Search by Shop Name',
+              hintText: 'Search by Distributor Name',
               border: OutlineInputBorder(
                 borderSide: BorderSide.none,
                 borderRadius: BorderRadius.circular(10),

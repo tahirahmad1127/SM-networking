@@ -28,15 +28,17 @@ class UpdateRetailerLocationEvent extends RetailerEvent {
   final String retailerId;
   final double lat;
   final double lng;
+  final String token;
 
   const UpdateRetailerLocationEvent({
     required this.retailerId,
     required this.lat,
     required this.lng,
+    required this.token,
   });
 
   @override
-  List<Object> get props => [retailerId, lat, lng];
+  List<Object> get props => [retailerId, lat, lng, token];
 }
 
 class GetAllBanksEvent extends RetailerEvent {
@@ -45,8 +47,10 @@ class GetAllBanksEvent extends RetailerEvent {
 
 class AddRecoveryEvent extends RetailerEvent {
   final AddRecoveryModel model;
-  const AddRecoveryEvent(this.model);
+  final String token;
+
+  const AddRecoveryEvent(this.model, this.token);
 
   @override
-  List<Object> get props => [model];
+  List<Object> get props => [model, token];
 }

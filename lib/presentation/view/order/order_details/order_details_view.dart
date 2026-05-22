@@ -73,8 +73,8 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) => ReceiptView(
-                                                model: widget.model,
-                                              )));
+                                            model: widget.model,
+                                          )));
                                 },
                                 btnLabel: TranslationHelper.getTranslatedText(
                                     "Share Invoice"),
@@ -83,32 +83,32 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                                 height: 48,
                               ),
                             ),
-                            if (widget.model.statuses.toString() != "Cancelled")
+                            if (widget.model.statuses.toString() != "CANCELLED")
                               const SizedBox(
                                 width: 10,
                               ),
-                            if (widget.model.status != "Completed" &&
-                                widget.model.status != "Cancelled")
+                            if (widget.model.status?.toUpperCase() != "COMPLETED" &&
+                                widget.model.status?.toUpperCase() != "CANCELLED")
                               Expanded(
                                 child: AppButton(
                                   onPressed: () {
                                     showNavigationDialog(context,
                                         message:
-                                            "Do you really want to cancel this order?",
+                                        "Do you really want to cancel this order?",
                                         buttonText: "Yes",
                                         navigation: () async {
                                           Navigator.pop(context);
                                           BlocProvider.of<OrderBloc>(context).add(
                                               CancelOrderEvent(
                                                   widget.model.id.toString()));
-                                    },
+                                        },
                                         secondButtonText: "No",
                                         showSecondButton: true);
                                   },
                                   btnLabel: TranslationHelper.getTranslatedText(
                                       'cancel_order'),
                                   width:
-                                      MediaQuery.of(context).size.width / 2.25,
+                                  MediaQuery.of(context).size.width / 2.25,
                                   height: 48,
                                 ),
                               )

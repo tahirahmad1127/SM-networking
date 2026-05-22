@@ -573,6 +573,7 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
         //                                         bulkModel);
         //                                     isEnabled = false;
         //                                     quantity++;
+        //                                     // stock check removed
         //                                     setState(() {});
         //                                     await CartServices().addToCart(
         //                                         context,
@@ -639,20 +640,14 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
         //                                     isEnabled = true;
         //                                     setState(() {});
         //                                   } else {
-        //                                     if (quantity >=
-        //                                         widget.model.stock!) {
-        //                                       getFlushBar(context,
-        //                                           title:
-        //                                           "Sorry! You cannot order more than ${widget.model.stock.toString()} items.");
-        //                                     } else {
-        //                                       isEnabled = false;
-        //                                       quantity++;
+        //                                     isEnabled = false;
+        //                                     quantity++;
         //
-        //                                       setState(() {});
-        //                                       getSelectedBulkIndex(
-        //                                           bulkModel);
-        //                                       await CartServices()
-        //                                           .incrementProductQuantity(
+        //                                     setState(() {});
+        //                                     getSelectedBulkIndex(
+        //                                         bulkModel);
+        //                                     await CartServices()
+        //                                         .incrementProductQuantity(
         //                                           context,
         //                                           productID:
         //                                           _cartList[0]
@@ -677,14 +672,7 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
         //                                       borderRadius:
         //                                       FrontendConfigs
         //                                           .kAppBorder,
-        //                                       color: _cartList
-        //                                           .isNotEmpty
-        //                                           ? quantity >=
-        //                                           widget.model
-        //                                               .stock!
-        //                                           ? Colors.grey
-        //                                           : Colors.black
-        //                                           : Colors.black),
+        //                                       color: Colors.black),
         //                                   child: Icon(Icons.add,
         //                                       color: Colors.white),
         //                                 ),

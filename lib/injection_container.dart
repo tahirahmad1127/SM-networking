@@ -20,7 +20,7 @@ import 'package:sm_networking/infrastructure/services/Setting.dart';
 import 'package:sm_networking/infrastructure/services/product.dart';
 import 'package:sm_networking/infrastructure/services/brand.dart';
 import 'package:sm_networking/infrastructure/services/Category.dart';
-import 'package:sm_networking/infrastructure/services/Retailer.dart';
+import 'package:sm_networking/infrastructure/services/retailer.dart';
 import 'package:sm_networking/infrastructure/services/tracking.dart';
 import 'package:sm_networking/infrastructure/services/visit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,7 +50,8 @@ Future<void> init() async {
   ///Services
 
   sl.registerLazySingleton(() => AuthRepositoryImp());
-  sl.registerLazySingleton(() => RetailerRepositoryImp());
+  sl.registerLazySingleton<RetailerRepositoryImp>(
+      () => RetailerRepositoryImp());
   sl.registerLazySingleton(() => CategoryRepositoryImp());
   sl.registerLazySingleton(() => BrandRepositoryImp());
   sl.registerLazySingleton(() => ProductRepositoryImp());

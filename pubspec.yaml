@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 5.4.0+58
+version: 5.4.1+59
 
 environment:
   sdk: '>=2.19.2 <3.0.0'
@@ -85,7 +85,10 @@ dependencies:
   flutter_background_service: ^5.0.5
   flutter_background_service_android: ^6.2.2
   flutter_image_compress: ^2.4.0
-  permission_handler: ^11.0.1
+  permission_handler: ^12.0.0
+  pro_image_editor: ^11.0.0
+
+
   place_picker:
     git:
       url: https://github.com/lyabs243/locationpicker.git

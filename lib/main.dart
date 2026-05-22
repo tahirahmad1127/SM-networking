@@ -23,6 +23,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'application/retailer_provider.dart';
+import 'application/wholesaler_retailer_provider.dart';
 import 'configurations/enums.dart';
 import 'infrastructure/services/auth.dart';
 import 'infrastructure/services/background_location.dart';
@@ -114,6 +115,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RetailerProvider()),
         ChangeNotifierProvider(create: (_) => VisitProvider()),
         ChangeNotifierProvider(create: (_) => CheckInProvider()),
+        ChangeNotifierProvider(create: (_) => WholesalerRetailerProvider()),
+
       ],
       child: BlocProvider(
         create: (_) => di.sl<VisitBloc>(),

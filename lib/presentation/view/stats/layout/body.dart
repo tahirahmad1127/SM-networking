@@ -56,7 +56,11 @@ class _StatsViewBodyState extends State<StatsViewBody> {
         builder: (context, state) {
           if (state is StatsLoading || state is StatsInitial) {
             BlocProvider.of<StatsBloc>(context).add(
-                GetStatsEvent(user.getSalesUserDetails()!.user!.id.toString()));
+              GetStatsEvent(
+                user.getSalesUserDetails()!.user!.id.toString(),
+                user.getSalesUserDetails()!.role.toString(), // ← role is on UserModel
+              ),
+            );
             return Center(
               child: ProcessingWidget(),
             );
@@ -88,9 +92,9 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                                     child: SizedBox(
                                       height: 42,
                                       child: TabBar(
-                                          dividerColor:Colors.transparent,
-                                          indicatorSize:TabBarIndicatorSize.tab,
-                                          // indicatorColor: FrontendConfigs.kPrimaryColor,
+                                          dividerColor: Colors.transparent,
+                                          indicatorSize:
+                                          TabBarIndicatorSize.tab,
                                           labelColor:
                                           FrontendConfigs.kPrimaryColor,
                                           onTap: (val) {
@@ -205,45 +209,43 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                     SizedBox(
                       height: 10,
                     ),
-                    // Pie Chart Section
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 18.0),
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: FrontendConfigs.kAppBorder,
-                          border: Border.all(color: Colors.grey.withOpacity(0.4)),
+                          border:
+                          Border.all(color: Colors.grey.withOpacity(0.4)),
                           color: Colors.white,
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Row(
                             children: [
-                              // Pie Chart
-                              SizedBox(
-                                height: 180,
-                                width: 180,
-                                child: PieChart(
-                                  PieChartData(
-                                    sectionsSpace: 2,
-                                    centerSpaceRadius: 0,
-                                    sections: _getPieChartSections(state.model.data!),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 200,
+                                  child: PieChart(
+                                    PieChartData(
+                                      sections: _getPieChartSections(
+                                          state.model.data!),
+                                      centerSpaceRadius: 0,
+                                      sectionsSpace: 2,
+                                    ),
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 20),
-                              // Legend
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    _buildLegendItem('Target', Colors.blue),
-                                    SizedBox(height: 12),
-                                    _buildLegendItem('Achieved', Colors.green),
-                                    SizedBox(height: 12),
-                                    _buildLegendItem('Remaining', Colors.red),
-                                  ],
-                                ),
+                              SizedBox(width: 16),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildLegendItem('Target', Colors.blue),
+                                  SizedBox(height: 12),
+                                  _buildLegendItem('Achieved', Colors.green),
+                                  SizedBox(height: 12),
+                                  _buildLegendItem('Remaining', Colors.red),
+                                ],
                               ),
                             ],
                           ),
@@ -321,8 +323,8 @@ class _StatsViewBodyState extends State<StatsViewBody> {
   }
 
   List<PieChartSectionData> _getPieChartSections(StatModel data) {
-    // Get dynamic data from API
     double totalTarget = (data.totalTarget ?? 0).toDouble();
+    double orders = (data.orders ?? 0).toDouble();
     double achievedTarget = (data.achievedTarget ?? 0).toDouble();
 
     // Handle case when target is 0
@@ -342,52 +344,30 @@ class _StatsViewBodyState extends State<StatsViewBody> {
       ];
     }
 
-    // Calculate percentages based on target
-    double achievedPercentage = (achievedTarget / totalTarget) * 100;
-    double remainingPercentage = achievedPercentage >= 100 ? 0 : 100 - achievedPercentage;
-
-    // If achieved exceeds target, cap it at 100%
-    if (achievedPercentage > 100) {
-      achievedPercentage = 100;
-    }
+    // Cap achieved at totalTarget for display
+    double displayAchieved =
+    achievedTarget > totalTarget ? totalTarget : achievedTarget;
+    double remaining = totalTarget - displayAchieved;
+    double achievedPercentage = (displayAchieved / totalTarget) * 100;
+    double remainingPercentage = 100 - achievedPercentage;
 
     List<PieChartSectionData> sections = [];
 
-    // Target section (always shows as blue baseline)
     sections.add(
       PieChartSectionData(
-        color: Colors.blue,
-        value: totalTarget,
-        title: '100%\nTarget',
+        color: Colors.green,
+        value: displayAchieved,
+        title: '${achievedPercentage.toStringAsFixed(0)}%\nAchieved',
         radius: 90,
         titleStyle: TextStyle(
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
       ),
     );
 
-    // Achieved section (overlay on target)
-    if (achievedTarget > 0) {
-      sections.add(
-        PieChartSectionData(
-          color: Colors.green,
-          value: achievedTarget > totalTarget ? totalTarget : achievedTarget,
-          title: '${achievedPercentage.toStringAsFixed(0)}%\nAchieved',
-          radius: 90,
-          titleStyle: TextStyle(
-            fontSize: achievedTarget > totalTarget ? 12 : 10,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    // Remaining section (only if not fully achieved)
-    if (achievedTarget < totalTarget) {
-      double remaining = totalTarget - achievedTarget;
+    if (remaining > 0) {
       sections.add(
         PieChartSectionData(
           color: Colors.red,
@@ -414,7 +394,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
           height: 16,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(2)
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
         SizedBox(width: 8),

@@ -1,26 +1,25 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:sm_networking/application/retailer_bloc/retailer_bloc.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/model/user.dart';
+import 'package:sm_networking/infrastructure/services/retailer.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/add_recovery/add_recovery.dart';
 import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
 import 'package:sm_networking/presentation/view/map/widget/visit_bottomsheet_widget.dart';
 import 'package:sm_networking/presentation/view/retailers/retailers_view.dart';
-import 'package:sm_networking/presentation/view/tag_shop/tag_shop.dart';
 import 'package:provider/provider.dart';
 
 import '../../../application/checkIn_provider.dart';
@@ -28,12 +27,12 @@ import '../../../application/locaition_helper.dart';
 import '../../../application/location.dart';
 import '../../../application/retailer_provider.dart';
 import '../../../application/visit_bloc/visit_bloc.dart';
-import '../../../configurations/translation_helper.dart';
 import '../../../infrastructure/model/retailer.dart';
 import '../../../infrastructure/model/visit.dart';
-import '../../../injection_container.dart';
 import '../../elements/my_logger.dart';
-import '../categories/categories_view.dart';
+import 'package:pro_image_editor/pro_image_editor.dart';
+
+import '../add_distributor/add_distributor.dart';
 
 class GoogleMpaView extends StatefulWidget {
   const GoogleMpaView({super.key});
@@ -80,7 +79,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
     for (final d in distributors) {
       final lat = d.shopLocation?.lat;
       final lng = d.shopLocation?.lng;
-      if (lat == null || lng == null) continue; // skip null locations
+      if (lat == null || lng == null) continue;
 
       markerSet.add(
         Marker(
@@ -152,12 +151,10 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
     final user = Provider.of<UserProvider>(context);
     final distributors = user.getSalesUserDetails()?.distributors ?? [];
 
-    // FIX: both warehouseManager and orderBooker should show distributor markers
     final role = user.getSalesUserDetails()?.role ?? '';
     final showDistributorMarkers =
         role == 'warehouseManager' || role == 'orderBooker';
 
-    // Build markers once when distributors are available and markerSet is empty
     if (distributors.isNotEmpty &&
         markerSet.isEmpty &&
         destinationIcon == null &&
@@ -179,7 +176,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          "Customers",
+          "Distributors",
           style: FrontendConfigs.kSubHeadingStyle,
         ),
         actions: [
@@ -188,7 +185,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
               final isCheckedIn = checkInProvider.isCheckedIn;
               return Row(
                 children: [
-                  IconButton(
+                  TextButton(
                     onPressed: isCheckedIn
                         ? () {
                       Navigator.push(
@@ -199,20 +196,27 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
                       );
                     }
                         : null,
-                    icon: Icon(
-                      Icons.list,
-                      color: isCheckedIn ? Colors.black : Colors.grey,
+                    child: Text(
+                      "View All",
+                      style: TextStyle(
+                        color: isCheckedIn ? Colors.black : Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   IconButton(
                     onPressed: isCheckedIn
-                        ? () {
-                      Navigator.push(
+                        ? () async {
+                      final added = await Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => TagShopView(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const AddDistributorView()),
                       );
+                      if (added == true && mounted) {
+                        final distributors =
+                            Provider.of<UserProvider>(context, listen: false)
+                                .getSalesUserDetails()?.distributors ?? [];
+                        _buildDistributorMarkers(distributors);
+                      }
                     }
                         : null,
                     icon: Icon(
@@ -271,6 +275,39 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
         },
       ),
     );
+  }
+
+  // ── Image editing via ProImageEditor ─────────────────────────────────────
+  /// Opens ProImageEditor on [bytes] and returns the edited file path,
+  /// or the original path if the user cancels.
+  Future<String?> _openProEditor(String originalPath) async {
+    final bytes = await File(originalPath).readAsBytes();
+    Uint8List? result;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProImageEditor.memory(
+          bytes,
+          callbacks: ProImageEditorCallbacks(
+            onImageEditingComplete: (Uint8List edited) async {
+              result = edited;
+              Navigator.pop(context);
+            },
+          ),
+          configs: const ProImageEditorConfigs(),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      final path =
+          '${Directory.systemTemp.path}/visit_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await File(path).writeAsBytes(result!);
+      return path;
+    }
+    // User cancelled editor — return original unchanged
+    return originalPath;
   }
 
   Widget _buildDistributorCard(BuildContext context) {
@@ -370,18 +407,92 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
                                 ),
                               ),
 
-                              /// Location update button
+                              /// Location update button — uses MongoDB _id, correct endpoint
                               InkWell(
                                 onTap: () async {
-                                  if (currentLocation == null) {
+                                  final dist = _selectedDistributor!;
+                                  // Use MongoDB ObjectId (_id), NOT salesId
+                                  final id = (dist.id ?? dist.salesId ?? '').trim();
+                                  if (id.isEmpty) {
                                     getFlushBar(context,
-                                        title:
-                                        "Current location not available");
+                                        title: 'Missing distributor id');
                                     return;
                                   }
-                                  getFlushBar(context,
-                                      title:
-                                      "Location updated for ${d.name ?? 'distributor'}");
+                                  final userProv = context.read<UserProvider>();
+                                  final token =
+                                      userProv.getSalesUserDetails()?.token ?? '';
+                                  if (token.isEmpty) {
+                                    getFlushBar(context,
+                                        title:
+                                        'Session expired. Please log in again.');
+                                    return;
+                                  }
+                                  final locProv =
+                                  context.read<LocationProvider>();
+                                  try {
+                                    final pos =
+                                    await Geolocator.getCurrentPosition(
+                                      desiredAccuracy: LocationAccuracy.high,
+                                    );
+                                    if (!mounted) return;
+                                    final lat = pos.latitude;
+                                    final lng = pos.longitude;
+                                    locProv.setLatLng(LatLng(lat, lng));
+                                    setState(() {
+                                      currentLocation = LatLng(lat, lng);
+                                    });
+
+                                    // ✅ Correct endpoint: sale-user/location/{id}
+                                    final result = await RetailerRepositoryImp()
+                                        .updateDistributorLocation(
+                                      distributorId: id,
+                                      lat: lat,
+                                      lng: lng,
+                                      token: token,
+                                    );
+                                    if (!mounted) return;
+                                    result.fold(
+                                          (l) => getFlushBar(context,
+                                          title: l.error.toString()),
+                                          (_) {
+                                        // Patch in-memory + refresh marker position
+                                        userProv.patchDistributorShopLocation(
+                                            id, lat, lng);
+
+                                        final updatedList = userProv
+                                            .getSalesUserDetails()
+                                            ?.distributors ??
+                                            [];
+
+                                        // Find the refreshed distributor object
+                                        Distributor? refreshed;
+                                        for (final x in updatedList) {
+                                          if (x.id == id || x.salesId == id) {
+                                            refreshed = x;
+                                            break;
+                                          }
+                                        }
+
+                                        // Rebuild markers so the pin moves on the map
+                                        _buildDistributorMarkers(updatedList);
+
+                                        // Update the bottom card with new location data
+                                        if (refreshed != null) {
+                                          setState(() {
+                                            _selectedDistributor = refreshed;
+                                          });
+                                        }
+
+                                        getFlushBar(context,
+                                            title:
+                                            'Location updated for ${dist.name ?? 'distributor'}');
+                                      },
+                                    );
+                                  } catch (e) {
+                                    if (mounted) {
+                                      getFlushBar(context, title: e.toString());
+                                    }
+                                  }
                                 },
                                 child: Container(
                                   height: 40,
@@ -431,7 +542,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => AddRecoveryView(
-                                retailerId: d.id ?? d.salesId ?? '',
+                                distributorId: d.id ?? d.salesId ?? '',
                               ),
                             ),
                           );
@@ -469,7 +580,11 @@ class _GoogleMpaViewState extends State<GoogleMpaView> {
                                 final locationProvider =
                                 Provider.of<LocationProvider>(context,
                                     listen: false);
-                                final imagePath = selectedImage?.path;
+                                // Open editor if an image was picked
+                                String? imagePath;
+                                if (selectedImage != null) {
+                                  imagePath = await _openProEditor(selectedImage.path);
+                                }
 
                                 final position =
                                 await Geolocator.getCurrentPosition(

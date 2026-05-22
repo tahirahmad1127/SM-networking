@@ -41,8 +41,8 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
-                  "\nSorry for the inconvenience."));
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
       logger.e(e.message.toString());
@@ -86,8 +86,8 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
-                  "\nSorry for the inconvenience."));
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
       logger.e(e.message.toString());
@@ -129,8 +129,8 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
-                  "\nSorry for the inconvenience."));
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
       logger.e(e.message.toString());
@@ -148,12 +148,12 @@ class ApiBaseHelper {
 
   Future<Either<GlobalErrorModel, dynamic>> postMultiPartEither(
       {required String endPoint,
-      required bool isRequiredHeader,
-      required bool hasBody,
-      String? path,
-      required bool hasFile,
-      dynamic body,
-      Map<String, String>? header}) async {
+        required bool isRequiredHeader,
+        required bool hasBody,
+        String? path,
+        required bool hasFile,
+        dynamic body,
+        Map<String, String>? header}) async {
     log(body.toString());
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
@@ -164,15 +164,34 @@ class ApiBaseHelper {
         if (value == true) {
           var request = http.MultipartRequest(
               'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
-          if (hasBody) request.fields.addAll(body);
-          if(isRequiredHeader)  request.headers.addAll(header!);
-          if (hasFile) log('Sending file: $path');
-          if (hasFile) {
-            request.files.add(await http.MultipartFile.fromPath('file', path!));
+
+          // FIX: body is dynamic but MultipartRequest.fields requires Map<String, String>.
+          // Convert every value to String explicitly so addAll never silently drops fields.
+          if (hasBody && body != null) {
+            final Map<String, String> stringFields = (body as Map).map(
+                  (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+            );
+            request.fields.addAll(stringFields);
           }
 
+          // Only add Accept header — do NOT set Content-Type for multipart
+          // (http package sets multipart/form-data + boundary automatically)
+          if (isRequiredHeader && header != null) {
+            final safeHeaders = Map<String, String>.from(header)
+              ..remove('Content-Type')
+              ..remove('content-type');
+            request.headers.addAll(safeHeaders);
+          }
 
-          // log("Multi Part Body: ${request.fields.toString()}");
+          log("📦 Fields being sent: ${request.fields}");
+          log("📎 Files being sent: ${request.files.map((f) => f.field).toList()}");
+
+          if (hasFile && path != null) {
+            log('Sending file: $path');
+            // Use 'receiptPic' as the field name expected by the server
+            request.files.add(await http.MultipartFile.fromPath('receiptPic', path));
+          }
+
           http.StreamedResponse streamedResponse = await request.send();
           final response = await http.Response.fromStream(streamedResponse);
 
@@ -192,8 +211,8 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
-                  "\nSorry for the inconvenience."));
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
       logger.e(e.message.toString());
@@ -212,12 +231,12 @@ class ApiBaseHelper {
 
   Future<Either<GlobalErrorModel, dynamic>> postMultipleImageMultiPartEither(
       {required String endPoint,
-      required bool isRequiredHeader,
-      required bool hasBody,
-      List<String>? path,
-      required bool hasFile,
-      dynamic body,
-      Map<String, String>? header}) async {
+        required bool isRequiredHeader,
+        required bool hasBody,
+        List<String>? path,
+        required bool hasFile,
+        dynamic body,
+        Map<String, String>? header}) async {
     log(body.toString());
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
@@ -228,18 +247,23 @@ class ApiBaseHelper {
         if (value == true) {
           var request = http.MultipartRequest(
               'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
-          if (hasBody) request.fields.addAll(body);
+
+          // FIX: same cast applied here for consistency
+          if (hasBody && body != null) {
+            final Map<String, String> stringFields = (body as Map).map(
+                  (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+            );
+            request.fields.addAll(stringFields);
+          }
+
           request.headers.addAll(header!);
           if (hasFile) {
-            // path!.map((e)async{
             request.files
                 .add(await http.MultipartFile.fromPath('file', path![0]));
             if (path.length > 1) {
               request.files
                   .add(await http.MultipartFile.fromPath('template', path[1]));
             }
-
-            // }).toList();
           }
           http.StreamedResponse streamedResponse = await request.send();
           final response = await http.Response.fromStream(streamedResponse);
@@ -260,8 +284,8 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
-                  "\nSorry for the inconvenience."));
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
       logger.e(e.message.toString());
@@ -286,10 +310,22 @@ class ApiBaseHelper {
         var responseJson = json.decode(response.body.toString());
         return Right(responseJson);
       } else if (response.statusCode == 400) {
-        var responseJson = json.decode(response.body.toString());
-
-        var errorModel = GlobalErrorModel.fromJson(responseJson);
-        return Left(GlobalErrorModel(error: errorModel.error.toString()));
+        try {
+          var responseJson = json.decode(response.body.toString());
+          // Handle validation error shape: {"msg":"Validation failed","errors":[...]}
+          if (responseJson is Map && responseJson['msg'] != null) {
+            final errors = responseJson['errors'];
+            if (errors is List && errors.isNotEmpty) {
+              final msgs = errors.map((e) => e['msg'].toString()).join(', ');
+              return Left(GlobalErrorModel(error: msgs));
+            }
+            return Left(GlobalErrorModel(error: responseJson['msg'].toString()));
+          }
+          var errorModel = GlobalErrorModel.fromJson(responseJson);
+          return Left(GlobalErrorModel(error: errorModel.error.toString()));
+        } catch (_) {
+          return Left(GlobalErrorModel(error: "Bad request."));
+        }
       } else if (response.statusCode == 401) {
         return Left(GlobalErrorModel(
             error: "Sorry! You are not allowed to perform this operation.!"));
@@ -305,6 +341,10 @@ class ApiBaseHelper {
       } else if (response.statusCode == 503) {
         return Left(GlobalErrorModel(
             error: "Sorry! We are facing some issues in connection.!"));
+      } else if (response.statusCode == 413) {
+        return Left(GlobalErrorModel(
+            error:
+                "Receipt image is too large for the server. Try a smaller photo or lower camera resolution."));
       } else {
         return Left(GlobalErrorModel(error: "Sorry! Some thing went wrong!."));
       }

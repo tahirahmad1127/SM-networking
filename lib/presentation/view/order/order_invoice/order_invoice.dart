@@ -66,7 +66,7 @@ class _OrderInvoiceViewState extends State<OrderInvoiceView> {
                   }
                 });
               },
-              child: Text("Share")),
+              child:Text("Share")),
         ],
       ),
     );

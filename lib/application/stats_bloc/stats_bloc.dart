@@ -24,12 +24,13 @@ class StatsBloc extends Bloc<StatsEvent, StatsState> {
         try {
           emit(StatsLoading());
 
-          final failureOrSuccess = await repositoryImp.getStats(event.userID);
+          final failureOrSuccess =
+          await repositoryImp.getStats(event.userID, event.role);
 
           failureOrSuccess.fold((l) => emit(StatsFailed(l.error.toString())),
-              (r) {
-            return emit(StatsLoaded(r));
-          });
+                  (r) {
+                return emit(StatsLoaded(r));
+              });
         } catch (e) {
           rethrow;
         }

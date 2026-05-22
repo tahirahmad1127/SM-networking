@@ -185,7 +185,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/infrastructure/model/add_retailer.dart';
 import 'package:sm_networking/infrastructure/model/retailer.dart';
-import 'package:sm_networking/infrastructure/services/Retailer.dart';
+import 'package:sm_networking/infrastructure/services/retailer.dart';
 import '../../infrastructure/model/add_recovery.dart';
 import '../../infrastructure/model/banks.dart';
 import '../../infrastructure/services/retailers_cache.dart';
@@ -270,6 +270,7 @@ class RetailerBloc extends Bloc<RetailerEvent, RetailerState> {
         retailerId: event.retailerId,
         lat: event.lat,
         lng: event.lng,
+        token: event.token,
       );
 
       await result.fold(
@@ -325,7 +326,7 @@ class RetailerBloc extends Bloc<RetailerEvent, RetailerState> {
     try {
       emit(RecoveryLoading());
 
-      final result = await repositoryImp.addRecovery(event.model);
+      final result = await repositoryImp.addRecovery(event.model, event.token);
       result.fold(
             (l) => emit(RecoveryFailed(l.error.toString())),
             (r) => emit(RecoveryAdded(r)),

@@ -42,12 +42,18 @@ class AddRecoveryModel {
   final String beneficiaryBankName;
   final String? receiptPic;
 
+  /// "distributor" | "wholesaler" | "retailer"
+  final String paymentType;
+
+  /// Reserved for future use; send as empty string by default.
+  final String customerType;
+
   AddRecoveryModel({
     required this.distributionName,
     required this.zone,
     required this.town,
     required this.tsm,
-    String? recordedBy,          // optional param – defaults to tsm
+    String? recordedBy,
     required this.amount,
     this.date,
     required this.bankName,
@@ -57,6 +63,8 @@ class AddRecoveryModel {
     required this.beneficiaryAccountName,
     required this.beneficiaryBankName,
     this.receiptPic,
+    this.paymentType = 'distributor',
+    this.customerType = '',
   }) : recordedBy = recordedBy ?? tsm;
 
   factory AddRecoveryModel.fromJson(Map<String, dynamic> json) =>
@@ -75,6 +83,8 @@ class AddRecoveryModel {
         beneficiaryAccountName: json["beneficiaryAccountName"] ?? "",
         beneficiaryBankName: json["beneficiaryBankName"] ?? "",
         receiptPic: json["receiptPic"],
+        paymentType: json["paymentType"] ?? "distributor",
+        customerType: json["customerType"] ?? "",
       );
 
   Map<String, dynamic> toJson() => {
@@ -91,6 +101,8 @@ class AddRecoveryModel {
     "beneficiaryAccountNumber": beneficiaryAccountNumber,
     "beneficiaryAccountName": beneficiaryAccountName,
     "beneficiaryBankName": beneficiaryBankName,
+    "paymentType": paymentType,
+    "customerType": customerType,
     if (receiptPic != null && receiptPic!.isNotEmpty) "receiptPic": receiptPic,
   };
 }
@@ -130,6 +142,8 @@ class RecoveryModel {
   final bool isDeleted;
   final String? createdAt;
   final String? updatedAt;
+  final String paymentType;
+  final String customerType;
 
   RecoveryModel({
     required this.id,
@@ -155,6 +169,8 @@ class RecoveryModel {
     required this.isDeleted,
     this.createdAt,
     this.updatedAt,
+    this.paymentType = 'distributor',
+    this.customerType = '',
   });
 
   factory RecoveryModel.fromJson(Map<String, dynamic> json) => RecoveryModel(
@@ -174,7 +190,7 @@ class RecoveryModel {
     tsmName:
     (json["tsmName"] ?? recoveryModelRefName(json["tsm"]))?.toString() ??
         "",
-    recordedBy: recoveryModelRefId(json["recordedBy"]) ,
+    recordedBy: recoveryModelRefId(json["recordedBy"]),
     bankName: json["bankName"] ?? "",
     branchCode: json["branchCode"] ?? "",
     paymentMode: json["paymentMode"] ?? "",
@@ -187,6 +203,8 @@ class RecoveryModel {
     isDeleted: json["isDeleted"] ?? false,
     createdAt: json["createdAt"],
     updatedAt: json["updatedAt"],
+    paymentType: json["paymentType"] ?? "distributor",
+    customerType: json["customerType"] ?? "",
   );
 
   Map<String, dynamic> toJson() => {
@@ -213,6 +231,8 @@ class RecoveryModel {
     "isDeleted": isDeleted,
     "createdAt": createdAt,
     "updatedAt": updatedAt,
+    "paymentType": paymentType,
+    "customerType": customerType,
   };
 }
 

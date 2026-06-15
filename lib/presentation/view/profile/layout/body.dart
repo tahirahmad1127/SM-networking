@@ -30,11 +30,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/services/retailers_cache.dart';
-import '../../../elements/bottom_sheet/langauge.dart';
 import '../../../elements/custom_text.dart';
-import '../../../wholesaler_and_retailer/wholesailer_and_retailer.dart';
-import '../../privacy_policy/privacy_policy.dart';
-import '../../terms_condition/terms_condition.dart';
 
 class ProfileBody extends StatefulWidget {
   const ProfileBody({super.key});

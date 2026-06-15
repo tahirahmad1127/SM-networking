@@ -78,13 +78,19 @@ class _SplashBodyState extends State<SplashBody> {
             (freshUser) async {
           debugPrint("✅ Fresh user profile retrieved");
 
-          // ✅ CRITICAL: keep role + distributors from the cached login response.
+          // ✅ CRITICAL: keep role + all lists from the cached login response.
           // Only the User profile object (name, times, etc.) is refreshed here.
+          // getUserByID does NOT re-send distributors/wholesalers/retailers,
+          // so we must carry them forward from the cached model or they vanish.
           final updatedUserModel = UserModel(
             token: currentUserModel.token,
             user: freshUser,
-            role: currentUserModel.role,              // ← was missing — caused distributors to vanish
-            distributors: currentUserModel.distributors, // ← was missing — caused distributors to vanish
+            role: currentUserModel.role,
+            distributors: currentUserModel.distributors,
+            wholesalers: currentUserModel.wholesalers,   // ← was missing
+            retailers: currentUserModel.retailers,       // ← was missing
+            totalWholesalers: currentUserModel.totalWholesalers,
+            totalRetailers: currentUserModel.totalRetailers,
           );
 
           // Update provider and persist the merged model

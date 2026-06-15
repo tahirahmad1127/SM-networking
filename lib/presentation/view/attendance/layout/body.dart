@@ -24,6 +24,10 @@ import '../../../../application/checkIn_provider.dart';
 import '../../../../application/tracking_bloc/tracking_bloc.dart';
 import '../../../../infrastructure/model/attendance.dart';
 import '../../../../infrastructure/services/background_location.dart';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:http/http.dart' as http;
+import '../../../../configurations/back_end_configs.dart';
 import '../../../../infrastructure/services/permission_helper.dart';
 import '../../../../infrastructure/services/work_manager.dart';
 
@@ -336,7 +340,114 @@ class _AttendanceBodyState extends State<AttendanceBody>
     );
   }
 
-  void _showCheckOutSheet(BuildContext context) {
+  // ── Haversine distance (metres) ──────────────────────────────────────────────
+  double _haversineDistance(LatLng a, LatLng b) {
+    const R = 6371000.0;
+    final dLat = (b.latitude - a.latitude) * math.pi / 180;
+    final dLng = (b.longitude - a.longitude) * math.pi / 180;
+    final lat1 = a.latitude * math.pi / 180;
+    final lat2 = b.latitude * math.pi / 180;
+    final sinLat = math.sin(dLat / 2);
+    final sinLng = math.sin(dLng / 2);
+    final x = sinLat * sinLat + math.cos(lat1) * math.cos(lat2) * sinLng * sinLng;
+    return R * 2 * math.asin(math.sqrt(x.clamp(0.0, 1.0)));
+  }
+
+  /// Fetches the distributor shopLocation from API.
+  /// Returns null if coordinates are not set.
+  Future<LatLng?> _fetchDistributorLocation(String distributorId, String token) async {
+    try {
+      final rawToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+      final uri = Uri.parse('${BackendConfigs.apiUrl}sale-user/$distributorId');
+      final response = await http.get(uri, headers: {
+        'Accept': 'application/json',
+        'x-auth-token': rawToken,
+      });
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final shopLocation = decoded['data']?['shopLocation'];
+        final lat = shopLocation?['lat'];
+        final lng = shopLocation?['lng'];
+        if (lat != null && lng != null) {
+          return LatLng((lat as num).toDouble(), (lng as num).toDouble());
+        }
+      }
+      debugPrint('⚠️ Distributor has no saved shopLocation');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Failed to fetch distributor location: $e');
+      return null;
+    }
+  }
+
+  void _showCheckOutSheet(BuildContext context) async {
+    final user = Provider.of<UserProvider>(context, listen: false);
+    final role = user.getSalesUserDetails()?.role ?? '';
+
+    // ── OrderBooker only: must be within 20m of their distributor ────────────
+    if (role == 'orderBooker') {
+      await _fetchCurrentLocation();
+
+      if (currentLocation == null) {
+        if (mounted) {
+          getFlushBar(context,
+              title: "Cannot determine your location. Please enable GPS and try again.");
+        }
+        return;
+      }
+
+      final distributorId =
+      (user.getSalesUserDetails()?.user?.distributor ?? '').trim();
+      final token = user.getSalesUserDetails()?.token ?? '';
+
+      debugPrint("🔍 OrderBooker distributorId: '$distributorId'");
+      debugPrint("🔍 User object: \${user.getSalesUserDetails()?.user?.toString()}");
+
+      if (distributorId.isEmpty) {
+        if (mounted) {
+          getFlushBar(context,
+              title: "No distributor assigned. Please contact your administrator.");
+        }
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Verifying your location..."),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      final distributorLocation =
+      await _fetchDistributorLocation(distributorId, token);
+
+      if (!mounted) return;
+
+      if (distributorLocation == null) {
+        // Distributor has no GPS coordinates saved — allow checkout with log
+        debugPrint("⚠️ Distributor has no location set — checkout allowed");
+      } else {
+        final distance =
+        _haversineDistance(currentLocation!, distributorLocation);
+        debugPrint(
+            "📍 Distance from distributor: ${distance.toStringAsFixed(1)}m");
+
+        if (distance > 20) {
+          if (mounted) {
+            getFlushBar(context,
+                title:
+                "You must be within 20m of your distributor to check out. "
+                    "You are ${distance.toStringAsFixed(0)}m away.");
+          }
+          return;
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

@@ -681,7 +681,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 final visitLocation =
                                     visitProvider.visitLocation;
 
-                                if (startVisit != null ||
+                                if (startVisit != null &&
                                     visitLocation != null) {
                                   if (visitProvider.isNewShop) {
                                     AppLogger.debug(
@@ -692,6 +692,9 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                             .toString(),
                                         salesPersonId:
                                         userDetails.id.toString(),
+                                        shopName: selectedRetailer.shopName ?? '',
+                                        retailerEmail: '',
+                                        retailerImage: selectedRetailer.image ?? '',
                                         startTime: startVisit
                                             ?.toIso8601String(),
                                         endTime: DateTime.now()
@@ -725,6 +728,9 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                             .toString(),
                                         salesPersonId:
                                         userDetails.id.toString(),
+                                        shopName: selectedRetailer.shopName ?? '',
+                                        retailerEmail: '',
+                                        retailerImage: selectedRetailer.image ?? '',
                                         startTime: startVisit
                                             ?.toIso8601String(),
                                         endTime: DateTime.now()
@@ -732,8 +738,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                         date: DateTime.now()
                                             .toString()
                                             .split(' ')[0],
-                                        image: visitProvider.visitImage
-                                            .toString());
+                                        image: visitProvider.visitImage ?? "");
 
                                     if (hasMovedAway) {
                                       context

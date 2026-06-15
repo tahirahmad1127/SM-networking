@@ -22,22 +22,35 @@ import '../../elements/custom_text.dart';
 import '../../elements/processing_widget.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// USAGE: When navigating to this screen, pass the distributor's id so that
-// the name, zone, and town are fetched automatically:
+// USAGE: When navigating to this screen, pass the entity's id and paymentType:
 //
 //   Navigator.push(
 //     context,
 //     MaterialPageRoute(
-//       builder: (_) => AddRecoveryView(distributorId: dist.id!),
+//       builder: (_) => AddRecoveryView(
+//         distributorId: dist.id!,
+//         paymentType: 'distributor', // or 'wholesaler' / 'retailer'
+//       ),
 //     ),
 //   );
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AddRecoveryView extends StatefulWidget {
-  /// The id of the distributor whose "Add Recovery" button was tapped.
+  /// The id of the entity whose "Add Recovery" button was tapped.
   final String distributorId;
 
-  const AddRecoveryView({super.key, required this.distributorId});
+  /// Backend enum: "distributor" | "market_recovery"
+  final String paymentType;
+
+  /// Backend enum: "" | "wholesaler" | "retailer"
+  final String customerType;
+
+  const AddRecoveryView({
+    super.key,
+    required this.distributorId,
+    this.paymentType = 'distributor',
+    this.customerType = '',
+  });
 
   @override
   State<AddRecoveryView> createState() => _AddRecoveryViewState();
@@ -90,27 +103,64 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
         .addPostFrameCallback((_) => _autoFetchDistributorDetails());
   }
 
-  /// Reads the distributor matching [widget.distributorId] from UserProvider
-  /// and automatically populates name, zone, and town — no user input needed.
+  /// Reads the entity matching [widget.distributorId] from UserProvider.
+  /// Searches distributors first, then wholesalers, then retailers, so that
+  /// the same screen works for all three customer types.
   void _autoFetchDistributorDetails() {
     final userModel = context.read<UserProvider>().getSalesUserDetails();
-    final dist = userModel?.distributors?.firstWhere(
-          (d) => d.id == widget.distributorId,
-      orElse: () => Distributor(),
+    final id = widget.distributorId;
+
+    // 1. Try distributors
+    final dist = userModel?.distributors?.cast<Distributor?>().firstWhere(
+          (d) => d?.id == id || d?.salesId == id,
+      orElse: () => null,
     );
+    if (dist != null) {
+      setState(() {
+        _distributorId = dist.id;
+        _distributorName = (dist.distributionName?.isNotEmpty == true)
+            ? dist.distributionName
+            : (dist.name ?? '');
+        _zoneId = dist.zone?.id;
+        _zoneName = dist.zone?.name;
+        _townId = dist.town?.id;
+        _townName = dist.town?.name;
+      });
+      return;
+    }
 
-    if (dist == null) return;
+    // 2. Try wholesalers
+    final whol = userModel?.wholesalers?.cast<Wholesaler?>().firstWhere(
+          (w) => w?.id == id,
+      orElse: () => null,
+    );
+    if (whol != null) {
+      setState(() {
+        _distributorId = whol.id;
+        _distributorName = whol.name ?? '';
+        _zoneId = whol.zone?.id;
+        _zoneName = whol.zone?.name;
+        _townId = whol.town?.id;
+        _townName = whol.town?.name;
+      });
+      return;
+    }
 
-    setState(() {
-      _distributorId = dist.id;
-      _distributorName = (dist.distributionName?.isNotEmpty == true)
-          ? dist.distributionName
-          : (dist.name ?? '');
-      _zoneId = dist.zone?.id;
-      _zoneName = dist.zone?.name;
-      _townId = dist.town?.id;
-      _townName = dist.town?.name;
-    });
+    // 3. Try retailers
+    final ret = userModel?.retailers?.cast<Wholesaler?>().firstWhere(
+          (r) => r?.id == id,
+      orElse: () => null,
+    );
+    if (ret != null) {
+      setState(() {
+        _distributorId = ret.id;
+        _distributorName = ret.name ?? '';
+        _zoneId = ret.zone?.id;
+        _zoneName = ret.zone?.name;
+        _townId = ret.town?.id;
+        _townName = ret.town?.name;
+      });
+    }
   }
 
   @override
@@ -227,7 +277,7 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: customAppBar(context, text: 'Add Recovery', showText: true),
+      appBar: customAppBar(context, text: widget.paymentType == 'distributor' ? 'Add Payment' : 'Add Recovery', showText: true),
       body: BlocProvider.value(
         value: _retailerBloc,
         child: BlocListener<RetailerBloc, RetailerState>(
@@ -674,6 +724,8 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
           ? _beneficiaryBankNameController.text.trim()
           : 'null',
       receiptPic: receiptImage?.path,
+      paymentType: widget.paymentType,
+      customerType: widget.customerType,
     );
 
     _retailerBloc.add(AddRecoveryEvent(model, token));

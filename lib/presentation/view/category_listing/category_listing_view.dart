@@ -4,16 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:sm_networking/application/category_bloc/category_bloc.dart';
+import 'package:sm_networking/application/brand_bloc/brand_bloc.dart';
 import 'package:sm_networking/application/user_provider.dart';
-import 'package:sm_networking/infrastructure/model/category.dart';
-import 'package:sm_networking/infrastructure/services/category.dart';
 import 'package:sm_networking/presentation/elements/custom_appbar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
-import 'package:sm_networking/presentation/view/categories/categories_view.dart';
-import 'package:sm_networking/presentation/view/order/no_data_found_view.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../../application/location.dart';
 import '../../../application/retailer_provider.dart';
@@ -23,6 +18,7 @@ import '../../../infrastructure/model/visit.dart';
 import '../../../injection_container.dart';
 import '../../elements/flush_bar.dart';
 import '../../elements/my_logger.dart';
+import '../brand_category/brand_category.dart';
 
 class CategoryListingView extends StatefulWidget {
   final bool showCart;
@@ -39,7 +35,6 @@ class _CategoryListingViewState extends State<CategoryListingView> {
   @override
   void initState() {
     super.initState();
-    // DON'T start a timer here - VisitProvider already has one!
     AppLogger.debug("📱 CategoryListingView loaded - VisitProvider timer should already be running");
   }
 
@@ -50,7 +45,6 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     super.dispose();
   }
 
-  /// Handle back button press
   Future<bool> _handleBackPress() async {
     AppLogger.debug("🔙 Back button pressed in CategoryListingView");
     _isDisposed = true;
@@ -60,11 +54,9 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final retailerProvider = Provider.of<RetailerProvider>(context, listen: false);
 
-    // Stop VisitProvider timer
     visitProvider.stopLocationMonitoring();
     AppLogger.debug("🛑 VisitProvider timer stopped on back press");
 
-    // If already auto-logged, just clear and allow back
     if (visitProvider.isVisitAutoLogged) {
       AppLogger.debug("Visit already auto-logged, clearing and allowing back navigation");
       await visitProvider.clearVisitData();
@@ -74,14 +66,12 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     final startVisit = await visitProvider.getStartVisit();
     final visitLocation = visitProvider.visitLocation;
 
-    // If no active visit, just allow back
     if (startVisit == null || visitLocation == null) {
       AppLogger.debug("No active visit to check");
       await visitProvider.clearVisitData();
       return true;
     }
 
-    // Get FRESH current location using Geolocator
     final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
@@ -91,14 +81,12 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     AppLogger.debug("   START: ${visitLocation.latitude}, ${visitLocation.longitude}");
     AppLogger.debug("   CURRENT: ${currentLocation.latitude}, ${currentLocation.longitude}");
 
-    // Check if moved beyond threshold
     final hasMovedAway = visitProvider.hasMovedBeyondThreshold(
       currentLocation,
       thresholdMeters: 20,
     );
 
     if (hasMovedAway) {
-      // User moved >20m - LOG VISIT via API
       AppLogger.debug("🚶 User moved away >20m - logging visit on back press");
 
       final selectedRetailer = retailerProvider.getRetailer();
@@ -127,7 +115,6 @@ class _CategoryListingViewState extends State<CategoryListingView> {
         AppLogger.debug("✅ Visit logged via API and data cleared");
       }
     } else {
-      // User still within 20m - JUST CLEAR (no API call)
       AppLogger.debug("✅ User still within 20m - just clearing visit data");
       await visitProvider.clearVisitData();
       AppLogger.debug("🧹 Visit data cleared (no API call - still nearby)");
@@ -138,8 +125,6 @@ class _CategoryListingViewState extends State<CategoryListingView> {
 
   @override
   Widget build(BuildContext context) {
-    var user = Provider.of<UserProvider>(context);
-
     return WillPopScope(
       onWillPop: _handleBackPress,
       child: BlocProvider(
@@ -148,7 +133,6 @@ class _CategoryListingViewState extends State<CategoryListingView> {
           listener: (context, state) {
             if (state is VisitLoaded) {
               AppLogger.debug("✅ Visit Added Successfully via API");
-              // After visit is logged, clear the data
               final visitProvider = Provider.of<VisitProvider>(context, listen: false);
               visitProvider.clearVisitData();
             } else if (state is VisitFailed) {
@@ -156,107 +140,80 @@ class _CategoryListingViewState extends State<CategoryListingView> {
             }
           },
           child: Scaffold(
-            appBar: customAppBar(context, text: 'Categories', showText: true),
+            appBar: customAppBar(context, text: 'Brands', showText: true),
             body: BlocProvider(
-              create: (context) => sl<CategoryBloc>(),
-              child: BlocBuilder<CategoryBloc, CategoryState>(
+              create: (context) => sl<BrandBloc>()..add(const GetAllBrandsEvent()),
+              child: BlocBuilder<BrandBloc, BrandState>(
                 builder: (context, state) {
-                  if (state is CategoryInitial) {
-                    BlocProvider.of<CategoryBloc>(context).add(GetCategoryEvent(
-                        user.getSalesUserDetails()!.user!.zone.toString()));
-                    return const Center(
-                      child: ProcessingWidget(),
-                    );
-                  } else if (state is CategoryLoading) {
-                    return const Center(
-                      child: ProcessingWidget(),
-                    );
-                  } else if (state is CategoryLoaded) {
+                  if (state is BrandInitial || state is BrandLoading) {
+                    return const Center(child: ProcessingWidget());
+                  } else if (state is AllBrandsLoaded) {
+                    final brands = state.model.data ?? [];
+
+                    if (brands.isEmpty) {
+                      return const Center(child: Text("No brands found."));
+                    }
+
                     return ListView.builder(
-                        itemCount: state.model.data!.length,
-                        itemBuilder: (context, i) {
-                          return InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) => CategoriesView(
-                                        model: state.model.data![i],
-                                        showCart: widget.showCart,
-                                      )));
-                            },
-                            child: Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 13.0),
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        height: 40,
-                                        width: 40,
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(100),
-                                          child: ExtendedImage.network(
-                                            state.model.data![i].image.toString(),
-                                            cacheHeight: 200,
-                                            cacheWidth: 200,
-                                            fit: BoxFit.fill,
-                                            cache: true,
-                                            loadStateChanged:
-                                                (ExtendedImageState state) {
-                                              switch (state.extendedImageLoadState) {
-                                                case LoadState.loading:
-                                                  return Shimmer.fromColors(
-                                                    baseColor: Colors.grey.shade300,
-                                                    highlightColor:
-                                                    Colors.grey.shade100,
-                                                    child: Image.asset(
-                                                      "assets/images/karyana.png",
-                                                      fit: BoxFit.fill,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  );
-                                                case LoadState.failed:
-                                                  return Image.asset(
-                                                    "assets/images/karyana.png",
-                                                    fit: BoxFit.fill,
-                                                    color: Colors.grey[350],
-                                                  );
-                                                default:
-                                                  return state.completedWidget;
-                                              }
-                                            },
-                                            borderRadius: const BorderRadius.all(
-                                                Radius.circular(30.0)),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          state.model.data![i].englishName.toString(),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                      itemCount: brands.length,
+                      itemBuilder: (context, i) {
+                        final brand = brands[i];
+                        return InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BrandCategoriesView(
+                                  brand: brand,
+                                  showCart: widget.showCart,
                                 ),
-                                const Divider(height: 0),
-                              ],
-                            ),
-                          );
-                        });
-                  } else if (state is CategoryFailed) {
-                    return Center(
-                      child: Text(state.message.toString()),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 13.0),
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 10),
+                                    // No image field in this API response —
+                                    // showing a placeholder icon instead
+                                    Container(
+                                      height: 40,
+                                      width: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(100),
+                                      ),
+                                      child: Icon(
+                                        Icons.storefront_outlined,
+                                        color: Colors.grey.shade500,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        brand.englishName ?? "Unknown Brand",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Divider(height: 0),
+                            ],
+                          ),
+                        );
+                      },
                     );
+                  } else if (state is BrandFailed) {
+                    return Center(child: Text(state.message));
                   } else {
-                    return const Center(
-                      child: Text("Something went wrong."),
-                    );
+                    return const Center(child: Text("Something went wrong."));
                   }
                 },
               ),

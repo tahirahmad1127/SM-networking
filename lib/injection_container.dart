@@ -28,6 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'application/auth_bloc/login_bloc.dart';
 import 'application/product_bloc/product_bloc.dart';
 import 'infrastructure/services/auth.dart';
+import 'infrastructure/services/brand_category.dart';
 
 final sl = GetIt.instance;
 
@@ -50,10 +51,10 @@ Future<void> init() async {
   ///Services
 
   sl.registerLazySingleton(() => AuthRepositoryImp());
-  sl.registerLazySingleton<RetailerRepositoryImp>(
-      () => RetailerRepositoryImp());
+  sl.registerLazySingleton<RetailerRepositoryImp>(() => RetailerRepositoryImp());
   sl.registerLazySingleton(() => CategoryRepositoryImp());
   sl.registerLazySingleton(() => BrandRepositoryImp());
+  sl.registerLazySingleton(() => BrandCategoryService());
   sl.registerLazySingleton(() => ProductRepositoryImp());
   sl.registerLazySingleton(() => SettingRepositoryImp());
   sl.registerLazySingleton(() => OrderRepositoryImp());
@@ -65,5 +66,5 @@ Future<void> init() async {
 
   ///Utils
   sl.registerSingletonAsync<SharedPreferences>(
-      () => SharedPreferences.getInstance());
+          () => SharedPreferences.getInstance());
 }

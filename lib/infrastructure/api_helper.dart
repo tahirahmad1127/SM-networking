@@ -189,7 +189,7 @@ class ApiBaseHelper {
           if (hasFile && path != null) {
             log('Sending file: $path');
             // Use 'receiptPic' as the field name expected by the server
-            request.files.add(await http.MultipartFile.fromPath('receiptPic', path));
+            request.files.add(await http.MultipartFile.fromPath('image', path));
           }
 
           http.StreamedResponse streamedResponse = await request.send();
@@ -344,7 +344,7 @@ class ApiBaseHelper {
       } else if (response.statusCode == 413) {
         return Left(GlobalErrorModel(
             error:
-                "Receipt image is too large for the server. Try a smaller photo or lower camera resolution."));
+            "Receipt image is too large for the server. Try a smaller photo or lower camera resolution."));
       } else {
         return Left(GlobalErrorModel(error: "Sorry! Some thing went wrong!."));
       }

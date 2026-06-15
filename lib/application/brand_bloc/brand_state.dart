@@ -18,6 +18,12 @@ class BrandLoaded extends BrandState {
   const BrandLoaded(this.model);
 }
 
+class AllBrandsLoaded extends BrandState {
+  final AllBrandsListingModel model;
+
+  const AllBrandsLoaded(this.model);
+}
+
 class BrandFailed extends BrandState {
   final String message;
 

@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../infrastructure/model/all_brands.dart';
 import '../../infrastructure/model/brand.dart';
 import '../../infrastructure/model/user.dart';
 import '../../infrastructure/services/brand.dart';
@@ -25,17 +26,24 @@ class BrandBloc extends Bloc<BrandEvent, BrandState> {
           emit(BrandLoading());
           BrandListingModel? model = await CacheServices.instance.readBrands();
           log(model.toString());
-          // if (model == null) {
-            final failureOrSuccess =
-                await repositoryImp.getBrands(event.categoryID);
-            failureOrSuccess.fold((l) => emit(BrandFailed(l.error.toString())),
-                (r) {
-              CacheServices.instance.writeBrands(r);
-              emit(BrandLoaded(r));
-            });
-          // } else {
-          //   emit(BrandLoaded(model));
-          // }
+          final failureOrSuccess =
+          await repositoryImp.getBrands(event.categoryID);
+          failureOrSuccess.fold((l) => emit(BrandFailed(l.error.toString())),
+                  (r) {
+                CacheServices.instance.writeBrands(r);
+                emit(BrandLoaded(r));
+              });
+        } catch (e) {
+          rethrow;
+        }
+      } else if (event is GetAllBrandsEvent) {
+        try {
+          emit(BrandLoading());
+          final failureOrSuccess = await repositoryImp.getAllBrands();
+          failureOrSuccess.fold(
+                (l) => emit(BrandFailed(l.error.toString())),
+                (r) => emit(AllBrandsLoaded(r)),
+          );
         } catch (e) {
           rethrow;
         }

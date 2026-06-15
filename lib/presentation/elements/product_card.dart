@@ -17,6 +17,7 @@ import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/view/cart/cart_view.dart';
 import 'package:sm_networking/presentation/view/product_details/product_details_view.dart';
 import 'package:provider/provider.dart';
+import '../../application/retailer_provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../configurations/translation_helper.dart';
@@ -26,8 +27,12 @@ import '../../infrastructure/model/product.dart';
 
 class ProductCard extends StatefulWidget {
   final ProductModel model;
+  /// Show Ctn/Box toggle when the selected customer is a wholesaler or retailer.
+  /// Pass true for both orderBooker AND warehouseManager when visiting a
+  /// wholesaler or retailer. Pass false (default) for distributor visits.
+  final bool showCtnBox;
 
-  const ProductCard({super.key, required this.model});
+  const ProductCard({super.key, required this.model, this.showCtnBox = false});
 
   @override
   State<ProductCard> createState() => _ProductCardState();
@@ -49,6 +54,13 @@ class _ProductCardState extends State<ProductCard> {
   bool isCtnSelected = true;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // TSM always orders by carton — lock to Ctn (default already true)
+    // orderBooker sees the toggle and can switch freely
+  }
+
+  @override
   Widget build(BuildContext context) {
     var user = Provider.of<UserProvider>(context);
     var cart = Provider.of<CartProvider>(context);
@@ -62,11 +74,11 @@ class _ProductCardState extends State<ProductCard> {
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(
-              horizontal: 12.0,
+              horizontal: 10.0,
               vertical: (widget.model.bulkDiscount != null &&
                   widget.model.bulkDiscount!.isNotEmpty)
-                  ? 7
-                  : 9),
+                  ? 4
+                  : 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -110,8 +122,8 @@ class _ProductCardState extends State<ProductCard> {
 
               ExtendedImage.network(
                 widget.model.image.toString(),
-                height: 95,
-                width: 167,
+                height: 80,
+                width: double.infinity,
                 fit: BoxFit.fill,
                 cache: true,
                 loadStateChanged: (ExtendedImageState state) {
@@ -146,15 +158,15 @@ class _ProductCardState extends State<ProductCard> {
                 },
                 borderRadius: const BorderRadius.all(Radius.circular(30.0)),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Container(
-                width: 167,
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(7.0),
+                  padding: const EdgeInsets.all(5.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -162,7 +174,7 @@ class _ProductCardState extends State<ProductCard> {
                         text: widget.model.englishTitle.toString(),
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
-                        maxLines: 3,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
@@ -186,37 +198,12 @@ class _ProductCardState extends State<ProductCard> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (widget.model.isDiscounted == true)
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    CustomText(
-                                      text:
-                                      "${getDiscountPrice(regularPrice: widget.model.price!, discount: widget.model.discount!)} Rs",
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: FrontendConfigs.kPrimaryColor,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "${widget.model.price!.toStringAsFixed(2)} Rs",
-                                      style: TextStyle(
-                                        color: FrontendConfigs.kAuthTextColor,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 12,
-                                        decoration: TextDecoration.lineThrough,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else
-                                CustomText(
-                                  text:
-                                  "${isCtnSelected == true ? (widget.model.cortanSize! * widget.model.price!.toInt()) : widget.model.price!.toStringAsFixed(2)} Rs",
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: FrontendConfigs.kPrimaryColor,
-                                ),
+                              CustomText(
+                                text: "${_displayPrice(context).toStringAsFixed(2)} Rs",
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: FrontendConfigs.kPrimaryColor,
+                              ),
 
                             ],
                           ),
@@ -227,82 +214,83 @@ class _ProductCardState extends State<ProductCard> {
                 ),
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(height: 3),
 
-              ///____________Cotton/Packet Row
-              Row(
-                children: [
-                  //________Cotton Selected
-                  InkWell(
-                    onTap: () {
-                      log("Cotton Selected");
-                      isCtnSelected = true;
-                      cart.removeItem(widget.model.id.toString());
-                      setState(() {});
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: isCtnSelected == true
-                              ? FrontendConfigs.kPrimaryColor.withOpacity(0.3)
-                              : Colors.transparent,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(10),
-                            bottomLeft: Radius.circular(10),
-                          ),
-                          border: Border.all(
-                              color: isCtnSelected == true
-                                  ? FrontendConfigs.kPrimaryColor
-                                  : Colors.grey)),
-                      child: const Padding(
-                        padding:
-                        EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
-                        child: Text("Ctn", style: TextStyle(fontSize: 13)),
+              ///____________Cotton/Packet Row — hidden for orderBooker (Pcs only)
+              if (widget.showCtnBox)
+                Row(
+                  children: [
+                    //________Cotton Selected
+                    InkWell(
+                      onTap: () {
+                        log("Cotton Selected");
+                        isCtnSelected = true;
+                        cart.removeItem(widget.model.id.toString());
+                        setState(() {});
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                            color: isCtnSelected == true
+                                ? FrontendConfigs.kPrimaryColor.withOpacity(0.3)
+                                : Colors.transparent,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(10),
+                              bottomLeft: Radius.circular(10),
+                            ),
+                            border: Border.all(
+                                color: isCtnSelected == true
+                                    ? FrontendConfigs.kPrimaryColor
+                                    : Colors.grey)),
+                        child: const Padding(
+                          padding:
+                          EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                          child: Text("Ctn", style: TextStyle(fontSize: 13)),
+                        ),
                       ),
                     ),
-                  ),
-                  //________Packet Selected
-                  InkWell(
-                    onTap: () {
-                      log("Packet Selected");
-                      isCtnSelected = false;
-                      cart.removeItem(widget.model.id.toString());
-                      setState(() {});
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: isCtnSelected == true
-                              ? Colors.transparent
-                              : FrontendConfigs.kPrimaryColor.withOpacity(0.3),
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          ),
-                          border: Border(
-                            right: BorderSide(
-                                color: isCtnSelected == false
-                                    ? FrontendConfigs.kPrimaryColor
-                                    : Colors.grey),
-                            top: BorderSide(
-                                color: isCtnSelected == false
-                                    ? FrontendConfigs.kPrimaryColor
-                                    : Colors.grey),
-                            bottom: BorderSide(
-                                color: isCtnSelected == false
-                                    ? FrontendConfigs.kPrimaryColor
-                                    : Colors.grey),
-                          )),
-                      child: const Padding(
-                        padding:
-                        EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
-                        child: Text("Pcs", style: TextStyle(fontSize: 13)),
+                    //________Packet Selected
+                    InkWell(
+                      onTap: () {
+                        log("Packet Selected");
+                        isCtnSelected = false;
+                        cart.removeItem(widget.model.id.toString());
+                        setState(() {});
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                            color: isCtnSelected == true
+                                ? Colors.transparent
+                                : FrontendConfigs.kPrimaryColor.withOpacity(0.3),
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(10),
+                              bottomRight: Radius.circular(10),
+                            ),
+                            border: Border(
+                              right: BorderSide(
+                                  color: isCtnSelected == false
+                                      ? FrontendConfigs.kPrimaryColor
+                                      : Colors.grey),
+                              top: BorderSide(
+                                  color: isCtnSelected == false
+                                      ? FrontendConfigs.kPrimaryColor
+                                      : Colors.grey),
+                              bottom: BorderSide(
+                                  color: isCtnSelected == false
+                                      ? FrontendConfigs.kPrimaryColor
+                                      : Colors.grey),
+                            )),
+                        child: const Padding(
+                          padding:
+                          EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                          child: Text("Box", style: TextStyle(fontSize: 13)),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
 
               SizedBox(
-                width: 167,
+                width: double.infinity,
                 child: Row(
                   mainAxisAlignment:
                   cart.getItemQuantity(widget.model.id.toString()) < 1
@@ -366,22 +354,13 @@ class _ProductCardState extends State<ProductCard> {
                                 cart.addItem(CartModel(
                                     name: widget.model.englishTitle.toString(),
                                     id: widget.model.id.toString(),
-                                    price: widget.model.isDiscounted == true
-                                        ? getDiscountPrice(
-                                        regularPrice: widget.model.price!,
-                                        discount: widget.model.discount!)
-                                        .toString()
-                                        : isCtnSelected
-                                        ? (widget.model.cortanSize! *
-                                        widget.model.price!)
-                                        .toString()
-                                        : widget.model.price!.toString(),
+                                    price: _displayPrice(context).toStringAsFixed(2),
                                     image: widget.model.image.toString(),
-                                    offer: widget.model.isDiscounted!,
+                                    offer: widget.model.isDiscounted ?? false,
                                     productDetails: widget.model,
                                     quantity: entered,
                                     totalQuantity: 0,
-                                    type: isCtnSelected ? "ctn" : "piece"));
+                                    type: isCtnSelected ? "ctn" : "box"));
                                 log(cart
                                     .getItemQuantity(widget.model.id.toString())
                                     .toString());
@@ -402,22 +381,13 @@ class _ProductCardState extends State<ProductCard> {
                         cart.addItem(CartModel(
                             name: widget.model.englishTitle.toString(),
                             id: widget.model.id.toString(),
-                            price: widget.model.isDiscounted == true
-                                ? getDiscountPrice(
-                                regularPrice: widget.model.price!,
-                                discount: widget.model.discount!)
-                                .toString()
-                                : isCtnSelected
-                                ? (widget.model.cortanSize! *
-                                widget.model.price!)
-                                .toString()
-                                : widget.model.price!.toString(),
+                            price: _displayPrice(context).toStringAsFixed(2),
                             image: widget.model.image.toString(),
-                            offer: widget.model.isDiscounted!,
+                            offer: widget.model.isDiscounted ?? false,
                             productDetails: widget.model,
                             quantity: currentQty + 1,
                             totalQuantity: 0,
-                            type: isCtnSelected ? "ctn" : "piece"));
+                            type: isCtnSelected ? "ctn" : "box"));
                         cartController = TextEditingController(
                             text: (currentQty + 1).toString());
                         setState(() {});
@@ -442,6 +412,32 @@ class _ProductCardState extends State<ProductCard> {
   }
 
 
+
+  // ── Price helper ─────────────────────────────────────────────────────────────
+  // Rules:
+  //   Box price = retailSaleRatePerBox  (retailer)
+  //             = wholesaleRatePerBox   (wholesaler or distributor)
+  //   Ctn price = boxPrice × piecesPerBox
+  //   Distributor always shows wholesale carton price (no toggle).
+  num _displayPrice(BuildContext context) {
+    final p = widget.model;
+    final customerType = Provider.of<RetailerProvider>(context, listen: false)
+        .getRetailer()
+        ?.customerType ?? 'wholesaler';
+
+    final num ratePerBox = (customerType == 'retailer')
+        ? (p.retailSaleRatePerBox ?? p.wholesaleRatePerBox ?? p.price ?? 0)
+        : (p.wholesaleRatePerBox ?? p.price ?? 0);
+
+    // cortanSize = number of boxes per carton (e.g. 24)
+    // piecesPerBox = pieces inside each box (e.g. 150) — NOT used for carton price
+    final int boxesPerCarton = p.cortanSize ?? 1;
+
+    // Distributor (showCtnBox = false) always shows carton price
+    if (!widget.showCtnBox) return ratePerBox * boxesPerCarton;
+
+    return isCtnSelected ? ratePerBox * boxesPerCarton : ratePerBox;
+  }
 }
 
 /// Bulk Discount Dialog

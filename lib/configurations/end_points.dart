@@ -20,7 +20,17 @@ class ApiEndPoints {
   static const String kAddOrder = "order/add";
 
   static const String kGetBrands = "brand/category/";
+  static const String kGetAllBrands = "brand";
   static const String kGetBrandDetail = "brand/";
+
+  /// category/brand/{brandId}  →  categories belonging to a specific brand
+  static const String kGetCategoriesByBrand = "category/brand/";
+
+  /// product/category/{categoryId}  →  products in a specific category
+  static const String kGetProductsByCategory = "product/category/";
+
+  /// product/by-brand/{brandId}/category/{categoryId}  →  products filtered by both brand and category
+  static const String kGetProductsByBrandAndCategory = "product/by-brand/";
   static const String kGetStats = "sale-user/sales/";
   static const String kGetTargets = "targets/salesperson/";
   static const String kGetTargetsOrderbooker = "targets/orderbooker/"; // ← ADDED
@@ -79,6 +89,9 @@ class ApiEndPoints {
 
 
   /// zone/  →  list of all zones
+  /// site-visit/add  →  mark attendance / site visit for a distributor
+  static const String kAddSiteVisit = "site-visit/add";
+
   static const String kGetAllZones = "zone/";
 
   /// town/zone/{zoneId}  →  towns belonging to a specific zone

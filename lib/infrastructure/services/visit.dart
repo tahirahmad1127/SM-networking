@@ -22,6 +22,9 @@ class VisitRepositoryImp extends VisitRepository {
       final Map<String, String> body = {
         'retailerID': visit.retailerId.toString(),
         'salesPersonID': visit.salesPersonId.toString(),
+        'shopName': visit.shopName ?? '',
+        'retailerEmail': visit.retailerEmail ?? '',
+        'retailerImage': visit.retailerImage ?? '',
         'startTime': visit.startTime.toString(),
         'endTime': visit.endTime.toString(),
         'date': visit.date.toString(),

@@ -96,6 +96,9 @@ class _VisitCheckerState extends State<VisitChecker> with WidgetsBindingObserver
             final visit = VisitModel(
               retailerId: selectedRetailer.id.toString(),
               salesPersonId: userDetails.id.toString(),
+              shopName: selectedRetailer.shopName ?? '',
+              retailerEmail: '',
+              retailerImage: selectedRetailer.image ?? '',
               startTime: startVisit.toIso8601String(),
               endTime: DateTime.now().toIso8601String(),
               date: DateTime.now().toString().split(' ')[0],
@@ -163,6 +166,9 @@ extension VisitCheckNavigation on BuildContext {
               final visit = VisitModel(
                 retailerId: selectedRetailer.id.toString(),
                 salesPersonId: userDetails.id.toString(),
+                shopName: selectedRetailer.shopName ?? '',
+                retailerEmail: '',
+                retailerImage: selectedRetailer.image ?? '',
                 startTime: startVisit.toIso8601String(),
                 endTime: DateTime.now().toIso8601String(),
                 date: DateTime.now().toString().split(' ')[0],

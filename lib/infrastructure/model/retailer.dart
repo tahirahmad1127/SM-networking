@@ -58,6 +58,9 @@ class RetailerModel {
   final String? docId;
   final SalesPersonId? salesPersonId;
 
+  /// 'distributor' | 'wholesaler' | 'retailer' — set locally, not from API
+  final String customerType;
+
   RetailerModel({
     this.id,
     this.name,
@@ -83,6 +86,7 @@ class RetailerModel {
     this.cityId,
     this.docId,
     this.salesPersonId,
+    this.customerType = 'distributor',
   });
 
   factory RetailerModel.fromJson(Map<String, dynamic> json) => RetailerModel(
@@ -110,6 +114,7 @@ class RetailerModel {
     cityId: json["cityID"] == null ? null : CityId.fromJson(json["cityID"]),
     docId: json["docId"],
     salesPersonId: json["salesPersonID"] == null ? null : SalesPersonId.fromJson(json["salesPersonID"]),
+    // customerType is set locally at navigation time, not from API
   );
 
   Map<String, dynamic> toJson() => {
@@ -164,6 +169,7 @@ class RetailerModel {
     CityId? cityId,
     String? docId,
     SalesPersonId? salesPersonId,
+    String? customerType,
   }) {
     return RetailerModel(
       id: id ?? this.id,
@@ -190,6 +196,7 @@ class RetailerModel {
       cityId: cityId ?? this.cityId,
       docId: docId ?? this.docId,
       salesPersonId: salesPersonId ?? this.salesPersonId,
+      customerType: customerType ?? this.customerType,
     );
   }
 }

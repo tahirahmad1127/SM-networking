@@ -12,6 +12,9 @@ class VisitModel {
   final String? id;
   final String? retailerId;
   final String? salesPersonId;
+  final String? shopName;
+  final String? retailerEmail;
+  final String? retailerImage;
   final String? startTime;
   final String? endTime;
   final String? date;
@@ -23,6 +26,9 @@ class VisitModel {
     this.id,
     this.retailerId,
     this.salesPersonId,
+    this.shopName,
+    this.retailerEmail,
+    this.retailerImage,
     this.startTime,
     this.endTime,
     this.date,
@@ -35,6 +41,9 @@ class VisitModel {
     id: json["_id"],
     retailerId: json["retailerID"],
     salesPersonId: json["salesPersonID"],
+    shopName: json["shopName"],
+    retailerEmail: json["retailerEmail"],
+    retailerImage: json["retailerImage"],
     startTime: json["startTime"],
     endTime: json["endTime"],
     date: json["date"],
@@ -47,6 +56,9 @@ class VisitModel {
     "_id": id,
     "retailerID": retailerId,
     "salesPersonID": salesPersonId,
+    "shopName": shopName,
+    "retailerEmail": retailerEmail,
+    "retailerImage": retailerImage,
     "startTime": startTime,
     "endTime": endTime,
     "date": date,
@@ -57,6 +69,6 @@ class VisitModel {
 
   @override
   String toString() {
-    return 'VisitModel(id: $id, retailerId: $retailerId, salesPersonId: $salesPersonId, startTime: $startTime, endTime: $endTime, date: $date, image: $image, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'VisitModel(id: $id, retailerId: $retailerId, salesPersonId: $salesPersonId, shopName: $shopName, startTime: $startTime, endTime: $endTime, date: $date, image: $image, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 }

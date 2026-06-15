@@ -81,6 +81,12 @@ class ProductModel {
   final DateTime? updatedAt;
   final int? v;
 
+  /// Rate per box for retail customers (before scheme subtraction)
+  final num? retailSaleRatePerBox;
+
+  /// Rate per box for wholesale customers (before scheme subtraction)
+  final num? wholesaleRatePerBox;
+
   // Bulk discount fields
   final List<num>? bulkDiscountQuantity;
   final List<num>? bulkDiscount;
@@ -123,6 +129,8 @@ class ProductModel {
     this.bulkDiscountQuantity,
     this.bulkDiscount,
     this.bulkDiscountType,
+    this.retailSaleRatePerBox,
+    this.wholesaleRatePerBox,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
@@ -182,6 +190,8 @@ class ProductModel {
         ? []
         : List<String>.from(
         json["bulkDiscountType"]!.map((x) => x.toString())),
+    retailSaleRatePerBox: json["retailSaleRatePerBox"],
+    wholesaleRatePerBox: json["wholesaleRatePerBox"],
   );
 
   /// Safely converts the "brand" field regardless of whether the API sends a
@@ -243,6 +253,8 @@ class ProductModel {
     "bulkDiscountType": bulkDiscountType == null
         ? []
         : List<dynamic>.from(bulkDiscountType!.map((x) => x)),
+    "retailSaleRatePerBox": retailSaleRatePerBox,
+    "wholesaleRatePerBox": wholesaleRatePerBox,
   };
 }
 

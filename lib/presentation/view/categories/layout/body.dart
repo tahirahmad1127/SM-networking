@@ -19,6 +19,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../application/user_provider.dart';
+import '../../../../application/retailer_provider.dart';
 import '../../../../infrastructure/model/category.dart';
 import '../../../../infrastructure/model/product.dart';
 import '../../../../infrastructure/services/product.dart';
@@ -245,14 +246,17 @@ class _CategoriesBodyState extends State<CategoriesBody> {
                             SliverGridDelegateWithFixedCrossAxisCount(
                               // maxCrossAxisExtent: 300,
                                 childAspectRatio: 3,
-                                mainAxisExtent: widget.showCart ? 340 : 255,
+                                mainAxisExtent: widget.showCart ? 312 : 255,
                                 mainAxisSpacing: 15,
                                 crossAxisSpacing: 15,
                                 crossAxisCount: 2),
                             itemBuilder: (context, i) {
                               if (widget.showCart) {
                                 return ProductCard(
-                                    model: _productList[i]);
+                                    model: _productList[i],
+                                    showCtnBox: Provider.of<RetailerProvider>(context, listen: false)
+                                        .getRetailer()
+                                        ?.customerType != 'distributor');
                               } else {
                                 return ProductDetailsCard(
                                     model: _productList[i]);

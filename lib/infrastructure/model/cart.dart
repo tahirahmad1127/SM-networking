@@ -1,14 +1,12 @@
-// To parse this JSON data, do
-//
-//     final cartModel = cartModelFromJson(jsonString);
-
-import 'package:sm_networking/infrastructure/model/product.dart';
-import 'package:meta/meta.dart';
 import 'dart:convert';
 
-List<CartModel> cartModelFromJson(String? str) => List<CartModel>.from(json.decode(str!).map((x) => CartModel.fromJson(x)));
+import 'package:sm_networking/infrastructure/model/product.dart';
 
-String cartModelToJson(List<CartModel> data) => json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
+List<CartModel> cartModelFromJson(String? str) =>
+    List<CartModel>.from(json.decode(str!).map((x) => CartModel.fromJson(x)));
+
+String cartModelToJson(List<CartModel> data) =>
+    json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
 
 class CartModel {
   String name;
@@ -43,7 +41,8 @@ class CartModel {
     offer: json["offer"],
     quantity: json["quantity"],
     totalQuantity: json["totalQuantity"],
-    productDetails: json["productDetails"],
+    productDetails: ProductModel.fromJson(
+        json["productDetails"] as Map<String, dynamic>),
     type: json["type"] ?? "ctn",
     discountedPrice: json["discountedPrice"]?.toString(),
   );
@@ -56,7 +55,7 @@ class CartModel {
     "offer": offer,
     "quantity": quantity,
     "totalQuantity": totalQuantity,
-    "productDetails": productDetails,
+    "productDetails": productDetails.toJson(),
     "type": type,
     if (discountedPrice != null) "discountedPrice": discountedPrice,
   };

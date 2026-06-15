@@ -78,6 +78,8 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
 
   Widget buildMyNavBar(BuildContext context) {
     var user = Provider.of<UserProvider>(context);
+    final role = user.getSalesUserDetails()?.role ?? '';
+    final isOrderBooker = role == 'orderBooker';
     return Container(
       height: 65,
       decoration: const BoxDecoration(color: Colors.white),
@@ -149,7 +151,6 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               ),
             ),
 
-            // 1️⃣ Distributers
             IconButton(
               padding: const EdgeInsets.all(3),
               enableFeedback: false,
@@ -157,11 +158,11 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               icon: pageIndex == 1
                   ? activeNavItem(
                 icon: const Icon(Icons.storefront),
-                label: "Distributors",
+                label: isOrderBooker ? "Customers" : "Distributors",
               )
                   : inactiveNavItem(
                 icon: const Icon(Icons.storefront),
-                label: "Distributors",
+                label: isOrderBooker ? "Customers" : "Distributors",
               ),
             ),
 
@@ -241,7 +242,9 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
           const SizedBox(height: 4),
           Text(label,
               style: TextStyle(
-                  fontSize: 11, color: FrontendConfigs.kPrimaryColor)),
+                  fontSize: 11, color: FrontendConfigs.kPrimaryColor),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -259,7 +262,9 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
         const SizedBox(height: 4),
         Text(label,
             style:
-            TextStyle(fontSize: 11, color: FrontendConfigs.kAuthTextColor)),
+            TextStyle(fontSize: 11, color: FrontendConfigs.kAuthTextColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
       ],
     );
   }

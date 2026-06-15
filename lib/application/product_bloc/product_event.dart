@@ -16,9 +16,9 @@ class GetProductEvent extends ProductEvent {
 
   const GetProductEvent(
       {required this.cityID,
-      required this.isRefresh,
-      required this.brandID,
-      required this.categoryID});
+        required this.isRefresh,
+        required this.brandID,
+        required this.categoryID});
 }
 
 class GetProductByBrandEvent extends ProductEvent {
@@ -31,4 +31,16 @@ class GetProductByID extends ProductEvent {
   final String productID;
 
   const GetProductByID(this.productID);
+}
+
+class GetProductByCategoryEvent extends ProductEvent {
+  final String categoryID;
+  final String brandID;
+  final bool isRefresh;
+
+  const GetProductByCategoryEvent({
+    required this.categoryID,
+    required this.brandID,
+    required this.isRefresh,
+  });
 }

@@ -39,6 +39,13 @@ abstract class RetailerRepository {
     required String token,
   });
 
+  Future<Either<GlobalErrorModel, void>> updateWholesalerLocation({
+    required String wholesalerId,
+    required double lat,
+    required double lng,
+    required String token,
+  });
+
   Future<Either<GlobalErrorModel, BanksListModel>> getAllBanks();
 
   Future<Either<GlobalErrorModel, RecoveryListingModel>> getMyPayments(
@@ -206,6 +213,39 @@ class RetailerRepositoryImp extends RetailerRepository {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Update Wholesaler / Retailer Location
+  // ─────────────────────────────────────────────────────────────────────────
+  @override
+  Future<Either<GlobalErrorModel, void>> updateWholesalerLocation({
+    required String wholesalerId,
+    required double lat,
+    required double lng,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().postEither(
+        endPoint:
+        "${ApiEndPoints.kUpdateRetailerLocation}$wholesalerId",
+        body: {"lat": lat, "lng": lng},
+        hasBody: true,
+        isRequiredHeader: true,
+        header: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-auth-token': token,
+        },
+      );
+      return data.fold(
+            (l) => Left(GlobalErrorModel(error: l.error.toString())),
+            (r) => const Right(null),
+      );
+    } catch (e) {
+      log("updateWholesalerLocation error: $e");
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Get All Banks
   // ─────────────────────────────────────────────────────────────────────────
   @override
@@ -288,10 +328,6 @@ class RetailerRepositoryImp extends RetailerRepository {
       }
 
       // ── JSON body ─────────────────────────────────────────────────────
-      // The API uses express-validator on req.body (JSON), so we must send
-      // Content-Type: application/json. The image is base64-encoded inside
-      // the body — Vercel's limit is ~4.5 MB and our compressed image is
-      // well under 200 KB (~267 KB base64), so this is safe.
       final Map<String, dynamic> jsonBody = {
         'distributionName': model.distributionName,
         'zone': model.zone,
@@ -305,6 +341,8 @@ class RetailerRepositoryImp extends RetailerRepository {
         'beneficiaryAccountNumber': model.beneficiaryAccountNumber,
         'beneficiaryAccountName': model.beneficiaryAccountName,
         'beneficiaryBankName': model.beneficiaryBankName,
+        'paymentType': model.paymentType,       // ← tells backend the entity type
+        'customerType': model.customerType,     // ← reserved, sent as ""
         if (model.date != null) 'date': model.date,
         if (receiptBytes != null) 'receiptPic': base64Encode(receiptBytes),
       };
@@ -322,7 +360,6 @@ class RetailerRepositoryImp extends RetailerRepository {
         },
         body: encodedBody,
       );
-
 
       log("📥 Status: ${response.statusCode}");
       log("📥 Response: ${response.body}");
@@ -363,18 +400,9 @@ class RetailerRepositoryImp extends RetailerRepository {
 
   // ─────────────────────────────────────────────────────────────────────────
   // Image compression helper
-  //
-  // Camera images can be 8–15 MB. We compress in progressive steps, each
-  // time capping the longest side via minWidth/minHeight (flutter_image_compress
-  // treats these as the target dimension for the longer side when keepExif is
-  // false). Target is 200 KB raw — base64 inflates by ~33% to ~267 KB, which
-  // is safely under any server limit.
-  //
-  // IMPORTANT: we never fall back to raw bytes. If all steps fail we return
-  // the smallest result we managed to produce.
   // ─────────────────────────────────────────────────────────────────────────
   static Future<Uint8List> _receiptBytesForUpload(String picPath) async {
-    const int targetBytes = 50000; // 50 KB raw → ~67 KB base64 (safe under tight Vercel limits)
+    const int targetBytes = 50000;
 
     Future<Uint8List?> compress(int maxSide, int quality) =>
         FlutterImageCompress.compressWithFile(
@@ -388,9 +416,6 @@ class RetailerRepositoryImp extends RetailerRepository {
 
     Uint8List? smallest;
 
-    // Try progressively harder compression until we hit the target.
-    // Steps go from decent quality down to thumbnail — receipt text
-    // is still readable at 320px / q15.
     for (final step in <List<int>>[
       [1024, 50],
       [800,  40],
@@ -402,7 +427,6 @@ class RetailerRepositoryImp extends RetailerRepository {
       if (result != null && result.isNotEmpty) {
         log("🗜️ step ${step[0]}px q${step[1]} → ${result.length} bytes "
             "(base64 ≈ ${(result.length * 4 / 3).round()} bytes)");
-        // Track the smallest we've produced so far
         if (smallest == null || result.length < smallest.length) {
           smallest = result;
         }
@@ -413,14 +437,12 @@ class RetailerRepositoryImp extends RetailerRepository {
       }
     }
 
-    // Return the smallest compressed result — never send raw camera bytes.
     if (smallest != null) {
       log("⚠️ Could not reach ${targetBytes}B target; "
           "sending smallest result: ${smallest.length} bytes");
       return smallest;
     }
 
-    // True last resort: should never happen, but guard anyway.
     log("❌ All compression steps failed — reading raw file (may be large)");
     return File(picPath).readAsBytes();
   }

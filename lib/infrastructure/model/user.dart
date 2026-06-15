@@ -12,13 +12,23 @@ class UserModel {
   final String? token;
   final User? user;
   final String? role;
+  // TSM / warehouseManager: flat distributors list (unchanged)
   final List<Distributor>? distributors;
+  // orderBooker: separate wholesalers and retailers lists
+  final List<Wholesaler>? wholesalers;
+  final List<Wholesaler>? retailers;
+  final int? totalWholesalers;
+  final int? totalRetailers;
 
   UserModel({
     this.token,
     this.user,
     this.role,
     this.distributors,
+    this.wholesalers,
+    this.retailers,
+    this.totalWholesalers,
+    this.totalRetailers,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -30,6 +40,18 @@ class UserModel {
         : (json["distributors"] as List)
         .map((e) => Distributor.fromJson(e))
         .toList(),
+    wholesalers: json["wholesalers"] == null
+        ? null
+        : (json["wholesalers"] as List)
+        .map((e) => Wholesaler.fromJson(e))
+        .toList(),
+    retailers: json["retailers"] == null
+        ? null
+        : (json["retailers"] as List)
+        .map((e) => Wholesaler.fromJson(e))
+        .toList(),
+    totalWholesalers: json["totalWholesalers"],
+    totalRetailers: json["totalRetailers"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +59,10 @@ class UserModel {
     "user": user?.toJson(),
     "role": role,
     "distributors": distributors?.map((e) => e.toJson()).toList(),
+    "wholesalers": wholesalers?.map((e) => e.toJson()).toList(),
+    "retailers": retailers?.map((e) => e.toJson()).toList(),
+    "totalWholesalers": totalWholesalers,
+    "totalRetailers": totalRetailers,
   };
 }
 
@@ -73,6 +99,9 @@ class User {
   final DateTime? updatedAt;
   final int? v;
 
+  /// For orderBooker: the assigned distributor's ID (plain string from login response)
+  final String? distributor;
+
   User({
     this.id,
     this.salesId,
@@ -102,6 +131,7 @@ class User {
     this.createdAt,
     this.updatedAt,
     this.v,
+    this.distributor,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -162,6 +192,12 @@ class User {
         ? null
         : DateTime.parse(json["updatedAt"]),
     v: json["__v"],
+    // distributor is a plain string ID in the orderBooker login response
+    distributor: json["distributor"] == null
+        ? null
+        : (json["distributor"] is String
+        ? json["distributor"] as String
+        : json["distributor"]["_id"] as String),
   );
 
   Map<String, dynamic> toJson() => {
@@ -193,6 +229,7 @@ class User {
     "createdAt": createdAt?.toIso8601String(),
     "updatedAt": updatedAt?.toIso8601String(),
     "__v": v,
+    "distributor": distributor,
   };
 }
 
@@ -447,4 +484,113 @@ class Distributor {
       v: v,
     );
   }
+}
+
+// ─── Wholesaler / Retailer (returned for orderBooker AND warehouseManager) ────
+
+class Wholesaler {
+  final String? id;
+  final String? name;
+  final String? contacts; // phone equivalent
+  final String? address;
+  final String? pic;      // image equivalent
+  final DistributorRef? zone;
+  final DistributorRef? town;
+  final bool? isActive;
+  final bool? isAdminVerified;
+  final bool? isDeleted;
+  final DistributorLocation? addressFromGoogle;
+  // Shop location — may be added by backend later; kept nullable
+  final DistributorLocation? shopLocation;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final int? v;
+
+  Wholesaler({
+    this.id,
+    this.name,
+    this.contacts,
+    this.address,
+    this.pic,
+    this.zone,
+    this.town,
+    this.isActive,
+    this.isAdminVerified,
+    this.isDeleted,
+    this.addressFromGoogle,
+    this.shopLocation,
+    this.createdAt,
+    this.updatedAt,
+    this.v,
+  });
+
+  factory Wholesaler.fromJson(Map<String, dynamic> json) => Wholesaler(
+    id: json["_id"] ?? json["id"],
+    name: json["name"],
+    contacts: json["contacts"],
+    address: json["address"],
+    pic: json["pic"],
+    zone: json["zone"] == null
+        ? null
+        : (json["zone"] is String
+        ? DistributorRef(id: json["zone"])
+        : DistributorRef.fromJson(json["zone"])),
+    town: json["town"] == null
+        ? null
+        : (json["town"] is String
+        ? DistributorRef(id: json["town"])
+        : DistributorRef.fromJson(json["town"])),
+    isActive: json["isActive"],
+    isAdminVerified: json["isAdminVerified"],
+    isDeleted: json["isDeleted"],
+    addressFromGoogle: json["addressFromGoogle"] == null || json["addressFromGoogle"] is! Map
+        ? null
+        : DistributorLocation.fromJson(json["addressFromGoogle"]),
+    shopLocation: json["shopLocation"] == null
+        ? null
+        : DistributorLocation.fromJson(json["shopLocation"]),
+    createdAt: json["createdAt"] == null
+        ? null
+        : DateTime.parse(json["createdAt"]),
+    updatedAt: json["updatedAt"] == null
+        ? null
+        : DateTime.parse(json["updatedAt"]),
+    v: json["__v"],
+  );
+
+  Map<String, dynamic> toJson() => {
+    "_id": id,
+    "name": name,
+    "contacts": contacts,
+    "address": address,
+    "pic": pic,
+    "zone": zone?.toJson(),
+    "town": town?.toJson(),
+    "isActive": isActive,
+    "isAdminVerified": isAdminVerified,
+    "isDeleted": isDeleted,
+    "addressFromGoogle": addressFromGoogle?.toJson(),
+    "shopLocation": shopLocation?.toJson(),
+    "createdAt": createdAt?.toIso8601String(),
+    "updatedAt": updatedAt?.toIso8601String(),
+    "__v": v,
+  };
+
+  Wholesaler copyWith({DistributorLocation? shopLocation, DistributorLocation? addressFromGoogle}) => Wholesaler(
+    id: id,
+    name: name,
+    contacts: contacts,
+    address: address,
+    pic: pic,
+    zone: zone,
+    town: town,
+    isActive: isActive,
+    isAdminVerified: isAdminVerified,
+    isDeleted: isDeleted,
+    addressFromGoogle: addressFromGoogle ?? this.addressFromGoogle,
+    shopLocation: shopLocation ?? this.shopLocation,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    v: v,
+  );
 }

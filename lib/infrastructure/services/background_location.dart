@@ -104,9 +104,11 @@ class BackgroundLocationService {
               return;
             }
 
-            final userId = prefs.getString('userId');
-            if (userId == null) {
-              debugPrint("⚠️ No userId found");
+            // FIX: fall back to 'salesUserId' so TSM/orderBooker users
+            // whose id is stored under a different prefs key are found.
+            final userId = (prefs.getString('userId') ?? '').trim();
+            if (userId.isEmpty) {
+              debugPrint("⚠️ No userId found in prefs — location ping skipped");
               return;
             }
 
@@ -118,8 +120,6 @@ class BackgroundLocationService {
               await _updateFirebase(userId, position);
 
               log("📍 Background Firebase update #$updateCount: ${position.latitude}, ${position.longitude}");
-
-              // ✅ NO NOTIFICATION UPDATES - Keep it silent
             }
           }
         }
@@ -128,7 +128,7 @@ class BackgroundLocationService {
       }
     });
 
-    // API: Send coordinates every 4 minutes
+    // API: Send coordinates every 3 minutes
     Timer.periodic(const Duration(minutes: 3), (timer) async {
       try {
         if (service is AndroidServiceInstance) {
@@ -140,8 +140,8 @@ class BackgroundLocationService {
               return;
             }
 
-            final userId = prefs.getString('userId');
-            if (userId == null) return;
+            final userId = (prefs.getString('userId') ?? '').trim();
+            if (userId.isEmpty) return;
 
             final position = await _getCurrentPosition();
             if (position != null) {
@@ -228,7 +228,10 @@ class BackgroundLocationService {
     }
   }
 
-  // Start the background service
+  // ── Start the background service ──────────────────────────────────────────
+  // Call this at check-in time, passing the logged-in user's id.
+  // The id is persisted to SharedPreferences so the background isolate
+  // (which has no Provider access) can read it on every tick.
   static Future<void> startTracking(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -248,7 +251,7 @@ class BackgroundLocationService {
     }
   }
 
-  // Stop the background service
+  // ── Stop the background service ───────────────────────────────────────────
   static Future<void> stopTracking() async {
     try {
       final service = FlutterBackgroundService();

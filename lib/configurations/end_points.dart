@@ -18,6 +18,7 @@ class ApiEndPoints {
   static const String kGetOrders = "order/sale-person/status/";
   static const String kUpdateOrderStatus = "order/updatestatus/";
   static const String kAddOrder = "order/add";
+  static const String kGetDrafts = "order/tsm/";  // + tsmId + "/drafts"
 
   static const String kGetBrands = "brand/category/";
   static const String kGetAllBrands = "brand";

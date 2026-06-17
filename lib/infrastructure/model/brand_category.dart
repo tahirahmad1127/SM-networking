@@ -1,3 +1,4 @@
+// lib/infrastructure/model/brand_category.dart
 import 'dart:convert';
 
 class BrandCategoryListingModel {
@@ -22,8 +23,14 @@ class BrandCategoryModel {
   final String? englishName;
   final String? categoryId;
   final BrandRef? brand;
-  /// All brand IDs this category belongs to (new backend format).
+
+  /// All brand IDs this category belongs to.
+  /// The backend returns "brand" as either:
+  ///   - a List<String> of IDs  (new format)
+  ///   - a plain String ID      (old format)
+  ///   - a Map { "_id": ... }   (populated object)
   final List<String> brandIds;
+
   final bool? isDeleted;
   final bool? isActive;
   final bool? adminVerified;
@@ -44,29 +51,30 @@ class BrandCategoryModel {
     this.updatedAt,
   });
 
-  /// "brand" can now be:
-  ///   - a List<dynamic> of brand ID strings  ← new backend format
-  ///   - a plain String (single brand ID)
-  ///   - a Map { "_id": ..., "englishName": ... }
-  /// We only need one ID for filtering so we take the first element.
-  /// Extracts all brand IDs from the brand field (handles String, List, Map).
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Extract all brand IDs from whatever shape "brand" comes in.
   static List<String> _parseBrandIds(dynamic value) {
     if (value == null) return [];
     if (value is String) return [value];
     if (value is Map) {
-      final id = value['_id']?.toString() ?? value['id']?.toString();
-      return id != null ? [id] : [];
+      final id = value['_id']?.toString() ?? '';
+      return id.isNotEmpty ? [id] : [];
     }
     if (value is List) {
-      return value.map((e) {
+      return value
+          .map<String>((e) {
         if (e is String) return e;
-        if (e is Map) return e['_id']?.toString() ?? e['id']?.toString() ?? '';
+        if (e is Map) return e['_id']?.toString() ?? '';
         return '';
-      }).where((s) => s.isNotEmpty).toList();
+      })
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     return [];
   }
 
+  /// Extract the first BrandRef for backward compat.
   static BrandRef? _parseBrandRef(dynamic value) {
     if (value == null) return null;
     if (value is String) return BrandRef(id: value);

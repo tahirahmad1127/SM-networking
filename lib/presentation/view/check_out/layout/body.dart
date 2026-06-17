@@ -26,6 +26,7 @@ import '../../../../infrastructure/model/visit.dart';
 import '../../../../injection_container.dart';
 import '../../../elements/app_button.dart';
 import '../../../elements/custom_text.dart';
+import '../../../elements/draft_saved_view.dart';
 import '../../../elements/my_logger.dart';
 import '../../order/order_placed_view.dart';
 import 'widgets/items_card.dart';
@@ -84,7 +85,14 @@ class _CheckOutBodyState extends State<CheckOutBody> {
         listeners: [
           BlocListener<OrderBloc, OrderState>(
             listener: (context, state) {
-              if (state is OrderCreated) {
+              if (state is DraftCreated) {
+                cart.emptyCart();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DraftSavedView()),
+                      (route) => false,
+                );
+              } else if (state is OrderCreated) {
                 cart.emptyCart();
                 Navigator.push(
                   context,
@@ -621,217 +629,301 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             ),
                             const SizedBox(height: 45),
 
-                            AppButton(
-                              onPressed: () async {
-                                final visitProvider =
-                                Provider.of<VisitProvider>(context,
-                                    listen: false);
-
-                                if (visitProvider.isVisitAutoLogged) {
-                                  getFlushBar(context,
-                                      title:
-                                      "Cannot place order. You moved away from the location.");
-                                  return;
-                                }
-
-                                if (retailer.getRetailer() == null) {
-                                  getFlushBar(context,
-                                      title:
-                                      "Kindly select retailer in order to proceed.");
-                                  return;
-                                }
-
-                                // ── reverse geocode from retailer lat/lng ──
-                                String shippingAddress = _resolveShippingAddress(
-                                    retailer.getRetailer()!);
-                                final rLat = retailer.getRetailer()!.lat;
-                                final rLng = retailer.getRetailer()!.lng;
-                                if (rLat != null && rLng != null) {
-                                  try {
-                                    final placemarks = await placemarkFromCoordinates(
-                                        rLat.toDouble(), rLng.toDouble());
-                                    if (placemarks.isNotEmpty) {
-                                      final p = placemarks.first;
-                                      final parts = [
-                                        p.name,
-                                        p.street,
-                                        p.subLocality,
-                                        p.locality,
-                                        p.administrativeArea,
-                                      ].where((s) => s != null && s.isNotEmpty).toList();
-                                      final geocoded = parts.join(', ');
-                                      if (geocoded.isNotEmpty) shippingAddress = geocoded;
-                                      log("📍 Geocoded shipping address: $shippingAddress");
-                                    }
-                                  } catch (e) {
-                                    log("⚠️ Geocoding failed, using fallback: $e");
-                                  }
-                                }
-
-                                final userDetails =
-                                user.getSalesUserDetails()!.user!;
-                                final selectedRetailer =
-                                retailer.getRetailer()!;
-                                final locationProvider =
-                                Provider.of<LocationProvider>(context,
-                                    listen: false);
-
-                                final startVisit =
-                                await visitProvider.getStartVisit();
-                                final visitLocation =
-                                    visitProvider.visitLocation;
-
-                                if (startVisit != null &&
-                                    visitLocation != null) {
-                                  if (visitProvider.isNewShop) {
-                                    AppLogger.debug(
-                                        "🏪 New shop - logging visit without distance check");
-
-                                    final visit = VisitModel(
-                                        retailerId: selectedRetailer.id
-                                            .toString(),
-                                        salesPersonId:
-                                        userDetails.id.toString(),
-                                        shopName: selectedRetailer.shopName ?? '',
-                                        retailerEmail: '',
-                                        retailerImage: selectedRetailer.image ?? '',
-                                        startTime: startVisit
-                                            ?.toIso8601String(),
-                                        endTime: DateTime.now()
-                                            .toIso8601String(),
-                                        date: DateTime.now()
-                                            .toString()
-                                            .split(' ')[0],
-                                        image: "");
-
-                                    context
-                                        .read<VisitBloc>()
-                                        .add(AddVisitEvent(visit));
-                                  } else {
-                                    final currentLocation =
-                                    locationProvider.getLatLng();
-
-                                    if (currentLocation == null) {
-                                      getFlushBar(context,
-                                          title:
-                                          "Current location not available");
-                                      return;
-                                    }
-
-                                    final hasMovedAway = visitProvider
-                                        .hasMovedBeyondThreshold(
-                                        currentLocation,
-                                        thresholdMeters: 20);
-
-                                    final visit = VisitModel(
-                                        retailerId: selectedRetailer.id
-                                            .toString(),
-                                        salesPersonId:
-                                        userDetails.id.toString(),
-                                        shopName: selectedRetailer.shopName ?? '',
-                                        retailerEmail: '',
-                                        retailerImage: selectedRetailer.image ?? '',
-                                        startTime: startVisit
-                                            ?.toIso8601String(),
-                                        endTime: DateTime.now()
-                                            .toIso8601String(),
-                                        date: DateTime.now()
-                                            .toString()
-                                            .split(' ')[0],
-                                        image: visitProvider.visitImage ?? "");
-
-                                    if (hasMovedAway) {
-                                      context
-                                          .read<VisitBloc>()
-                                          .add(AddVisitEvent(visit));
-                                      await visitProvider.clearVisitData();
-                                      getFlushBar(context,
-                                          title:
-                                          "Visit logged. You moved away from the location. Order not placed.");
-                                      Navigator.pop(context);
-                                      return;
-                                    }
-
-                                    context
-                                        .read<VisitBloc>()
-                                        .add(AddVisitEvent(visit));
-                                  }
-                                }
-
-                                final couponCode = cart.hasCouponApplied() &&
-                                    couponController.text.trim().isNotEmpty
-                                    ? couponController.text.trim()
-                                    : "";
-
-                                BlocProvider.of<OrderBloc>(context).add(
-                                    CreateOrderEvent(CreateOrderModel(
-                                      retailerUser: selectedRetailer.id.toString(),
-                                      saleUser: userDetails.id.toString(),
-                                      phoneNumber: (selectedRetailer.phoneNumber ==
-                                          null ||
-                                          selectedRetailer.phoneNumber!.isEmpty)
-                                          ? "N/A"
-                                          : selectedRetailer.phoneNumber!,
-                                      city: userDetails.zone.toString(),
-                                      paymentType: "cod",
-                                      couponCode: couponCode,
-                                      shippingAddress: shippingAddress, // ← FIXED
-                                      bulkDiscount:
-                                      cart.getTotalBulkDiscount() > 0
-                                          ? cart
-                                          .getTotalBulkDiscount()
-                                          .toDouble()
-                                          : null,
-                                      couponDiscount: cart.hasCouponApplied()
-                                          ? cart
-                                          .getTotalCouponDiscount()
-                                          .toDouble()
-                                          : null,
-                                      items: cart.cartItems.map((e) {
-                                        final totalFinalPrice =
-                                        cart.calculateItemFinalPrice(e);
-                                        final totalOriginalPrice =
-                                        cart.getItemOriginalPrice(e);
-
-                                        num finalPiecePrice;
-                                        num originalPiecePrice;
-
-                                        if (e.type.toLowerCase() == "ctn") {
-                                          int cartonSize =
-                                              e.productDetails.cortanSize ?? 1;
-                                          int totalPieces =
-                                              e.quantity * cartonSize;
-                                          finalPiecePrice =
-                                              totalFinalPrice / totalPieces;
-                                          originalPiecePrice =
-                                              totalOriginalPrice / totalPieces;
-                                        } else {
-                                          finalPiecePrice =
-                                              totalFinalPrice / e.quantity;
-                                          originalPiecePrice =
-                                              totalOriginalPrice / e.quantity;
+                            // ── Two action buttons: Add to Drafts + Place Order ──
+                            Row(
+                              children: [
+                                // Add to Drafts
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: OutlinedButton(
+                                      onPressed: () async {
+                                        if (retailer.getRetailer() == null) {
+                                          getFlushBar(context,
+                                              title: "Kindly select retailer in order to proceed.");
+                                          return;
                                         }
+                                        final selectedRetailer = retailer.getRetailer()!;
+                                        final userDetails = user.getSalesUserDetails()!.user!;
+                                        final shippingAddress = _resolveShippingAddress(selectedRetailer);
 
-                                        return OrderItem(
-                                          productId: e.productDetails.id,
-                                          quantity: e.quantity,
-                                          cartonSize:
-                                          e.productDetails.cortanSize,
-                                          type: e.type,
-                                          price: originalPiecePrice.round(),
-                                          discountedPrice:
-                                          finalPiecePrice.round(),
+                                        BlocProvider.of<OrderBloc>(context).add(
+                                          CreateDraftEvent(CreateOrderModel(
+                                            retailerUser: selectedRetailer.id.toString(),
+                                            saleUser: userDetails.id.toString(),
+                                            phoneNumber: (selectedRetailer.phoneNumber == null ||
+                                                selectedRetailer.phoneNumber!.isEmpty)
+                                                ? "N/A"
+                                                : selectedRetailer.phoneNumber!,
+                                            city: userDetails.zone.toString(),
+                                            paymentType: "cod",
+                                            couponCode: couponController.text.trim(),
+                                            shippingAddress: shippingAddress,
+                                            status: "Draft",
+                                            bulkDiscount: cart.getTotalBulkDiscount() > 0
+                                                ? cart.getTotalBulkDiscount().toDouble()
+                                                : null,
+                                            couponDiscount: cart.hasCouponApplied()
+                                                ? cart.getTotalCouponDiscount().toDouble()
+                                                : null,
+                                            items: cart.cartItems.map((e) {
+                                              final totalFinalPrice = cart.calculateItemFinalPrice(e);
+                                              final totalOriginalPrice = cart.getItemOriginalPrice(e);
+                                              num finalPiecePrice;
+                                              num originalPiecePrice;
+                                              if (e.type.toLowerCase() == "ctn") {
+                                                int cartonSize = e.productDetails.cortanSize ?? 1;
+                                                int totalPieces = e.quantity * cartonSize;
+                                                finalPiecePrice = totalFinalPrice / totalPieces;
+                                                originalPiecePrice = totalOriginalPrice / totalPieces;
+                                              } else {
+                                                finalPiecePrice = totalFinalPrice / e.quantity;
+                                                originalPiecePrice = totalOriginalPrice / e.quantity;
+                                              }
+                                              return OrderItem(
+                                                productId: e.productDetails.id,
+                                                quantity: e.quantity,
+                                                cartonSize: e.productDetails.cortanSize,
+                                                type: e.type,
+                                                price: originalPiecePrice.round(),
+                                                discountedPrice: finalPiecePrice.round(),
+                                              );
+                                            }).toList(),
+                                          )),
                                         );
-                                      }).toList(),
-                                    )));
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(color: FrontendConfigs.kPrimaryColor),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        "Add to Drafts",
+                                        style: TextStyle(
+                                          color: FrontendConfigs.kPrimaryColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Place Order
+                                Expanded(
+                                  child: AppButton(
+                                    onPressed: () async {
+                                      final visitProvider =
+                                      Provider.of<VisitProvider>(context,
+                                          listen: false);
 
-                                await visitProvider.clearVisitData();
-                              },
-                              btnLabel:
-                              TranslationHelper.getTranslatedText(
-                                  'place_order'),
-                              btnColor: Colors.black,
-                              height: 48,
+                                      if (visitProvider.isVisitAutoLogged) {
+                                        getFlushBar(context,
+                                            title:
+                                            "Cannot place order. You moved away from the location.");
+                                        return;
+                                      }
+
+                                      if (retailer.getRetailer() == null) {
+                                        getFlushBar(context,
+                                            title:
+                                            "Kindly select retailer in order to proceed.");
+                                        return;
+                                      }
+
+                                      // ── reverse geocode from retailer lat/lng ──
+                                      String shippingAddress = _resolveShippingAddress(
+                                          retailer.getRetailer()!);
+                                      final rLat = retailer.getRetailer()!.lat;
+                                      final rLng = retailer.getRetailer()!.lng;
+                                      if (rLat != null && rLng != null) {
+                                        try {
+                                          final placemarks = await placemarkFromCoordinates(
+                                              rLat.toDouble(), rLng.toDouble());
+                                          if (placemarks.isNotEmpty) {
+                                            final p = placemarks.first;
+                                            final parts = [
+                                              p.name,
+                                              p.street,
+                                              p.subLocality,
+                                              p.locality,
+                                              p.administrativeArea,
+                                            ].where((s) => s != null && s.isNotEmpty).toList();
+                                            final geocoded = parts.join(', ');
+                                            if (geocoded.isNotEmpty) shippingAddress = geocoded;
+                                            log("📍 Geocoded shipping address: $shippingAddress");
+                                          }
+                                        } catch (e) {
+                                          log("⚠️ Geocoding failed, using fallback: $e");
+                                        }
+                                      }
+
+                                      final userDetails =
+                                      user.getSalesUserDetails()!.user!;
+                                      final selectedRetailer =
+                                      retailer.getRetailer()!;
+                                      final locationProvider =
+                                      Provider.of<LocationProvider>(context,
+                                          listen: false);
+
+                                      final startVisit =
+                                      await visitProvider.getStartVisit();
+                                      final visitLocation =
+                                          visitProvider.visitLocation;
+
+                                      if (startVisit != null &&
+                                          visitLocation != null) {
+                                        if (visitProvider.isNewShop) {
+                                          AppLogger.debug(
+                                              "🏪 New shop - logging visit without distance check");
+
+                                          final visit = VisitModel(
+                                              retailerId: selectedRetailer.id
+                                                  .toString(),
+                                              salesPersonId:
+                                              userDetails.id.toString(),
+                                              shopName: selectedRetailer.shopName ?? '',
+                                              retailerEmail: '',
+                                              retailerImage: selectedRetailer.image ?? '',
+                                              startTime: startVisit
+                                                  ?.toIso8601String(),
+                                              endTime: DateTime.now()
+                                                  .toIso8601String(),
+                                              date: DateTime.now()
+                                                  .toString()
+                                                  .split(' ')[0],
+                                              image: "");
+
+                                          context
+                                              .read<VisitBloc>()
+                                              .add(AddVisitEvent(visit));
+                                        } else {
+                                          final currentLocation =
+                                          locationProvider.getLatLng();
+
+                                          if (currentLocation == null) {
+                                            getFlushBar(context,
+                                                title:
+                                                "Current location not available");
+                                            return;
+                                          }
+
+                                          final hasMovedAway = visitProvider
+                                              .hasMovedBeyondThreshold(
+                                              currentLocation,
+                                              thresholdMeters: 20);
+
+                                          final visit = VisitModel(
+                                              retailerId: selectedRetailer.id
+                                                  .toString(),
+                                              salesPersonId:
+                                              userDetails.id.toString(),
+                                              shopName: selectedRetailer.shopName ?? '',
+                                              retailerEmail: '',
+                                              retailerImage: selectedRetailer.image ?? '',
+                                              startTime: startVisit
+                                                  ?.toIso8601String(),
+                                              endTime: DateTime.now()
+                                                  .toIso8601String(),
+                                              date: DateTime.now()
+                                                  .toString()
+                                                  .split(' ')[0],
+                                              image: visitProvider.visitImage ?? "");
+
+                                          if (hasMovedAway) {
+                                            context
+                                                .read<VisitBloc>()
+                                                .add(AddVisitEvent(visit));
+                                            await visitProvider.clearVisitData();
+                                            getFlushBar(context,
+                                                title:
+                                                "Visit logged. You moved away from the location. Order not placed.");
+                                            Navigator.pop(context);
+                                            return;
+                                          }
+
+                                          context
+                                              .read<VisitBloc>()
+                                              .add(AddVisitEvent(visit));
+                                        }
+                                      }
+
+                                      final couponCode = cart.hasCouponApplied() &&
+                                          couponController.text.trim().isNotEmpty
+                                          ? couponController.text.trim()
+                                          : "";
+
+                                      BlocProvider.of<OrderBloc>(context).add(
+                                          CreateOrderEvent(CreateOrderModel(
+                                            retailerUser: selectedRetailer.id.toString(),
+                                            saleUser: userDetails.id.toString(),
+                                            phoneNumber: (selectedRetailer.phoneNumber ==
+                                                null ||
+                                                selectedRetailer.phoneNumber!.isEmpty)
+                                                ? "N/A"
+                                                : selectedRetailer.phoneNumber!,
+                                            city: userDetails.zone.toString(),
+                                            paymentType: "cod",
+                                            couponCode: couponCode,
+                                            shippingAddress: shippingAddress,
+                                            bulkDiscount:
+                                            cart.getTotalBulkDiscount() > 0
+                                                ? cart
+                                                .getTotalBulkDiscount()
+                                                .toDouble()
+                                                : null,
+                                            couponDiscount: cart.hasCouponApplied()
+                                                ? cart
+                                                .getTotalCouponDiscount()
+                                                .toDouble()
+                                                : null,
+                                            items: cart.cartItems.map((e) {
+                                              final totalFinalPrice =
+                                              cart.calculateItemFinalPrice(e);
+                                              final totalOriginalPrice =
+                                              cart.getItemOriginalPrice(e);
+
+                                              num finalPiecePrice;
+                                              num originalPiecePrice;
+
+                                              if (e.type.toLowerCase() == "ctn") {
+                                                int cartonSize =
+                                                    e.productDetails.cortanSize ?? 1;
+                                                int totalPieces =
+                                                    e.quantity * cartonSize;
+                                                finalPiecePrice =
+                                                    totalFinalPrice / totalPieces;
+                                                originalPiecePrice =
+                                                    totalOriginalPrice / totalPieces;
+                                              } else {
+                                                finalPiecePrice =
+                                                    totalFinalPrice / e.quantity;
+                                                originalPiecePrice =
+                                                    totalOriginalPrice / e.quantity;
+                                              }
+
+                                              return OrderItem(
+                                                productId: e.productDetails.id,
+                                                quantity: e.quantity,
+                                                cartonSize:
+                                                e.productDetails.cortanSize,
+                                                type: e.type,
+                                                price: originalPiecePrice.round(),
+                                                discountedPrice:
+                                                finalPiecePrice.round(),
+                                              );
+                                            }).toList(),
+                                          )));
+
+                                      await visitProvider.clearVisitData();
+                                    },
+                                    btnLabel: TranslationHelper.getTranslatedText('place_order'),
+                                    btnColor: Colors.black,
+                                    height: 48,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 24),
                           ],

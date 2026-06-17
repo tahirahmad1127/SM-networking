@@ -19,6 +19,7 @@ class CreateOrderModel {
   final List<OrderItem>? items;
   final double? bulkDiscount;
   final double? couponDiscount;
+  final String? status; // null = normal order, 'Draft' = draft
 
   CreateOrderModel({
     this.retailerUser,
@@ -31,6 +32,7 @@ class CreateOrderModel {
     this.items,
     this.bulkDiscount,      // New parameter
     this.couponDiscount,    // New parameter
+    this.status,
   });
 
   factory CreateOrderModel.fromJson(Map<String, dynamic> json) => CreateOrderModel(
@@ -57,6 +59,8 @@ class CreateOrderModel {
       "shippingAddress": shippingAddress,
       "items": items == null ? [] : List<dynamic>.from(items!.map((x) => x.toJson())),
     };
+
+    if (status != null) map["status"] = status;
 
     // Only add discount fields if they have values > 0
     if (bulkDiscount != null && bulkDiscount! > 0) {

@@ -159,8 +159,16 @@ class _CategoryListingViewState extends State<CategoryListingView> {
                       itemBuilder: (context, i) {
                         final brand = brands[i];
                         return InkWell(
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // Pause location monitoring while on brand page —
+                            // prevents VisitProvider.notifyListeners() from
+                            // rebuilding this screen and re-triggering initState
+                            // on BrandCategoriesBody.
+                            final visitProvider = Provider.of<VisitProvider>(
+                                context, listen: false);
+                            visitProvider.stopLocationMonitoring();
+
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => BrandCategoriesView(
@@ -169,6 +177,11 @@ class _CategoryListingViewState extends State<CategoryListingView> {
                                 ),
                               ),
                             );
+
+                            // Resume monitoring when user returns
+                            if (mounted) {
+                              visitProvider.resumeLocationMonitoring();
+                            }
                           },
                           child: Column(
                             children: [

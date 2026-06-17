@@ -24,6 +24,8 @@ class VisitProvider extends ChangeNotifier {
 
   Timer? _locationCheckTimer;
   Function(String message)? onVisitAutoLogged;
+  // Stored so we can pause/resume monitoring without re-passing the callback
+  Future<void> Function()? _lastLocationCheckCallback;
 
   DateTime? get startVisit => _startVisit;
   LatLng? get visitLocation => _visitLocation;
@@ -94,6 +96,7 @@ class VisitProvider extends ChangeNotifier {
   /// Start periodic location checking (every 5 seconds)
   /// ✅ FIXED: Now properly awaits async callback
   void startLocationMonitoring(Future<void> Function() onLocationCheckCallback) {
+    _lastLocationCheckCallback = onLocationCheckCallback;
     // Don't start monitoring for new shops
     if (_isNewShop) {
       AppLogger.debug("🏪 New shop visit - monitoring disabled");
@@ -230,6 +233,18 @@ class VisitProvider extends ChangeNotifier {
       notifyListeners();
     } else {
       AppLogger.debug("✅ User still within threshold (${distance.toStringAsFixed(2)}m < ${effectiveThreshold.toStringAsFixed(2)}m)");
+    }
+  }
+
+  /// Resume monitoring using the last stored callback (call after returning from sub-screen)
+  void resumeLocationMonitoring() {
+    if (_lastLocationCheckCallback != null &&
+        _startVisit != null &&
+        _visitLocation != null &&
+        !_visitAutoLogged &&
+        !_isCleared &&
+        !_isNewShop) {
+      startLocationMonitoring(_lastLocationCheckCallback!);
     }
   }
 

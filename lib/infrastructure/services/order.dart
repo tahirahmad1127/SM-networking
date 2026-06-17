@@ -17,6 +17,8 @@ abstract class OrderRepository {
   Future<Either<GlobalErrorModel, dynamic>> createOrder(CreateOrderModel model);
 
   Future<Either<GlobalErrorModel, dynamic>> cancelOrder(String orderID);
+  Future<Either<GlobalErrorModel, dynamic>> createDraft(CreateOrderModel model);
+  Future<Either<GlobalErrorModel, OrderListingModel>> getDrafts(String tsmId);
 
   Future<Either<GlobalErrorModel, OrderListingModel>> getPendingOrders(
       String userID);
@@ -175,6 +177,54 @@ class OrderRepositoryImp extends OrderRepository {
     }, (r) {
       log(r['data'].toString());
       return Right(r);
+    });
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, dynamic>> createDraft(CreateOrderModel model) async {
+    var data = await ApiBaseHelper().postEither(
+        endPoint: ApiEndPoints.kAddOrder,
+        isRequiredHeader: true,
+        hasBody: true,
+        body: {
+          "warehouseManager": model.saleUser,         // TSM id — backend filters drafts by this
+          "salesPerson": model.retailerUser.toString(), // distributor/retailer id
+          "phoneNumber": model.phoneNumber,
+          "paymentType": model.paymentType,
+          "shippingAddress": model.shippingAddress,
+          "city": model.city.toString(),
+          "bulkDiscount": model.bulkDiscount ?? 0,
+          "couponDiscount": model.couponDiscount ?? 0,
+          "couponCode": model.couponCode,
+          "status": "Draft",
+          "items": model.items!.map((e) => e.toJson()).toList()
+        },
+        header: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        });
+    return data.fold((l) {
+      log(l.error.toString());
+      return Left(GlobalErrorModel(error: l.error.toString()));
+    }, (r) {
+      log(r['data'].toString());
+      return Right(r);
+    });
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, OrderListingModel>> getDrafts(String tsmId) async {
+    var data = await ApiBaseHelper().getEither(
+        endPoint: "${ApiEndPoints.kGetDrafts}$tsmId/drafts",
+        isRequiredHeader: true,
+        header: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        });
+    return data.fold((l) {
+      return Left(GlobalErrorModel(error: l.error.toString()));
+    }, (r) {
+      return Right(OrderListingModel.fromJson(r));
     });
   }
 

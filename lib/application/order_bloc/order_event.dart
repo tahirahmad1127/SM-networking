@@ -42,3 +42,8 @@ class CancelOrderEvent extends OrderEvent {
   final String orderID;
   const CancelOrderEvent(this.orderID);
 }
+
+class CreateDraftEvent extends OrderEvent {
+  final CreateOrderModel model;
+  const CreateDraftEvent(this.model);
+}

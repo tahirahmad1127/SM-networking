@@ -25,9 +25,11 @@ class OrderCreated extends OrderState {
 }
 
 class OrderCancelled extends OrderState {
-
-
   const OrderCancelled();
+}
+
+class DraftCreated extends OrderState {
+  const DraftCreated();
 }
 
 class OrderFailed extends OrderState {

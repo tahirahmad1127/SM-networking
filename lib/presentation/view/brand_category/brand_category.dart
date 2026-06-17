@@ -8,7 +8,7 @@ import '../../../infrastructure/model/all_brands.dart';
 import '../cart/cart_view.dart';
 import 'layout/body.dart';
 
-class BrandCategoriesView extends StatelessWidget {
+class BrandCategoriesView extends StatefulWidget {
   final AllBrandModel brand;
   final bool showCart;
 
@@ -19,13 +19,20 @@ class BrandCategoriesView extends StatelessWidget {
   });
 
   @override
+  State<BrandCategoriesView> createState() => _BrandCategoriesViewState();
+}
+
+class _BrandCategoriesViewState extends State<BrandCategoriesView> {
+  bool _showSearchBar = false;
+  final GlobalKey<BrandCategoriesBodyState> _bodyKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
-    var cart = Provider.of<CartProvider>(context);
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          brand.englishName ?? "Select Products",
+          widget.brand.englishName ?? "Select Products",
           style: FrontendConfigs.kTitleStyle,
         ),
         leading: IconButton(
@@ -33,18 +40,32 @@ class BrandCategoriesView extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          Badge(
-            isLabelVisible: cart.cartItems.isNotEmpty,
-            alignment: const AlignmentDirectional(0.5, -0.5),
-            label: Text(cart.cartItems.length.toString()),
-            child: IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CartView()),
-                );
-              },
-              icon: const Icon(CupertinoIcons.cart, color: Colors.black),
+          IconButton(
+            icon: Icon(
+              _showSearchBar ? Icons.search_off : Icons.search,
+              color: Colors.black,
+            ),
+            onPressed: () {
+              setState(() => _showSearchBar = !_showSearchBar);
+              // Notify body via its public state key
+              _bodyKey.currentState?.setSearchVisible(_showSearchBar);
+            },
+          ),
+          // Scope cart badge rebuilds with Consumer — does NOT rebuild body
+          Consumer<CartProvider>(
+            builder: (context, cart, _) => Badge(
+              isLabelVisible: cart.cartItems.isNotEmpty,
+              alignment: const AlignmentDirectional(0.5, -0.5),
+              label: Text(cart.cartItems.length.toString()),
+              child: IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CartView()),
+                  );
+                },
+                icon: const Icon(CupertinoIcons.cart, color: Colors.black),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -52,7 +73,13 @@ class BrandCategoriesView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: BrandCategoriesBody(brand: brand, showCart: showCart),
+      // body stays the same widget instance — no initState re-trigger
+      body: BrandCategoriesBody(
+        key: _bodyKey,
+        brand: widget.brand,
+        showCart: widget.showCart,
+        showSearchBar: _showSearchBar,
+      ),
     );
   }
 }

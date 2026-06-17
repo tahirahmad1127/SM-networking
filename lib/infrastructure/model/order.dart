@@ -22,7 +22,7 @@ class OrderListingModel {
   factory OrderListingModel.fromJson(Map<String, dynamic> json) => OrderListingModel(
     msg: json["msg"],
     data: json["data"] == null ? [] : List<OrderModel>.from(json["data"]!.map((x) => OrderModel.fromJson(x))),
-    totalPages: json["totalPages"],
+    totalPages: json["totalPages"] == null ? null : (json["totalPages"] as num).toInt(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -40,7 +40,7 @@ class OrderModel {
   final String? phoneNumber;
   final String? expectedDelivery;
   final List<Item>? items;
-  final int? total;
+  final num? total;
   final List<Status>? statuses;
   final String? paymentType;
   final String? status;
@@ -75,13 +75,25 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
     id: json["_id"],
-    warehouseManager: json["warehouseManager"] == null ? null : RetailerUser.fromJson(json["warehouseManager"]),
-    salesPerson: json["salesPerson"] == null ? null : SaleUser.fromJson(json["salesPerson"]),
+    warehouseManager: json["warehouseManager"] == null
+        ? null
+        : (json["warehouseManager"] is String
+        ? RetailerUser(id: json["warehouseManager"] as String)
+        : json["warehouseManager"] is Map<String, dynamic>
+        ? RetailerUser.fromJson(json["warehouseManager"] as Map<String, dynamic>)
+        : null),
+    salesPerson: json["salesPerson"] == null
+        ? null
+        : (json["salesPerson"] is String
+        ? SaleUser(id: json["salesPerson"] as String)
+        : json["salesPerson"] is Map<String, dynamic>
+        ? SaleUser.fromJson(json["salesPerson"] as Map<String, dynamic>)
+        : null),
     shippingAddress: json["shippingAddress"],
     phoneNumber: json["phoneNumber"],
     expectedDelivery: json["expectedDelivery"],
     items: json["items"] == null ? [] : List<Item>.from(json["items"]!.map((x) => Item.fromJson(x))),
-    total: json["total"],
+    total: json["total"] == null ? null : (json["total"] as num),
     statuses: json["statuses"] == null ? [] : List<Status>.from(json["statuses"]!.map((x) => Status.fromJson(x))),
     paymentType: json["paymentType"],
     status: json["status"],
@@ -134,10 +146,16 @@ class Item {
   });
 
   factory Item.fromJson(Map<String, dynamic> json) => Item(
-    productId: json["productId"] == null ? null : ProductId.fromJson(json["productId"]),
+    productId: json["productId"] == null
+        ? null
+        : (json["productId"] is String
+        ? ProductId(id: json["productId"] as String)
+        : json["productId"] is Map<String, dynamic>
+        ? ProductId.fromJson(json["productId"] as Map<String, dynamic>)
+        : null),
     quantity: json["quantity"],
-    price: json["price"],
-    discountedPrice: json["discountedPrice"],
+    price: json["price"] == null ? null : (json["price"] as num).round(),
+    discountedPrice: json["discountedPrice"] == null ? null : (json["discountedPrice"] as num).round(),
     id: json["_id"],
     type: json["type"],
   );
@@ -159,8 +177,8 @@ class ProductId {
   final String? image;
   final String? urduDescription;
   final String? englishDescription;
-  final int? price;
-  final int? stock;
+  final num? price;
+  final num? stock;
   final String? cityId;
   final String? brandId;
   final String? categoryId;
@@ -170,7 +188,7 @@ class ProductId {
   final bool? isDiscounted;
   final bool? isDeleted;
   final String? discountType;
-  final int? discount;
+  final num? discount;
   final bool? isActive;
   final bool? adminVerified;
   final DateTime? createdAt;
@@ -210,18 +228,18 @@ class ProductId {
     image: json["image"],
     urduDescription: json["urduDescription"],
     englishDescription: json["englishDescription"],
-    price: json["price"],
-    stock: json["stock"],
-    cityId: json["cityID"],
-    brandId: json["brandID"],
-    categoryId: json["categoryID"],
+    price: json["price"] == null ? null : (json["price"] as num),
+    stock: json["stock"] == null ? null : (json["stock"] as num),
+    cityId: json["cityID"] is String ? json["cityID"] : json["cityID"]?['_id'],
+    brandId: json["brand"] is String ? json["brand"] : json["brand"]?['_id'],
+    categoryId: json["category"] is String ? json["category"] : json["category"]?['_id'],
     includePacking: json["includePacking"],
     includeBulkOrder: json["includeBulkOrder"],
     bulkOrders: json["bulkOrders"] == null ? [] : List<dynamic>.from(json["bulkOrders"]!.map((x) => x)),
     isDiscounted: json["isDiscounted"],
     isDeleted: json["isDeleted"],
     discountType: json["discountType"],
-    discount: json["discount"],
+    discount: json["discount"] == null ? null : (json["discount"] as num),
     isActive: json["isActive"],
     adminVerified: json["adminVerified"],
     createdAt: json["createdAt"] == null ? null : DateTime.parse(json["createdAt"]),
@@ -309,22 +327,22 @@ class RetailerUser {
     docId: json["docId"],
     isDeleted: json["isDeleted"],
     id: json["_id"],
-    name: json["name"],
-    phoneNumber: json["phoneNumber"],
-    lat: json["lat"],
-    lng: json["lng"],
+    name: json["name"] ?? json["distributionName"],
+    phoneNumber: json["phoneNumber"] ?? json["contacts"],
+    lat: json["lat"] ?? json["addressFromGoogle"]?["lat"],
+    lng: json["lng"] ?? json["addressFromGoogle"]?["lng"],
     isVerified: json["isVerified"],
     isActive: json["isActive"],
     isUnderProcessed: json["isUnderProcessed"],
-    image: json["image"],
+    image: json["image"] ?? json["pic"],
     cnic: json["cnic"],
     cnicFront: json["cnicFront"],
     cnicBack: json["cnicBack"],
-    distance: json["distance"],
-    shopAddress1: json["shopAddress1"],
+    distance: json["distance"]?.toString(),
+    shopAddress1: json["shopAddress1"] ?? json["address"],
     shopAddress2: json["shopAddress2"],
     shopCategory: json["shopCategory"],
-    shopName: json["shopName"],
+    shopName: json["shopName"] ?? json["distributionName"],
     createdAt: json["createdAt"] == null ? null : DateTime.parse(json["createdAt"]),
     updatedAt: json["updatedAt"] == null ? null : DateTime.parse(json["updatedAt"]),
     v: json["__v"],

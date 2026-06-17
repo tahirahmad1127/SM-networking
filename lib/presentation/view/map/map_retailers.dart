@@ -1346,7 +1346,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                     },
                     child: const Text(
                       "Start Market Booking",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
                 ),

@@ -78,7 +78,7 @@ class OrderCard extends StatelessWidget {
                               ),
                               CustomText(
                                 text:
-                                "${model.total?.toStringAsFixed(0) ?? '0'} Rs",
+                                "${model.total?.toStringAsFixed(2) ?? '0'} Rs",
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: FrontendConfigs.kPrimaryColor,

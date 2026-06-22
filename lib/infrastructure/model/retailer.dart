@@ -114,7 +114,7 @@ class RetailerModel {
     cityId: json["cityID"] == null ? null : CityId.fromJson(json["cityID"]),
     docId: json["docId"],
     salesPersonId: json["salesPersonID"] == null ? null : SalesPersonId.fromJson(json["salesPersonID"]),
-    // customerType is set locally at navigation time, not from API
+    customerType: (json["customerType"] as String? ?? 'retailer').toLowerCase(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -142,6 +142,7 @@ class RetailerModel {
     "cityID": cityId?.toJson(),
     "docId": docId,
     "salesPersonID": salesPersonId?.toJson(),
+    "customerType": customerType,
   };
 
   RetailerModel copyWith({

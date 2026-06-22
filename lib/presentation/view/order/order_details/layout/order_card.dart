@@ -23,8 +23,8 @@ class OrderItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int originalPrice = model.price!;
-    final int discountedPrice = model.discountedPrice!;
+    final num originalPrice = model.price!;
+    final num discountedPrice = model.discountedPrice!;
     final bool hasDiscount = originalPrice != discountedPrice;
 
     // Expected delivery = order placement + 24 hours (Pending tab only)

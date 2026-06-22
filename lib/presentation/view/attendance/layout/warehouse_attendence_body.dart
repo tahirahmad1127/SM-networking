@@ -9,8 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:place_picker/entities/location_result.dart';
+import 'package:place_picker/widgets/place_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../application/attendance_bloc/attendance_bloc.dart';
 import '../../../../application/checkIn_provider.dart';
@@ -206,29 +209,34 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       getFlushBar(context, title: 'Session expired. Please log in again.');
       return;
     }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update Location'),
-        content: Text('Set current GPS as shop location for '
-            '${d.distributionName ?? d.name ?? "this distributor"}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Update')),
-        ],
+
+    final existingLat = d.shopLocation?.lat;
+    final existingLng = d.shopLocation?.lng;
+    final LatLng? previousLocation =
+    (existingLat != null && existingLng != null)
+        ? LatLng(existingLat, existingLng)
+        : null;
+
+    final LatLng? picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (_) => _UpdateDistributorLocationScreen(
+          title: d.distributionName ?? d.name ?? 'Distributor',
+          previousLocation: previousLocation,
+        ),
       ),
     );
-    if (confirm != true || !mounted) return;
+
+    if (picked == null || !mounted) return;
+
     try {
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      final result = await RetailerRepositoryImp().updateDistributorLocation(
-        distributorId: distId, lat: pos.latitude, lng: pos.longitude, token: token,
+      final res = await RetailerRepositoryImp().updateDistributorLocation(
+        distributorId: distId, lat: picked.latitude, lng: picked.longitude, token: token,
       );
       if (!mounted) return;
-      result.fold(
+      res.fold(
             (l) => getFlushBar(context, title: l.error.toString()),
             (_) {
-          userProv.patchDistributorShopLocation(distId, pos.latitude, pos.longitude);
+          userProv.patchDistributorShopLocation(distId, picked.latitude, picked.longitude);
           if (mounted) {
             getFlushBar(context, title: 'Location updated for ${d.distributionName ?? d.name ?? "distributor"}');
             setState(() {});
@@ -818,6 +826,166 @@ class _DistributorCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+// ── Update Distributor Location Screen ───────────────────────────────────────
+// Shown on long-press of a distributor card. Displays the previously saved
+// shop location (if any) on a map with a marker, lets the user open Google
+// Maps' place picker to choose a different location (search, tap, or drag —
+// not limited to current GPS position), offers a "Directions" FAB to get
+// turn-by-turn directions to whichever point is currently selected, and a
+// Save button to confirm and return the chosen LatLng to the caller.
+class _UpdateDistributorLocationScreen extends StatefulWidget {
+  final String title;
+  final LatLng? previousLocation;
+
+  const _UpdateDistributorLocationScreen({
+    required this.title,
+    this.previousLocation,
+  });
+
+  @override
+  State<_UpdateDistributorLocationScreen> createState() =>
+      _UpdateDistributorLocationScreenState();
+}
+
+class _UpdateDistributorLocationScreenState
+    extends State<_UpdateDistributorLocationScreen> {
+  static const String _apiKey = "AIzaSyAuJYLmzmglhCpBYTn0BjbJhjWYg0fPEEA";
+
+  LatLng? _selected;
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.previousLocation;
+  }
+
+  Set<Marker> get _markers => _selected == null
+      ? {}
+      : {
+    Marker(
+      markerId: const MarkerId('shop_location'),
+      position: _selected!,
+    ),
+  };
+
+  Future<void> _openPicker() async {
+    final LocationResult result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlacePicker(
+          _apiKey,
+          displayLocation: _selected,
+        ),
+      ),
+    );
+    if (result.latLng == null) return;
+    setState(() => _selected = result.latLng);
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _selected!, zoom: 16),
+      ),
+    );
+  }
+
+  Future<void> _openDirections() async {
+    final target = _selected;
+    if (target == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick a location first.')),
+      );
+      return;
+    }
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${target.latitude},${target.longitude}&travelmode=driving',
+    );
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps.')),
+        );
+      }
+    }
+  }
+
+  void _save() {
+    if (_selected == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick a location first.')),
+      );
+      return;
+    }
+    Navigator.of(context).pop(_selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Set location — ${widget.title}'),
+      ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            mapType: MapType.normal,
+            markers: _markers,
+            zoomControlsEnabled: false,
+            initialCameraPosition: CameraPosition(
+              target: _selected ?? const LatLng(33.6844, 73.0479), // fallback: Islamabad
+              zoom: _selected == null ? 5 : 16,
+            ),
+            onMapCreated: (controller) => _mapController = controller,
+          ),
+          Positioned(
+            bottom: 24,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _openPicker,
+                    icon: const Icon(Icons.edit_location_alt),
+                    label: const Text('Change Location'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D3142),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Save'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 76),
+        child: FloatingActionButton.extended(
+          onPressed: _openDirections,
+          backgroundColor: const Color(0xFF2D3142),
+          icon: const Icon(Icons.directions, color: Colors.white),
+          label: const Text(
+            'Directions',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
     );
   }
 }

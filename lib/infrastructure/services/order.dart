@@ -19,6 +19,7 @@ abstract class OrderRepository {
   Future<Either<GlobalErrorModel, dynamic>> cancelOrder(String orderID);
   Future<Either<GlobalErrorModel, dynamic>> createDraft(CreateOrderModel model);
   Future<Either<GlobalErrorModel, OrderListingModel>> getDrafts(String tsmId);
+  Future<Either<GlobalErrorModel, dynamic>> deleteDraft(String orderId);
 
   Future<Either<GlobalErrorModel, OrderListingModel>> getPendingOrders(
       String userID);
@@ -225,6 +226,23 @@ class OrderRepositoryImp extends OrderRepository {
       return Left(GlobalErrorModel(error: l.error.toString()));
     }, (r) {
       return Right(OrderListingModel.fromJson(r));
+    });
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, dynamic>> deleteDraft(String orderId) async {
+    var data = await ApiBaseHelper().deleteEither(
+        endPoint: ApiEndPoints.kDeleteOrder + orderId,
+        isRequiredHeader: true,
+        hasBody: false,
+        header: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        });
+    return data.fold((l) {
+      return Left(GlobalErrorModel(error: l.error.toString()));
+    }, (r) {
+      return Right(r);
     });
   }
 

@@ -68,6 +68,7 @@ class _RetailersViewState extends State<RetailersView>
   List<Wholesaler> searchRetailers = [];
   bool isWholesalerSearching = false;
   bool isRetailerSearching = false;
+  final Set<String> _updatingLocationIds = {};
 
   void _searchData(String val) async {
     searchUser.clear();
@@ -567,6 +568,7 @@ class _RetailersViewState extends State<RetailersView>
                   shopName: e.shopName,
                   cnicBack: e.cnicBack,
                   cnicFront: e.cnicFront,
+                  customerType: e.customerType.isNotEmpty ? e.customerType : 'retailer',
                   distance: calculateDistance(
                       start: myLocation!,
                       end: LatLng(e.lat!.toDouble(), e.lng!.toDouble())),
@@ -673,8 +675,44 @@ class _RetailersViewState extends State<RetailersView>
     if (!mounted) return;
     result.fold(
           (l) => getFlushBar(context, title: l.error.toString()),
-          (_) {
-        userProvider.patchWholesalerShopLocation(id, lat, lng);
+          (updated) {
+        userProvider.patchWholesalerShopLocation(id, lat, lng, address: updated.address);
+        setState(() {
+          currentLocation = LatLng(lat, lng);
+        });
+        getFlushBar(context, title: 'Location updated successfully');
+      },
+    );
+  }
+
+  Future<void> _commitRetailerLocationUpdate(
+      Wholesaler w, double lat, double lng) async {
+    final id = (w.id ?? '').trim();
+    if (id.isEmpty) {
+      if (mounted) {
+        getFlushBar(context, title: 'Missing retailer id');
+      }
+      return;
+    }
+    final userProvider = context.read<UserProvider>();
+    final token = userProvider.getSalesUserDetails()?.token ?? '';
+    if (token.isEmpty) {
+      if (mounted) {
+        getFlushBar(context, title: 'Session expired. Please log in again.');
+      }
+      return;
+    }
+    final result = await RetailerRepositoryImp().updateRetailerLocation(
+      retailerId: id,
+      lat: lat,
+      lng: lng,
+      token: token,
+    );
+    if (!mounted) return;
+    result.fold(
+          (l) => getFlushBar(context, title: l.error.toString()),
+          (updated) {
+        userProvider.patchRetailerShopLocation(id, lat, lng, address: updated.shopAddress1);
         setState(() {
           currentLocation = LatLng(lat, lng);
         });
@@ -1141,7 +1179,7 @@ class _RetailersViewState extends State<RetailersView>
                 children: [
                   // Update location to current position
                   InkWell(
-                    onTap: () async {
+                    onTap: _updatingLocationIds.contains(w.id) ? null : () async {
                       await _refreshCurrentLocation();
                       if (currentLocation == null) {
                         getFlushBar(context,
@@ -1155,6 +1193,7 @@ class _RetailersViewState extends State<RetailersView>
                         buttonText: "Update",
                         navigation: () async {
                           Navigator.of(context).pop();
+                          setState(() => _updatingLocationIds.add(w.id ?? ''));
                           try {
                             final pos = await Geolocator.getCurrentPosition(
                               desiredAccuracy: LocationAccuracy.high,
@@ -1164,12 +1203,19 @@ class _RetailersViewState extends State<RetailersView>
                               currentLocation =
                                   LatLng(pos.latitude, pos.longitude);
                             });
-                            await _commitWholesalerLocationUpdate(
-                                w, pos.latitude, pos.longitude);
+                            if (isRetailer) {
+                              await _commitRetailerLocationUpdate(
+                                  w, pos.latitude, pos.longitude);
+                            } else {
+                              await _commitWholesalerLocationUpdate(
+                                  w, pos.latitude, pos.longitude);
+                            }
                           } catch (e) {
                             if (mounted) {
                               getFlushBar(context, title: e.toString());
                             }
+                          } finally {
+                            if (mounted) setState(() => _updatingLocationIds.remove(w.id ?? ''));
                           }
                         },
                         secondButtonText: "Cancel",
@@ -1184,7 +1230,12 @@ class _RetailersViewState extends State<RetailersView>
                         borderRadius: BorderRadius.circular(8),
                         color: FrontendConfigs.kPrimaryColor,
                       ),
-                      child: const Icon(CupertinoIcons.location_solid,
+                      child: _updatingLocationIds.contains(w.id)
+                          ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                          : const Icon(CupertinoIcons.location_solid,
                           color: Colors.white, size: 18),
                     ),
                   ),
@@ -1333,6 +1384,7 @@ class _RetailersViewState extends State<RetailersView>
               },
             );
 
+            print('🔍 customerType before save: \${currentRetailer.customerType}');
             Provider.of<RetailerProvider>(context, listen: false)
                 .saveRetailer(currentRetailer);
 

@@ -1,11 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sm_networking/infrastructure/services/auth.dart';
+import 'package:sm_networking/infrastructure/services/attendance.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:sm_networking/application/user_provider.dart';
+import 'package:sm_networking/infrastructure/api_helper.dart';
+import 'package:sm_networking/configurations/end_points.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/checkIn_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
@@ -74,62 +83,87 @@ class _ProfileBodyState extends State<ProfileBody> {
                     child: Row(
                       children: [
                         InkWell(
-                          onTap: () async {},
-                          child: _image != null
-                              ? ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: Image.file(
-                              _image!,
-                              height: 55,
-                              width: 55,
-                              fit: BoxFit.fill,
-                            ),
-                          )
-                              : ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: ExtendedImage.network(
-                              user
-                                  .getSalesUserDetails()!
-                                  .user!
-                                  .image
-                                  .toString(),
-                              height: 55,
-                              width: 55,
-                              fit: BoxFit.fill,
-                              cache: true,
-                              loadStateChanged:
-                                  (ExtendedImageState state) {
-                                switch (
-                                state.extendedImageLoadState) {
-                                  case LoadState.loading:
-                                    return ClipRRect(
-                                      borderRadius:
-                                      BorderRadius.circular(100),
-                                      child: Image.asset(
-                                        "assets/images/ph.jpeg",
-                                        fit: BoxFit.fill,
-                                        height: 55,
-                                        width: 55,
-                                      ),
-                                    );
-                                  case LoadState.failed:
-                                    return ClipRRect(
-                                      borderRadius:
-                                      BorderRadius.circular(100),
-                                      child: Image.asset(
-                                        "assets/images/ph.jpeg",
-                                        fit: BoxFit.fill,
-                                        height: 55,
-                                        width: 55,
-                                      ),
-                                    );
-                                  default:
-                                    return state.completedWidget;
-                                }
-                              },
-                              borderRadius: const BorderRadius.all(
-                                  Radius.circular(30.0)),
-                            ),
+                          onTap: _showImagePickerBottomSheet,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _image != null
+                                  ? ClipRRect(
+                                borderRadius: BorderRadius.circular(100),
+                                child: Image.file(
+                                  _image!,
+                                  height: 55,
+                                  width: 55,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                                  : ClipRRect(
+                                borderRadius: BorderRadius.circular(100),
+                                child: ExtendedImage.network(
+                                  user
+                                      .getSalesUserDetails()!
+                                      .user!
+                                      .image
+                                      .toString(),
+                                  height: 55,
+                                  width: 55,
+                                  fit: BoxFit.fill,
+                                  cache: true,
+                                  loadStateChanged:
+                                      (ExtendedImageState state) {
+                                    switch (
+                                    state.extendedImageLoadState) {
+                                      case LoadState.loading:
+                                        return ClipRRect(
+                                          borderRadius:
+                                          BorderRadius.circular(100),
+                                          child: Image.asset(
+                                            "assets/images/ph.jpeg",
+                                            fit: BoxFit.fill,
+                                            height: 55,
+                                            width: 55,
+                                          ),
+                                        );
+                                      case LoadState.failed:
+                                        return ClipRRect(
+                                          borderRadius:
+                                          BorderRadius.circular(100),
+                                          child: Image.asset(
+                                            "assets/images/ph.jpeg",
+                                            fit: BoxFit.fill,
+                                            height: 55,
+                                            width: 55,
+                                          ),
+                                        );
+                                      default:
+                                        return state.completedWidget;
+                                    }
+                                  },
+                                  borderRadius: const BorderRadius.all(
+                                      Radius.circular(30.0)),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: FrontendConfigs.kPrimaryColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    CupertinoIcons.pencil,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -267,6 +301,34 @@ class _ProfileBodyState extends State<ProfileBody> {
                         message:
                         "Do you really want to logout from app?",
                         buttonText: "Yes", navigation: () async {
+                          final userDetails = context.mounted
+                              ? Provider.of<UserProvider>(context, listen: false)
+                              .getSalesUserDetails()
+                              : null;
+                          final userId = userDetails?.user?.id ?? '';
+
+                          // ── Step 1: close out today's open attendance record, if any ──
+                          try {
+                            final openAttendanceId = await _findOpenAttendanceId();
+                            if (openAttendanceId != null && openAttendanceId.isNotEmpty) {
+                              await AttendanceRepositoryImp().checkOut(
+                                openAttendanceId,
+                                {'checkOutTime': DateTime.now().toIso8601String()},
+                              );
+                            }
+                          } catch (_) {
+                            // Attendance checkout failure shouldn't block logout.
+                          }
+
+                          // ── Step 2: clear the device lock on the backend ──
+                          if (userId.isNotEmpty) {
+                            try {
+                              await AuthRepositoryImp().logout(userId: userId);
+                            } catch (_) {
+                              // Logout API failure shouldn't block local logout.
+                            }
+                          }
+
                           if (context.mounted) {
                             await Provider.of<CartProvider>(context,
                                 listen: false)
@@ -318,19 +380,210 @@ class _ProfileBodyState extends State<ProfileBody> {
     }
   }
 
-  Future getProfileImage() async {
-    ImagePicker picker = ImagePicker();
-    XFile? pickedFile;
-    pickedFile = await picker.pickImage(
-      imageQuality: 20,
-      source: ImageSource.gallery,
+  void _showImagePickerBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            CustomText(
+              text: "Update profile photo",
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color:
+                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(CupertinoIcons.camera,
+                    color: FrontendConfigs.kPrimaryColor),
+              ),
+              title: const Text('Camera',
+                  style:
+                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndEdit(source: ImageSource.camera);
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color:
+                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(CupertinoIcons.photo,
+                    color: FrontendConfigs.kPrimaryColor),
+              ),
+              title: const Text('Gallery',
+                  style:
+                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Choose from gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndEdit(source: ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
     );
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path);
-      } else {
-        print('No image selected.');
-      }
-    });
+  }
+
+  Future<void> _pickAndEdit({required ImageSource source}) async {
+    final picker = ImagePicker();
+    final pickedFile =
+    await picker.pickImage(imageQuality: 60, source: source);
+    if (pickedFile == null) return;
+    final bytes = await File(pickedFile.path).readAsBytes();
+    await _openProEditor(bytes);
+  }
+
+  Future<void> _openProEditor(Uint8List bytes) async {
+    Uint8List? result;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProImageEditor.memory(
+          bytes,
+          callbacks: ProImageEditorCallbacks(
+            onImageEditingComplete: (Uint8List edited) async {
+              result = edited;
+              Navigator.pop(context);
+            },
+          ),
+          configs: const ProImageEditorConfigs(),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      final dir = Directory.systemTemp;
+      final path =
+          '${dir.path}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final compressed = await FlutterImageCompress.compressWithList(
+        result!,
+        quality: 50,
+        format: CompressFormat.jpeg,
+      );
+      final saved = await File(path).writeAsBytes(compressed);
+      setState(() {
+        _image = saved;
+      });
+      await _uploadProfilePicture(saved);
+    }
+  }
+
+  Future<void> _uploadProfilePicture(File imageFile) async {
+    final userDetails = Provider.of<UserProvider>(context, listen: false)
+        .getSalesUserDetails();
+    final id = userDetails?.user?.id;
+    final token = userDetails?.token ?? '';
+    final role = userDetails?.role ?? '';
+
+    if (id == null || id.isEmpty) return;
+
+    final String endpoint;
+    if (role == 'warehouseManager') {
+      endpoint = ApiEndPoints.kUpdateWarehouseManagerProfilePicture + id;
+    } else if (role == 'orderBooker') {
+      endpoint = ApiEndPoints.kUpdateOrderBookerProfilePicture + id;
+    } else {
+      // Unknown role — no matching profile picture endpoint yet.
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    final result = await ApiBaseHelper().postMultiPartEither(
+      endPoint: endpoint,
+      isRequiredHeader: true,
+      hasBody: false,
+      hasFile: true,
+      path: imageFile.path,
+      header: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (mounted) setState(() => isLoading = false);
+
+    result.fold(
+          (l) {
+        if (mounted) {
+          getFlushBar(context,
+              title: l.error ?? 'Failed to update profile photo');
+        }
+      },
+          (r) {
+        if (mounted) {
+          getFlushBar(context, title: 'Profile photo updated successfully');
+        }
+      },
+    );
+  }
+
+  /// Finds the currently open attendance record (checked in, not yet
+  /// checked out), if any, regardless of role.
+  ///
+  /// - orderBooker / simple flow: a single 'attendanceId' key, gated by
+  ///   'isCheckedIn' == true and no 'CHECK_OUT_TIME' saved yet.
+  /// - warehouseManager flow: one 'wm_dist_{distributorId}' key per
+  ///   distributor visited; at most one should be open (checkInTime set,
+  ///   checkOutTime empty) at any given time.
+  Future<String?> _findOpenAttendanceId() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Simple / orderBooker pattern.
+    final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
+    final hasCheckOut = prefs.getString('CHECK_OUT_TIME') != null;
+    final simpleId = prefs.getString('attendanceId');
+    if (isCheckedIn && !hasCheckOut && simpleId != null && simpleId.isNotEmpty) {
+      return simpleId;
+    }
+
+    // Per-distributor / warehouseManager pattern.
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith('wm_dist_')) continue;
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+        final attendanceId = decoded['attendanceId'] as String? ?? '';
+        final checkInTime = decoded['checkInTime'] as String? ?? '';
+        final checkOutTime = decoded['checkOutTime'] as String? ?? '';
+        if (attendanceId.isNotEmpty && checkInTime.isNotEmpty && checkOutTime.isEmpty) {
+          return attendanceId;
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 }

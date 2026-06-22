@@ -75,8 +75,8 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Updates [shopLocation] for the wholesaler matching [id] (in-memory).
-  void patchWholesalerShopLocation(String id, double lat, double lng) {
+  /// Updates [shopLocation] and [address] for the wholesaler matching [id] (in-memory).
+  void patchWholesalerShopLocation(String id, double lat, double lng, {String? address}) {
     final model = _saleUserModel;
     final list = model?.wholesalers;
     if (model == null || list == null || id.isEmpty) return;
@@ -84,14 +84,16 @@ class UserProvider extends ChangeNotifier {
     final next = List<Wholesaler>.from(list);
     final i = next.indexWhere((w) => w.id == id);
     if (i < 0) return;
-    next[i] =
-        next[i].copyWith(shopLocation: DistributorLocation(lat: lat, lng: lng));
+    next[i] = next[i].copyWith(
+      shopLocation: DistributorLocation(lat: lat, lng: lng),
+      address: address,
+    );
     _saleUserModel = _rebuild(wholesalers: next);
     notifyListeners();
   }
 
-  /// Updates [shopLocation] for the retailer matching [id] (in-memory).
-  void patchRetailerShopLocation(String id, double lat, double lng) {
+  /// Updates [shopLocation] and [address] for the retailer matching [id] (in-memory).
+  void patchRetailerShopLocation(String id, double lat, double lng, {String? address}) {
     final model = _saleUserModel;
     final list = model?.retailers;
     if (model == null || list == null || id.isEmpty) return;
@@ -99,8 +101,10 @@ class UserProvider extends ChangeNotifier {
     final next = List<Wholesaler>.from(list);
     final i = next.indexWhere((r) => r.id == id);
     if (i < 0) return;
-    next[i] =
-        next[i].copyWith(shopLocation: DistributorLocation(lat: lat, lng: lng));
+    next[i] = next[i].copyWith(
+      shopLocation: DistributorLocation(lat: lat, lng: lng),
+      address: address,
+    );
     _saleUserModel = _rebuild(retailers: next);
     notifyListeners();
   }

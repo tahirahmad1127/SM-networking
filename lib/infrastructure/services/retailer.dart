@@ -17,6 +17,7 @@ import '../api_helper.dart';
 import '../model/add_recovery.dart';
 import '../model/banks.dart';
 import '../model/error.dart';
+import '../model/user.dart';
 
 abstract class RetailerRepository {
   Future<Either<GlobalErrorModel, RetailersListingModel>> getRetailers(
@@ -39,12 +40,14 @@ abstract class RetailerRepository {
     required String token,
   });
 
-  Future<Either<GlobalErrorModel, void>> updateWholesalerLocation({
+  Future<Either<GlobalErrorModel, Wholesaler>> updateWholesalerLocation({
     required String wholesalerId,
     required double lat,
     required double lng,
     required String token,
   });
+
+  Future<Either<GlobalErrorModel, RetailersListingModel>> getAllRetailersAndWholesalers();
 
   Future<Either<GlobalErrorModel, BanksListModel>> getAllBanks();
 
@@ -57,7 +60,7 @@ abstract class RetailerRepository {
 
 class RetailerRepositoryImp extends RetailerRepository {
   // ─────────────────────────────────────────────────────────────────────────
-  // Get Retailers
+  // Get Retailers (legacy — by cityID)
   // ─────────────────────────────────────────────────────────────────────────
   @override
   Future<Either<GlobalErrorModel, RetailersListingModel>> getRetailers(
@@ -74,6 +77,47 @@ class RetailerRepositoryImp extends RetailerRepository {
           (l) => Left(GlobalErrorModel(error: l.error.toString())),
           (r) => Right(RetailersListingModel.fromJson(r)),
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Get All Retailers + Wholesalers (with customerType)
+  // ─────────────────────────────────────────────────────────────────────────
+  @override
+  Future<Either<GlobalErrorModel, RetailersListingModel>> getAllRetailersAndWholesalers() async {
+    try {
+      final retailerData = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kGetRetailer,
+        isRequiredHeader: true,
+        header: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      );
+      final wholesalerData = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kGetWholesaler,
+        isRequiredHeader: true,
+        header: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      );
+
+      List<RetailerModel> combined = [];
+
+      retailerData.fold(
+            (l) => null,
+            (r) {
+          final list = RetailersListingModel.fromJson(r).data ?? [];
+          combined.addAll(list);
+        },
+      );
+
+      wholesalerData.fold(
+            (l) => null,
+            (r) {
+          final list = RetailersListingModel.fromJson(r).data ?? [];
+          combined.addAll(list);
+        },
+      );
+
+      return Right(RetailersListingModel(data: combined));
+    } catch (e) {
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -216,7 +260,7 @@ class RetailerRepositoryImp extends RetailerRepository {
   // Update Wholesaler / Retailer Location
   // ─────────────────────────────────────────────────────────────────────────
   @override
-  Future<Either<GlobalErrorModel, void>> updateWholesalerLocation({
+  Future<Either<GlobalErrorModel, Wholesaler>> updateWholesalerLocation({
     required String wholesalerId,
     required double lat,
     required double lng,
@@ -225,7 +269,7 @@ class RetailerRepositoryImp extends RetailerRepository {
     try {
       final data = await ApiBaseHelper().postEither(
         endPoint:
-        "${ApiEndPoints.kUpdateRetailerLocation}$wholesalerId",
+        "${ApiEndPoints.kUpdateWholesalerLocation}$wholesalerId",
         body: {"lat": lat, "lng": lng},
         hasBody: true,
         isRequiredHeader: true,
@@ -237,7 +281,7 @@ class RetailerRepositoryImp extends RetailerRepository {
       );
       return data.fold(
             (l) => Left(GlobalErrorModel(error: l.error.toString())),
-            (r) => const Right(null),
+            (r) => Right(Wholesaler.fromJson(r['data'])),
       );
     } catch (e) {
       log("updateWholesalerLocation error: $e");

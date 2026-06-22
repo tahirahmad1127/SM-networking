@@ -1,8 +1,12 @@
 class ApiEndPoints {
   static const String kLogin = "sale-user/login";
   static const String kWarehouseManagerLogin = "warehouse-manager/login";
+
+  /// warehouse-manager/logout  →  clears activeDeviceId on the backend
+  static const String kWarehouseManagerLogout = "warehouse-manager/logout";
   static const String kGetRetailers = "retailer/city/";
   static const String kUpdateRetailerLocation = "retailer/location/";
+  static const String kUpdateWholesalerLocation = "wholesaler/location/";
 
   /// sale-user/location/{id}  →  update distributor's shopLocation lat/lng
   static const String kUpdateDistributorLocation = "sale-user/location/";
@@ -18,7 +22,6 @@ class ApiEndPoints {
   static const String kGetOrders = "order/sale-person/status/";
   static const String kUpdateOrderStatus = "order/updatestatus/";
   static const String kAddOrder = "order/add";
-  static const String kGetDrafts = "order/tsm/";  // + tsmId + "/drafts"
 
   static const String kGetBrands = "brand/category/";
   static const String kGetAllBrands = "brand";
@@ -29,9 +32,6 @@ class ApiEndPoints {
 
   /// product/category/{categoryId}  →  products in a specific category
   static const String kGetProductsByCategory = "product/category/";
-
-  /// product/by-brand/{brandId}/category/{categoryId}  →  products filtered by both brand and category
-  static const String kGetProductsByBrandAndCategory = "product/by-brand/";
   static const String kGetStats = "sale-user/sales/";
   static const String kGetTargets = "targets/salesperson/";
   static const String kGetTargetsOrderbooker = "targets/orderbooker/"; // ← ADDED
@@ -88,6 +88,12 @@ class ApiEndPoints {
   static const String kGetRetailer = "retailer/";
   static const String kGetWholesaler = "wholesaler/";
 
+  /// warehouse-manager/update-profile-picture/{id}  →  update TSM profile photo
+  static const String kUpdateWarehouseManagerProfilePicture = "warehouse-manager/update-profile-picture/";
+
+  /// order-booker/update-profile-picture/{id}  →  update OrderBooker profile photo
+  static const String kUpdateOrderBookerProfilePicture = "order-booker/update-profile-picture/";
+
 
   /// zone/  →  list of all zones
   /// site-visit/add  →  mark attendance / site visit for a distributor
@@ -97,4 +103,13 @@ class ApiEndPoints {
 
   /// town/zone/{zoneId}  →  towns belonging to a specific zone
   static const String kGetTownsByZone = "town/zone/";
+
+  /// order/tsm/{tsmId}/drafts  →  drafts for a TSM
+  static const String kGetDrafts = "order/tsm/";
+
+  /// order/delete/{orderId}  →  permanently delete a draft
+  static const String kDeleteOrder = "order/delete/";
+
+  /// product/by-brand/{brandId}/category/{categoryId}
+  static const String kGetProductsByBrandAndCategory = "product/by-brand/";
 }

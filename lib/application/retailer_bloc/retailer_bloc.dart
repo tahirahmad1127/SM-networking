@@ -214,8 +214,8 @@ class RetailerBloc extends Bloc<RetailerEvent, RetailerState> {
         emit(RetailerLoaded(RetailersListingModel(data: cachedRetailers)));
       }
 
-      // Fetch fresh list from API
-      final result = await repositoryImp.getRetailers(event.cityID.toString());
+      // Fetch fresh list from both retailer + wholesaler endpoints
+      final result = await repositoryImp.getAllRetailersAndWholesalers();
       await result.fold(
             (l) async {
           emit(RetailerFailed(l.error.toString()));

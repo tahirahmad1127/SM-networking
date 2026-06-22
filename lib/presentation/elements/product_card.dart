@@ -360,7 +360,7 @@ class _ProductCardState extends State<ProductCard> {
                                     productDetails: widget.model,
                                     quantity: entered,
                                     totalQuantity: 0,
-                                    type: isCtnSelected ? "ctn" : "box"));
+                                    type: isCtnSelected ? "ctn" : "pcs"));
                                 log(cart
                                     .getItemQuantity(widget.model.id.toString())
                                     .toString());
@@ -387,7 +387,7 @@ class _ProductCardState extends State<ProductCard> {
                             productDetails: widget.model,
                             quantity: currentQty + 1,
                             totalQuantity: 0,
-                            type: isCtnSelected ? "ctn" : "box"));
+                            type: isCtnSelected ? "ctn" : "pcs"));
                         cartController = TextEditingController(
                             text: (currentQty + 1).toString());
                         setState(() {});

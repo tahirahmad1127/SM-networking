@@ -50,19 +50,18 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCWKbYGr5jh5uzuK7b05MoqFhp4B3OiW60',
-    appId: '1:772818925094:android:f26d8785abdbe5ef8018e7',
-    messagingSenderId: '772818925094',
-    projectId: 'sm-networking',
-    storageBucket: 'sm-networking.firebasestorage.app',
+    apiKey: 'AIzaSyDF48YI5CULUi3_3_NrK21D2R3bWEzZ4ho',
+    appId: '1:883441384067:android:2389518d6552fc880d79b6',
+    messagingSenderId: '883441384067',
+    projectId: 'sm-networking-b15ea',
+    storageBucket: 'sm-networking-b15ea.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA3PFF0vsICSB2VRhy7Y84PmMoTsITAgrc',
-    appId: '1:772818925094:ios:be55b83c1166a6758018e7',
-    messagingSenderId: '772818925094',
-    projectId: 'sm-networking',
-    storageBucket: 'sm-networking.firebasestorage.app',
-    iosBundleId: 'com.smnetworking.app',
+    apiKey: 'AIzaSyBnP4ZqF1uukvqtzvaIcaZYSJ2j9k3xV94',
+    appId: '1:883441384067:ios:2536b7bb7b0f62a90d79b6',
+    messagingSenderId: '883441384067',
+    projectId: 'sm-networking-b15ea',
+    storageBucket: 'sm-networking-b15ea.firebasestorage.app',
+    iosBundleId: 'com.networking.app',
   );
 }

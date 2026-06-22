@@ -38,36 +38,56 @@ class DraftsTabBarState extends State<DraftsTabBar> {
   /// Call this to force a fresh reload from outside
   void reload() => _loadDrafts();
 
-
   Future<void> _loadDrafts() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+
     final user = Provider.of<UserProvider>(context, listen: false);
     final tsmId = user.getSalesUserDetails()?.user?.id ?? '';
     if (tsmId.isEmpty) {
-      setState(() {
-        _loading = false;
-        _error = 'User not found.';
-      });
+      setState(() { _loading = false; _error = 'User not found.'; });
       return;
     }
 
     final result = await sl<OrderRepositoryImp>().getDrafts(tsmId);
     result.fold(
           (l) {
-        if (mounted) setState(() {
-          _loading = false;
-          _error = l.error.toString();
-        });
+        if (mounted) setState(() { _loading = false; _error = l.error.toString(); });
       },
           (r) {
-        if (mounted) setState(() {
-          _loading = false;
-          _drafts = r.data ?? [];
-        });
+        if (mounted) setState(() { _loading = false; _drafts = r.data ?? []; });
       },
     );
   }
 
-  Future<void> _placeOrderFromDraft(BuildContext context, OrderModel draft) async {
+  /// FIX 1 & 2: Actually call the API to delete, then remove from list on success
+  Future<void> _deleteDraft(int index) async {
+    final draft = _drafts[index];
+    final draftId = draft.id;
+    if (draftId == null || draftId.isEmpty) {
+      // No ID — just remove from local list
+      if (mounted) setState(() => _drafts.removeAt(index));
+      return;
+    }
+
+    final result = await sl<OrderRepositoryImp>().deleteDraft(draftId);
+    result.fold(
+          (l) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Delete failed: ${l.error}')));
+        }
+      },
+          (r) {
+        // Only remove from list AFTER API confirms deletion
+        if (mounted) setState(() => _drafts.removeAt(index));
+      },
+    );
+  }
+
+  /// FIX 3: Place order with loading state + delete draft after success
+  Future<void> _placeOrderFromDraft(BuildContext context, int index) async {
+    final draft = _drafts[index];
     final items = draft.items ?? [];
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,12 +95,21 @@ class DraftsTabBarState extends State<DraftsTabBar> {
       return;
     }
 
-    // Build CreateOrderModel from draft — reuse same fields
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+
     final model = CreateOrderModel(
-      retailerUser: draft.warehouseManager?.id ?? '',
-      saleUser: draft.salesPerson?.id ?? '',
+      retailerUser: draft.salesPerson?.id ?? '',        // distributor
+      saleUser: draft.warehouseManager?.id ?? '',       // TSM
       phoneNumber: draft.phoneNumber ?? 'N/A',
-      city: draft.warehouseManager?.id ?? '',
+      city: draft.salesPerson?.id ?? '',
       paymentType: draft.paymentType ?? 'cod',
       couponCode: draft.coupon ?? '',
       shippingAddress: draft.shippingAddress ?? '',
@@ -92,23 +121,33 @@ class DraftsTabBarState extends State<DraftsTabBar> {
         price: e.price,
         discountedPrice: e.discountedPrice,
         type: e.type,
+        isDraftPrice: true,
       )).toList(),
     );
 
-    // Use a temporary OrderBloc to place the order
-    // Navigate to checkout-like flow — simplest: push OrderPlacedView on success
     final repo = sl<OrderRepositoryImp>();
     final result = await repo.createOrder(model);
+
+    // Dismiss loading dialog
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+
     result.fold(
           (l) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed: ${l.error}')));
+              SnackBar(content: Text('Failed to place order: ${l.error}')));
         }
       },
-          (r) {
-        // Remove from list
-        setState(() => _drafts.removeWhere((d) => d.id == draft.id));
+          (r) async {
+        // FIX: Delete the draft from API after placing order successfully
+        final draftId = draft.id;
+        if (draftId != null && draftId.isNotEmpty) {
+          await repo.deleteDraft(draftId);
+        }
+
+        // Remove from local list
+        if (mounted) setState(() => _drafts.removeAt(index));
+
         if (context.mounted) {
           Navigator.push(context,
               MaterialPageRoute(builder: (_) => const OrderPlacedView()));
@@ -133,10 +172,7 @@ class DraftsTabBarState extends State<DraftsTabBar> {
             CustomText(text: _error!, color: Colors.red.shade400),
             const SizedBox(height: 12),
             TextButton(
-              onPressed: () {
-                setState(() { _loading = true; _error = null; });
-                _loadDrafts();
-              },
+              onPressed: () => _loadDrafts(),
               child: const Text('Retry'),
             ),
           ],
@@ -162,18 +198,15 @@ class DraftsTabBarState extends State<DraftsTabBar> {
     }
 
     return RefreshIndicator(
-      onRefresh: () async {
-        setState(() { _loading = true; _error = null; _drafts = []; });
-        await _loadDrafts();
-      },
+      onRefresh: _loadDrafts,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: _drafts.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (ctx, i) => _DraftCard(
           draft: _drafts[i],
-          onDeleted: () => setState(() => _drafts.removeAt(i)),
-          onPlaceOrder: (context) => _placeOrderFromDraft(context, _drafts[i]),
+          onDeleted: () => _deleteDraft(i),
+          onPlaceOrder: (context) => _placeOrderFromDraft(context, i),
         ),
       ),
     );
@@ -282,8 +315,7 @@ class _DraftCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 2),
               child: Row(
                 children: [
-                  Icon(Icons.circle,
-                      size: 5, color: Colors.grey.shade400),
+                  Icon(Icons.circle, size: 5, color: Colors.grey.shade400),
                   const SizedBox(width: 6),
                   Expanded(
                     child: CustomText(
@@ -346,8 +378,8 @@ class _DraftCard extends StatelessWidget {
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, true),
                                 child: Text('Delete',
-                                    style: TextStyle(
-                                        color: Colors.red.shade600)),
+                                    style:
+                                    TextStyle(color: Colors.red.shade600)),
                               ),
                             ],
                           ),

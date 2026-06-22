@@ -87,6 +87,7 @@ class User {
   final List<String>? town;
   final String? coordinator;
   final String? tsm;
+  final String? distributor;
   final num? basicSalary;
   final num? allowanceDistance;
   final num? dailyAllowance;
@@ -98,9 +99,6 @@ class User {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int? v;
-
-  /// For orderBooker: the assigned distributor's ID (plain string from login response)
-  final String? distributor;
 
   User({
     this.id,
@@ -120,6 +118,7 @@ class User {
     this.town,
     this.coordinator,
     this.tsm,
+    this.distributor,
     this.basicSalary,
     this.allowanceDistance,
     this.dailyAllowance,
@@ -131,7 +130,6 @@ class User {
     this.createdAt,
     this.updatedAt,
     this.v,
-    this.distributor,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -177,6 +175,7 @@ class User {
         : (json["tsm"] is String
         ? json["tsm"] as String
         : json["tsm"]["_id"] as String),
+    distributor: json["distributor"] is String ? json["distributor"] : json["distributor"]?["_id"],
     basicSalary: json["basicSalary"],
     allowanceDistance: json["allowanceDistance"],
     dailyAllowance: json["dailyAllowance"],
@@ -192,12 +191,6 @@ class User {
         ? null
         : DateTime.parse(json["updatedAt"]),
     v: json["__v"],
-    // distributor is a plain string ID in the orderBooker login response
-    distributor: json["distributor"] == null
-        ? null
-        : (json["distributor"] is String
-        ? json["distributor"] as String
-        : json["distributor"]["_id"] as String),
   );
 
   Map<String, dynamic> toJson() => {
@@ -218,6 +211,7 @@ class User {
     "town": town,
     "coordinator": coordinator,
     "tsm": tsm,
+    "distributor": distributor,
     "basicSalary": basicSalary,
     "allowanceDistance": allowanceDistance,
     "dailyAllowance": dailyAllowance,
@@ -229,7 +223,6 @@ class User {
     "createdAt": createdAt?.toIso8601String(),
     "updatedAt": updatedAt?.toIso8601String(),
     "__v": v,
-    "distributor": distributor,
   };
 }
 
@@ -576,11 +569,11 @@ class Wholesaler {
     "__v": v,
   };
 
-  Wholesaler copyWith({DistributorLocation? shopLocation, DistributorLocation? addressFromGoogle}) => Wholesaler(
+  Wholesaler copyWith({DistributorLocation? shopLocation, DistributorLocation? addressFromGoogle, String? address}) => Wholesaler(
     id: id,
     name: name,
     contacts: contacts,
-    address: address,
+    address: address ?? this.address,
     pic: pic,
     zone: zone,
     town: town,

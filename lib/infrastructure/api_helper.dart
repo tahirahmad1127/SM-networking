@@ -146,6 +146,50 @@ class ApiBaseHelper {
     }
   }
 
+
+  Future<Either<GlobalErrorModel, dynamic>> patchEither({required String endPoint, required bool isRequiredHeader, required bool hasBody, dynamic body, Map<String, String>? header}) async {
+    DateTime executionTime = DateTime.now();
+    // ignore: prefer_typing_uninitialized_variables
+    Either<GlobalErrorModel, dynamic> responseJson;
+    try {
+      return await InternetConnectivityHelper.checkConnectivity()
+          .then((value) async {
+        if (value == true) {
+          final response = await http.patch(
+              Uri.parse(BackendConfigs.apiUrl + endPoint),
+              headers: isRequiredHeader ? header! : null,
+              body: hasBody == true ? jsonEncode(body) : null);
+          responseJson = _returnResponseEither(response);
+          logger.i(
+              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Reason Phrase -> ${response.reasonPhrase.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
+          return responseJson.fold((l) => Left(l), (r) => Right(r));
+        } else {
+          return Left(GlobalErrorModel(
+              error: "Oops! It seems you are not connected to the internet."));
+        }
+      });
+    } on SocketException catch (e) {
+      logger.i("Socket Exception");
+      logger.e(e.message.toString());
+      return Left(GlobalErrorModel(
+          error:
+          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "\nSorry for the inconvenience."));
+    } on HttpException catch (e) {
+      logger.i("HTTP Exception");
+      logger.e(e.message.toString());
+      return Left(GlobalErrorModel(
+          error: "Sorry! We are unable to complete your request.!"));
+    } on TimeoutException catch (e) {
+      logger.i("TimeOut Exception");
+      logger.e(e.message.toString());
+      return Left(GlobalErrorModel(
+          error: "Sorry! We are unable to connect our servers.!"));
+    } catch (e) {
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
   Future<Either<GlobalErrorModel, dynamic>> postMultiPartEither(
       {required String endPoint,
         required bool isRequiredHeader,
@@ -302,6 +346,30 @@ class ApiBaseHelper {
     }
   }
 
+  /// Attempts to extract a human-readable error message from an error
+  /// response body. Handles the shapes this backend actually returns:
+  /// {"errors": [{"msg": "..."}]}, {"msg": "..."}, {"message": "..."},
+  /// {"error": "..."}. Returns null if none of those shapes match.
+  String? _extractErrorMessage(String body) {
+    try {
+      final responseJson = json.decode(body);
+      if (responseJson is Map) {
+        final errors = responseJson['errors'];
+        if (errors is List && errors.isNotEmpty) {
+          final msgs = errors
+              .map((e) => (e is Map ? e['msg'] : e)?.toString() ?? '')
+              .where((m) => m.isNotEmpty)
+              .join(', ');
+          if (msgs.isNotEmpty) return msgs;
+        }
+        if (responseJson['msg'] != null) return responseJson['msg'].toString();
+        if (responseJson['message'] != null) return responseJson['message'].toString();
+        if (responseJson['error'] != null) return responseJson['error'].toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Either<GlobalErrorModel, dynamic> _returnResponseEither(
       http.Response response) {
     log(response.body.toString());
@@ -310,29 +378,20 @@ class ApiBaseHelper {
         var responseJson = json.decode(response.body.toString());
         return Right(responseJson);
       } else if (response.statusCode == 400) {
-        try {
-          var responseJson = json.decode(response.body.toString());
-          // Handle validation error shape: {"msg":"Validation failed","errors":[...]}
-          if (responseJson is Map && responseJson['msg'] != null) {
-            final errors = responseJson['errors'];
-            if (errors is List && errors.isNotEmpty) {
-              final msgs = errors.map((e) => e['msg'].toString()).join(', ');
-              return Left(GlobalErrorModel(error: msgs));
-            }
-            return Left(GlobalErrorModel(error: responseJson['msg'].toString()));
-          }
-          var errorModel = GlobalErrorModel.fromJson(responseJson);
-          return Left(GlobalErrorModel(error: errorModel.error.toString()));
-        } catch (_) {
-          return Left(GlobalErrorModel(error: "Bad request."));
-        }
+        final msg = _extractErrorMessage(response.body.toString());
+        if (msg != null) return Left(GlobalErrorModel(error: msg));
+        return Left(GlobalErrorModel(error: "Bad request."));
       } else if (response.statusCode == 401) {
+        final msg = _extractErrorMessage(response.body.toString());
+        if (msg != null) return Left(GlobalErrorModel(error: msg));
         return Left(GlobalErrorModel(
             error: "Sorry! You are not allowed to perform this operation.!"));
       } else if (response.statusCode == 404) {
         return Left(
             GlobalErrorModel(error: "Sorry! Your requested data not found!"));
       } else if (response.statusCode == 403) {
+        final msg = _extractErrorMessage(response.body.toString());
+        if (msg != null) return Left(GlobalErrorModel(error: msg));
         return Left(GlobalErrorModel(error: "UnAuthorized"));
       } else if (response.statusCode == 500) {
         log(response.reasonPhrase.toString());

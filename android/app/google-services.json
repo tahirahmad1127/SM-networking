@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "772818925094",
-    "project_id": "sm-networking",
-    "storage_bucket": "sm-networking.firebasestorage.app"
+    "project_number": "883441384067",
+    "project_id": "sm-networking-b15ea",
+    "storage_bucket": "sm-networking-b15ea.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:772818925094:android:f26d8785abdbe5ef8018e7",
+        "mobilesdk_app_id": "1:883441384067:android:2389518d6552fc880d79b6",
         "android_client_info": {
           "package_name": "com.networking.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCWKbYGr5jh5uzuK7b05MoqFhp4B3OiW60"
+          "current_key": "AIzaSyDF48YI5CULUi3_3_NrK21D2R3bWEzZ4ho"
         }
       ],
       "services": {

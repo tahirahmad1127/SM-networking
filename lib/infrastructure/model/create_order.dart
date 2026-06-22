@@ -19,7 +19,8 @@ class CreateOrderModel {
   final List<OrderItem>? items;
   final double? bulkDiscount;
   final double? couponDiscount;
-  final String? status; // null = normal order, 'Draft' = draft
+  final String? orderType;
+  final String? status;
 
   CreateOrderModel({
     this.retailerUser,
@@ -30,8 +31,9 @@ class CreateOrderModel {
     this.city,
     this.couponCode,
     this.items,
-    this.bulkDiscount,      // New parameter
-    this.couponDiscount,    // New parameter
+    this.bulkDiscount,
+    this.couponDiscount,
+    this.orderType,
     this.status,
   });
 
@@ -60,8 +62,6 @@ class CreateOrderModel {
       "items": items == null ? [] : List<dynamic>.from(items!.map((x) => x.toJson())),
     };
 
-    if (status != null) map["status"] = status;
-
     // Only add discount fields if they have values > 0
     if (bulkDiscount != null && bulkDiscount! > 0) {
       map["bulkDiscount"] = bulkDiscount;
@@ -71,6 +71,9 @@ class CreateOrderModel {
       map["couponDiscount"] = couponDiscount;
     }
 
+    if (orderType != null) map["orderType"] = orderType;
+    if (status != null) map["status"] = status;
+
     return map;
   }
 }
@@ -78,10 +81,11 @@ class CreateOrderModel {
 class OrderItem {
   final String? productId;
   final int? quantity;
-  final int? price;
-  final int? discountedPrice;
+  final num? price;
+  final num? discountedPrice;
   final int? cartonSize;
   final String? type;
+  final bool? isDraftPrice;
 
   OrderItem({
     this.productId,
@@ -90,6 +94,7 @@ class OrderItem {
     this.price,
     this.discountedPrice,
     this.type,
+    this.isDraftPrice,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
@@ -108,5 +113,6 @@ class OrderItem {
     "discountedPrice": discountedPrice,
     "cartonSize": cartonSize,
     "type": type,
+    if (isDraftPrice == true) "isDraftPrice": isDraftPrice,
   };
 }

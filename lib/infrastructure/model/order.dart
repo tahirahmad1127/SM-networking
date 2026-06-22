@@ -131,8 +131,8 @@ class OrderModel {
 class Item {
   final ProductId? productId;
   final int? quantity;
-  final int? price;
-  final int? discountedPrice;
+  final num? price;
+  final num? discountedPrice;
   final String? id;
   final String? type;
 
@@ -154,8 +154,8 @@ class Item {
         ? ProductId.fromJson(json["productId"] as Map<String, dynamic>)
         : null),
     quantity: json["quantity"],
-    price: json["price"] == null ? null : (json["price"] as num).round(),
-    discountedPrice: json["discountedPrice"] == null ? null : (json["discountedPrice"] as num).round(),
+    price: json["price"] == null ? null : (json["price"] as num),
+    discountedPrice: json["discountedPrice"] == null ? null : (json["discountedPrice"] as num),
     id: json["_id"],
     type: json["type"],
   );

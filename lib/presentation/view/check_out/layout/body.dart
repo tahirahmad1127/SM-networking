@@ -651,6 +651,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                           CreateDraftEvent(CreateOrderModel(
                                             retailerUser: selectedRetailer.id.toString(),
                                             saleUser: userDetails.id.toString(),
+                                            orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
                                             phoneNumber: (selectedRetailer.phoneNumber == null ||
                                                 selectedRetailer.phoneNumber!.isEmpty)
                                                 ? "N/A"
@@ -685,8 +686,8 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                                 quantity: e.quantity,
                                                 cartonSize: e.productDetails.cortanSize,
                                                 type: e.type,
-                                                price: originalPiecePrice.round(),
-                                                discountedPrice: finalPiecePrice.round(),
+                                                price: originalPiecePrice,
+                                                discountedPrice: finalPiecePrice,
                                               );
                                             }).toList(),
                                           )),
@@ -858,6 +859,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                           CreateOrderEvent(CreateOrderModel(
                                             retailerUser: selectedRetailer.id.toString(),
                                             saleUser: userDetails.id.toString(),
+                                            orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
                                             phoneNumber: (selectedRetailer.phoneNumber ==
                                                 null ||
                                                 selectedRetailer.phoneNumber!.isEmpty)
@@ -909,9 +911,9 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                                 cartonSize:
                                                 e.productDetails.cortanSize,
                                                 type: e.type,
-                                                price: originalPiecePrice.round(),
+                                                price: originalPiecePrice,
                                                 discountedPrice:
-                                                finalPiecePrice.round(),
+                                                finalPiecePrice,
                                               );
                                             }).toList(),
                                           )));

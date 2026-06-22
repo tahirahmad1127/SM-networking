@@ -62,6 +62,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
   // For TSM/warehouseManager: Distributor. For orderBooker: Wholesaler.
   Distributor? _selectedDistributor;
   Wholesaler? _selectedWholesaler;
+  bool _isUpdatingLocation = false;
 
   bool _loadingCheckIn = true;
   bool _markersInitialized = false; // flipped to true after first successful load
@@ -1111,7 +1112,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                 children: [
                                   // Update location to current position
                                   InkWell(
-                                    onTap: () async {
+                                    onTap: _isUpdatingLocation ? null : () async {
                                       final whol = _selectedWholesaler!;
                                       final id = (whol.id ?? '').trim();
                                       if (id.isEmpty) {
@@ -1128,6 +1129,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         return;
                                       }
                                       final locProv = context.read<LocationProvider>();
+                                      setState(() => _isUpdatingLocation = true);
                                       try {
                                         final pos = await Geolocator.getCurrentPosition(
                                           desiredAccuracy: LocationAccuracy.high,
@@ -1139,7 +1141,22 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         setState(() {
                                           currentLocation = LatLng(lat, lng);
                                         });
-                                        final result = await RetailerRepositoryImp()
+                                        // Correct tab detection:
+                                        // warehouseManager: 0=Dist, 1=Wholesale, 2=Retail
+                                        // orderBooker:      0=Wholesale, 1=Retail
+                                        final isRetailerTab = isWarehouseManager
+                                            ? _tabController.index == 2
+                                            : _tabController.index == 1;
+
+                                        final result = isRetailerTab
+                                            ? await RetailerRepositoryImp()
+                                            .updateRetailerLocation(
+                                          retailerId: id,
+                                          lat: lat,
+                                          lng: lng,
+                                          token: token,
+                                        )
+                                            : await RetailerRepositoryImp()
                                             .updateWholesalerLocation(
                                           wholesalerId: id,
                                           lat: lat,
@@ -1150,19 +1167,19 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         result.fold(
                                               (l) => getFlushBar(context,
                                               title: l.error.toString()),
-                                              (_) {
-                                            userProv.patchWholesalerShopLocation(
-                                                id, lat, lng);
-                                            final isWholesalerTab =
-                                                _tabController.index ==
-                                                    (isWarehouseManager ? 1 : 0);
-                                            final updatedList = isWholesalerTab
-                                                ? (userProv
-                                                .getSalesUserDetails()
-                                                ?.wholesalers ?? [])
-                                                : (userProv
-                                                .getSalesUserDetails()
-                                                ?.retailers ?? []);
+                                              (updated) {
+                                            if (isRetailerTab) {
+                                              userProv.patchRetailerShopLocation(
+                                                  id, lat, lng,
+                                                  address: (updated as dynamic).shopAddress1?.toString());
+                                            } else {
+                                              userProv.patchWholesalerShopLocation(
+                                                  id, lat, lng,
+                                                  address: (updated as dynamic).address?.toString());
+                                            }
+                                            final updatedList = isRetailerTab
+                                                ? (userProv.getSalesUserDetails()?.retailers ?? [])
+                                                : (userProv.getSalesUserDetails()?.wholesalers ?? []);
                                             _buildWholesalerMarkers(updatedList);
                                             Wholesaler? refreshed;
                                             for (final x in updatedList) {
@@ -1185,6 +1202,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         if (mounted) {
                                           getFlushBar(context, title: e.toString());
                                         }
+                                      } finally {
+                                        if (mounted) setState(() => _isUpdatingLocation = false);
                                       }
                                     },
                                     child: Container(
@@ -1195,7 +1214,13 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         borderRadius: BorderRadius.circular(8),
                                         color: FrontendConfigs.kPrimaryColor,
                                       ),
-                                      child: const Icon(
+                                      child: _isUpdatingLocation
+                                          ? const SizedBox(
+                                          width: 18, height: 18,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white))
+                                          : const Icon(
                                           CupertinoIcons.location_solid,
                                           color: Colors.white,
                                           size: 18),

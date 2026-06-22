@@ -1,4 +1,3 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -83,7 +82,7 @@ class _LogInBodyState extends State<LogInBody> {
               child: Scaffold(
                 bottomNavigationBar: Padding(
                   padding:
-                      const EdgeInsets.only(bottom: 18.0, right: 18, left: 18),
+                  const EdgeInsets.only(bottom: 18.0, right: 18, left: 18),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -101,7 +100,7 @@ class _LogInBodyState extends State<LogInBody> {
                               return;
                             }
 
-                            final input = emailController.text.trim();
+                            final input = emailController.text.trim().toLowerCase();
                             final isPhone = isPhoneNumber(input);
 
                             BlocProvider.of<AuthBloc>(context).add(

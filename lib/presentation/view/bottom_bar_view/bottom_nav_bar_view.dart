@@ -158,11 +158,11 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               icon: pageIndex == 1
                   ? activeNavItem(
                 icon: const Icon(Icons.storefront),
-                label: isOrderBooker ? "Customers" : "Distributors",
+                label: isOrderBooker ? "Customers" : "Customers",
               )
                   : inactiveNavItem(
                 icon: const Icon(Icons.storefront),
-                label: isOrderBooker ? "Customers" : "Distributors",
+                label: isOrderBooker ? "Customers" : "Customers",
               ),
             ),
 

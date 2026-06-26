@@ -20,6 +20,8 @@ class AttendanceModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int? v;
+  final String? userType;
+  final String? distributorId;
 
   AttendanceModel({
     this.salesPersonId,
@@ -33,6 +35,8 @@ class AttendanceModel {
     this.createdAt,
     this.updatedAt,
     this.v,
+    this.userType,
+    this.distributorId,
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> json) => AttendanceModel(
@@ -49,19 +53,24 @@ class AttendanceModel {
     v: json["__v"],
   );
 
-  Map<String, dynamic> toJson() => {
-    "salesPersonID": salesPersonId,
-    "date": date,
-    "lat": lat,
-    "lng": lng,
-    "checkInTime": checkInTime,
-    "checkOutTime": checkOutTime,
-    "isDeleted": isDeleted,
-    "_id": id,
-    "createdAt": createdAt?.toIso8601String(),
-    "updatedAt": updatedAt?.toIso8601String(),
-    "__v": v,
-  };
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      "salesPersonID": salesPersonId,
+      "date": date,
+      "lat": lat,
+      "lng": lng,
+      "checkInTime": checkInTime,
+      "checkOutTime": checkOutTime,
+      "isDeleted": isDeleted,
+      "_id": id,
+      "createdAt": createdAt?.toIso8601String(),
+      "updatedAt": updatedAt?.toIso8601String(),
+      "__v": v,
+    };
+    if (userType != null) map["userType"] = userType;
+    if (distributorId != null) map["distributorId"] = distributorId;
+    return map;
+  }
 
   @override
   String toString() {

@@ -319,6 +319,8 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
               lat: _currentLocation?.latitude,
               lng: _currentLocation?.longitude,
               checkInTime: DateTime.now().toIso8601String(),
+              userType: 'WarehouseManager',
+              distributorId: distId,
             ).toJson();
             ctx.read<AttendanceBloc>().add(CheckInEvent(body));
           });

@@ -17,12 +17,16 @@ import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../../application/connectivity_status.dart';
 import '../../../../application/location.dart';
 import '../../../../application/order_bloc/order_bloc.dart';
 import '../../../../application/visit_bloc/visit_bloc.dart';
 // import '../../../../infrastructure/model/coupon.dart';
+import '../../../../infrastructure/model/pending_sync_order.dart';
 import '../../../../infrastructure/model/visit.dart';
+import '../../../../infrastructure/services/pending_sync.dart';
 import '../../../../injection_container.dart';
 import '../../../elements/app_button.dart';
 import '../../../elements/custom_text.dart';
@@ -42,6 +46,11 @@ class _CheckOutBodyState extends State<CheckOutBody> {
   final TextEditingController couponController = TextEditingController();
   RetailerModel? selectedRetailer;
   List<RetailerModel> retailersList = [];
+
+  // Remembers the order most recently sent to the live API, so that if it
+  // fails (server unreachable, 500, timeout, etc.) it can be queued locally
+  // instead of being lost outright.
+  PendingSyncOrder? _lastAttemptedOrder;
 
   @override
   void initState() {
@@ -93,6 +102,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                       (route) => false,
                 );
               } else if (state is OrderCreated) {
+                _lastAttemptedOrder = null;
                 cart.emptyCart();
                 Navigator.push(
                   context,
@@ -100,7 +110,30 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                       builder: (context) => const OrderPlacedView()),
                 );
               } else if (state is OrderFailed) {
-                getFlushBar(context, title: state.message.toString());
+                final pending = _lastAttemptedOrder;
+                final msg = state.message.toString();
+                final looksLikeNetworkFailure = msg.contains(
+                    "not connected to the internet") ||
+                    msg.contains("undergoing maintenance") ||
+                    msg.contains("unable to complete your request") ||
+                    msg.contains("unable to connect our servers");
+
+                if (pending != null && looksLikeNetworkFailure) {
+                  PendingSyncService.add(pending).then((_) {
+                    if (context.mounted) {
+                      cart.emptyCart();
+                      _lastAttemptedOrder = null;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const OrderPlacedView()),
+                      );
+                    }
+                  });
+                } else {
+                  _lastAttemptedOrder = null;
+                  getFlushBar(context, title: msg);
+                }
               }
             },
           ),
@@ -855,68 +888,123 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                           ? couponController.text.trim()
                                           : "";
 
-                                      BlocProvider.of<OrderBloc>(context).add(
-                                          CreateOrderEvent(CreateOrderModel(
-                                            retailerUser: selectedRetailer.id.toString(),
-                                            saleUser: userDetails.id.toString(),
-                                            orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
-                                            phoneNumber: (selectedRetailer.phoneNumber ==
-                                                null ||
-                                                selectedRetailer.phoneNumber!.isEmpty)
-                                                ? "N/A"
-                                                : selectedRetailer.phoneNumber!,
-                                            city: userDetails.zone.toString(),
-                                            paymentType: "cod",
-                                            couponCode: couponCode,
-                                            shippingAddress: shippingAddress,
-                                            bulkDiscount:
-                                            cart.getTotalBulkDiscount() > 0
-                                                ? cart
-                                                .getTotalBulkDiscount()
-                                                .toDouble()
-                                                : null,
-                                            couponDiscount: cart.hasCouponApplied()
-                                                ? cart
-                                                .getTotalCouponDiscount()
-                                                .toDouble()
-                                                : null,
-                                            items: cart.cartItems.map((e) {
-                                              final totalFinalPrice =
-                                              cart.calculateItemFinalPrice(e);
-                                              final totalOriginalPrice =
-                                              cart.getItemOriginalPrice(e);
+                                      final orderModel = CreateOrderModel(
+                                        retailerUser: selectedRetailer.id.toString(),
+                                        saleUser: userDetails.id.toString(),
+                                        orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
+                                        phoneNumber: (selectedRetailer.phoneNumber ==
+                                            null ||
+                                            selectedRetailer.phoneNumber!.isEmpty)
+                                            ? "N/A"
+                                            : selectedRetailer.phoneNumber!,
+                                        city: userDetails.zone.toString(),
+                                        paymentType: "cod",
+                                        couponCode: couponCode,
+                                        shippingAddress: shippingAddress,
+                                        bulkDiscount:
+                                        cart.getTotalBulkDiscount() > 0
+                                            ? cart
+                                            .getTotalBulkDiscount()
+                                            .toDouble()
+                                            : null,
+                                        couponDiscount: cart.hasCouponApplied()
+                                            ? cart
+                                            .getTotalCouponDiscount()
+                                            .toDouble()
+                                            : null,
+                                        items: cart.cartItems.map((e) {
+                                          final totalFinalPrice =
+                                          cart.calculateItemFinalPrice(e);
+                                          final totalOriginalPrice =
+                                          cart.getItemOriginalPrice(e);
 
-                                              num finalPiecePrice;
-                                              num originalPiecePrice;
+                                          num finalPiecePrice;
+                                          num originalPiecePrice;
 
-                                              if (e.type.toLowerCase() == "ctn") {
-                                                int cartonSize =
-                                                    e.productDetails.cortanSize ?? 1;
-                                                int totalPieces =
-                                                    e.quantity * cartonSize;
-                                                finalPiecePrice =
-                                                    totalFinalPrice / totalPieces;
-                                                originalPiecePrice =
-                                                    totalOriginalPrice / totalPieces;
-                                              } else {
-                                                finalPiecePrice =
-                                                    totalFinalPrice / e.quantity;
-                                                originalPiecePrice =
-                                                    totalOriginalPrice / e.quantity;
-                                              }
+                                          if (e.type.toLowerCase() == "ctn") {
+                                            int cartonSize =
+                                                e.productDetails.cortanSize ?? 1;
+                                            int totalPieces =
+                                                e.quantity * cartonSize;
+                                            finalPiecePrice =
+                                                totalFinalPrice / totalPieces;
+                                            originalPiecePrice =
+                                                totalOriginalPrice / totalPieces;
+                                          } else {
+                                            finalPiecePrice =
+                                                totalFinalPrice / e.quantity;
+                                            originalPiecePrice =
+                                                totalOriginalPrice / e.quantity;
+                                          }
 
-                                              return OrderItem(
-                                                productId: e.productDetails.id,
-                                                quantity: e.quantity,
-                                                cartonSize:
-                                                e.productDetails.cortanSize,
-                                                type: e.type,
-                                                price: originalPiecePrice,
-                                                discountedPrice:
-                                                finalPiecePrice,
-                                              );
-                                            }).toList(),
-                                          )));
+                                          return OrderItem(
+                                            productId: e.productDetails.id,
+                                            quantity: e.quantity,
+                                            cartonSize:
+                                            e.productDetails.cortanSize,
+                                            type: e.type,
+                                            price: originalPiecePrice,
+                                            discountedPrice:
+                                            finalPiecePrice,
+                                          );
+                                        }).toList(),
+                                      );
+
+                                      final itemInfo = cart.cartItems
+                                          .map((e) => PendingSyncItemInfo(
+                                        productName: e.name,
+                                        productImage: e.image,
+                                      ))
+                                          .toList();
+
+                                      // ── Online/offline branch ──
+                                      // Try a real reachability check (not just
+                                      // OS-level connectivity) before deciding.
+                                      final isOnline = await InternetConnectivityHelper
+                                          .checkConnectivityFast();
+
+                                      if (isOnline) {
+                                        _lastAttemptedOrder = PendingSyncOrder(
+                                          localId: const Uuid().v4(),
+                                          model: orderModel,
+                                          customerName: selectedRetailer
+                                              .shopName ??
+                                              selectedRetailer.name ??
+                                              'Customer',
+                                          total: cart.getSubTotal().toDouble(),
+                                          createdAt: DateTime.now(),
+                                          itemInfo: itemInfo,
+                                        );
+                                        BlocProvider.of<OrderBloc>(context)
+                                            .add(CreateOrderEvent(orderModel));
+                                      } else {
+                                        // No internet — queue locally instead of
+                                        // calling the API. The order still
+                                        // "punches" from the salesperson's point
+                                        // of view; it just isn't on the server yet.
+                                        await PendingSyncService.add(
+                                          PendingSyncOrder(
+                                            localId: const Uuid().v4(),
+                                            model: orderModel,
+                                            customerName: selectedRetailer
+                                                .shopName ??
+                                                selectedRetailer.name ??
+                                                'Customer',
+                                            total: cart.getSubTotal().toDouble(),
+                                            createdAt: DateTime.now(),
+                                            itemInfo: itemInfo,
+                                          ),
+                                        );
+                                        if (context.mounted) {
+                                          cart.emptyCart();
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                const OrderPlacedView()),
+                                          );
+                                        }
+                                      }
 
                                       await visitProvider.clearVisitData();
                                     },

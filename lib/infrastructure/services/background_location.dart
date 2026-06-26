@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -14,6 +15,7 @@ import 'package:sm_networking/injection_container.dart' as di;
 import 'package:sm_networking/infrastructure/services/tracking.dart';
 import 'package:sm_networking/infrastructure/model/tracking.dart';
 import 'package:sm_networking/infrastructure/model/location_tracking.dart';
+import 'offline_location_queue.dart';
 
 
 @pragma('vm:entry-point')
@@ -47,6 +49,8 @@ class BackgroundLocationService {
     return true;
   }
 
+  static StreamSubscription<Position>? _gpsStreamSub;
+
   @pragma('vm:entry-point')
   static void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
@@ -76,6 +80,7 @@ class BackgroundLocationService {
     }
 
     service.on('stopService').listen((event) {
+      _gpsStreamSub?.cancel();
       service.stopSelf();
     });
 
@@ -90,45 +95,90 @@ class BackgroundLocationService {
     final prefs = await SharedPreferences.getInstance();
     int updateCount = 0;
 
-    // FIREBASE: Update every 10 seconds (real-time)
-    Timer.periodic(const Duration(seconds: 10), (timer) async {
-      try {
-        if (service is AndroidServiceInstance) {
-          if (await service.isForegroundService()) {
-            final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
+    // ── Real-time GPS stream ──────────────────────────────────────────────
+    // Replaces the old one-shot getCurrentPosition polling. A continuous
+    // GPS-only stream (forceLocationManager: true) keeps emitting real
+    // fresh fixes even with no internet at all — getCurrentPosition with
+    // the same flag is a known-broken combination on devices with Google
+    // Play Services installed (the stream variant doesn't have that bug).
+    // Every fix that comes through, online or offline, gets a Firestore
+    // write attempt; failures are queued locally and replayed in order
+    // once connectivity returns, so the real path is reconstructed rather
+    // than a single frozen point.
+    void startGpsStream() {
+      _gpsStreamSub?.cancel();
+      _gpsStreamSub = Geolocator.getPositionStream(
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5, // meters — skip near-identical jitter
+          forceLocationManager: true,
+        ),
+      ).listen(
+            (position) async {
+          final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
+          if (!isCheckedIn) return;
 
-            if (!isCheckedIn) {
-              debugPrint("⚠️ User not checked in, stopping service");
-              timer.cancel();
-              service.stopSelf();
-              return;
-            }
+          final userId = (prefs.getString('userId') ?? '').trim();
+          if (userId.isEmpty) return;
 
-            // FIX: fall back to 'salesUserId' so TSM/orderBooker users
-            // whose id is stored under a different prefs key are found.
-            final userId = (prefs.getString('userId') ?? '').trim();
-            if (userId.isEmpty) {
-              debugPrint("⚠️ No userId found in prefs — location ping skipped");
-              return;
-            }
+          updateCount++;
+          final now = DateTime.now();
 
-            final position = await _getCurrentPosition();
-            if (position != null) {
-              updateCount++;
+          // Drain any backlog first, so a long offline period catches up
+          // gradually as connectivity allows, oldest point first.
+          await _flushOfflineQueue();
 
-              // UPDATE FIREBASE (every 10 seconds)
-              await _updateFirebase(userId, position);
+          final ok = await _updateFirebase(
+              userId, position.latitude, position.longitude, at: now);
 
-              log("📍 Background Firebase update #$updateCount: ${position.latitude}, ${position.longitude}");
-            }
+          if (!ok) {
+            await OfflineLocationQueueService.add(
+              OfflineLocationPing(
+                userId: userId,
+                latitude: position.latitude,
+                longitude: position.longitude,
+                timestamp: now,
+              ),
+            );
+            log("📦 Offline — queued real GPS point for later sync "
+                "(${position.latitude}, ${position.longitude})");
+          } else {
+            log("📍 Background Firebase update #$updateCount: "
+                "${position.latitude}, ${position.longitude}");
           }
-        }
-      } catch (e, s) {
-        debugPrint("❌ Firebase tracking error: $e\n$s");
+        },
+        onError: (e) {
+          log("⚠️ GPS stream error: $e — will retry");
+        },
+      );
+    }
+
+    startGpsStream();
+
+    // Watchdog: if the service is checked-in but the stream died for any
+    // reason (some Android versions can kill long-lived streams under
+    // memory pressure), restart it. Also stops everything cleanly once
+    // the user checks out.
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (service is AndroidServiceInstance) {
+        if (!await service.isForegroundService()) return;
+      }
+      final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
+      if (!isCheckedIn) {
+        debugPrint("⚠️ User not checked in, stopping service");
+        timer.cancel();
+        _gpsStreamSub?.cancel();
+        service.stopSelf();
+        return;
+      }
+      if (_gpsStreamSub == null) {
+        log("♻️ Restarting GPS stream after unexpected stop");
+        startGpsStream();
       }
     });
 
-    // API: Send coordinates every 3 minutes
+    // API: Send coordinates every 3 minutes (separate from Firestore —
+    // this is the periodic backend ping, unrelated to the live map feed).
     Timer.periodic(const Duration(minutes: 3), (timer) async {
       try {
         if (service is AndroidServiceInstance) {
@@ -143,7 +193,7 @@ class BackgroundLocationService {
             final userId = (prefs.getString('userId') ?? '').trim();
             if (userId.isEmpty) return;
 
-            final position = await _getCurrentPosition();
+            final position = await _getCurrentPositionForApi();
             if (position != null) {
               await _sendToAPI(userId, position);
             }
@@ -155,7 +205,11 @@ class BackgroundLocationService {
     });
   }
 
-  static Future<Position?> _getCurrentPosition() async {
+  /// One-shot position fetch used only for the periodic backend API ping
+  /// (every 3 minutes) — separate from the continuous GPS stream that
+  /// drives the Firestore live-map feed. Falls back to the last known
+  /// position if a fresh fix isn't available quickly.
+  static Future<Position?> _getCurrentPositionForApi() async {
     try {
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied ||
@@ -164,36 +218,97 @@ class BackgroundLocationService {
         return null;
       }
 
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      );
+      try {
+        return await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } on TimeoutException {
+        log("⚠️ Fused provider timed out for API ping — using last known position");
+      }
+
+      return await Geolocator.getLastKnownPosition();
     } catch (e) {
-      log("❌ Error getting position: $e");
+      log("❌ Error getting position for API ping: $e");
       return null;
     }
   }
 
-  // Update Firebase (real-time tracking)
-  static Future<void> _updateFirebase(String userId, Position position) async {
+  // Update Firebase (real-time tracking). Writes both the single
+  // "current location" doc (unchanged shape, so existing portal code that
+  // reads it keeps working) and a timestamped entry in a history
+  // sub-collection, so a path can be reconstructed later. Returns true on
+  // success, false if the write failed (caller queues it locally instead).
+  static Future<bool> _updateFirebase(
+      String userId,
+      double latitude,
+      double longitude, {
+        DateTime? at,
+        bool wasOffline = false,
+      }) async {
     try {
-      final now = DateTime.now();
+      final now = at ?? DateTime.now();
       final locationModel = LocationTrackingModel(
         userId: userId,
-        latitude: position.latitude,
-        longitude: position.longitude,
+        latitude: latitude,
+        longitude: longitude,
         createdAt: now,
         updatedAt: now,
       );
 
-      await FirebaseFirestore.instance
-          .collection("LocationCollection")
-          .doc(userId)
-          .set(locationModel.toMap(), SetOptions(merge: true));
+      final userDoc =
+      FirebaseFirestore.instance.collection("LocationCollection").doc(userId);
+
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(userDoc, locationModel.toMap(), SetOptions(merge: true));
+      batch.set(userDoc.collection('history').doc(), {
+        'latitude': latitude,
+        'longitude': longitude,
+        'timestamp': now.toIso8601String(),
+        'wasOffline': wasOffline,
+      });
+      await batch.commit();
 
       log("✅ Firebase updated successfully");
+      return true;
     } catch (e) {
       log("❌ Firebase update failed: $e");
+      return false;
+    }
+  }
+
+  /// Attempts to drain the offline queue, oldest-first, in small batches
+  /// so a long offline period catches up gradually rather than risking
+  /// one huge failed write the moment connectivity returns.
+  static Future<void> _flushOfflineQueue() async {
+    const int maxPerTick = 25;
+    final pending = await OfflineLocationQueueService.getAll();
+    if (pending.isEmpty) return;
+
+    final batch = pending.take(maxPerTick).toList();
+    int succeeded = 0;
+    for (final ping in batch) {
+      final ok = await _updateFirebase(
+        ping.userId,
+        ping.latitude,
+        ping.longitude,
+        at: ping.timestamp,
+        wasOffline: true,
+      );
+      if (ok) {
+        succeeded++;
+      } else {
+        // Stop at the first failure — connectivity likely dropped again
+        // mid-flush. Whatever succeeded so far is removed below; the rest
+        // stays queued for the next tick.
+        break;
+      }
+    }
+
+    if (succeeded > 0) {
+      await OfflineLocationQueueService.removeOldest(succeeded);
+      log("📤 Flushed $succeeded queued offline location ping(s)"
+          "${pending.length > succeeded ? ' (${pending.length - succeeded} still queued)' : ''}");
     }
   }
 

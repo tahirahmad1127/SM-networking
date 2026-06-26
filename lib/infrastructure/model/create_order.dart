@@ -48,6 +48,8 @@ class CreateOrderModel {
     items: json["items"] == null ? [] : List<OrderItem>.from(json["items"]!.map((x) => OrderItem.fromJson(x))),
     bulkDiscount: json["bulkDiscount"]?.toDouble(),
     couponDiscount: json["couponDiscount"]?.toDouble(),
+    orderType: json["orderType"],
+    status: json["status"],
   );
 
   Map<String, dynamic> toJson() {
@@ -104,6 +106,7 @@ class OrderItem {
     price: json["price"],
     discountedPrice: json["discountedPrice"],
     type: json["type"],
+    isDraftPrice: json["isDraftPrice"],
   );
 
   Map<String, dynamic> toJson() => {

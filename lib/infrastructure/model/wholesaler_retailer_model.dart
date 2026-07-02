@@ -39,8 +39,21 @@ class AddWholesalerRetailerModel {
   /// Town ObjectId
   final String town;
 
-  /// Street address
+  /// Shop address auto-filled/edited from the map picker (unrelated to the
+  /// market/bazar/road/street fields below)
   final String address;
+
+  /// Market name
+  final String marketName;
+
+  /// Bazar name
+  final String bazarName;
+
+  /// Road name
+  final String roadName;
+
+  /// Street name — retailer only, null/omitted for wholesaler
+  final String? streetName;
 
   /// Lat picked from Google Maps
   final double lat;
@@ -57,6 +70,10 @@ class AddWholesalerRetailerModel {
     required this.zone,
     required this.town,
     required this.address,
+    required this.marketName,
+    required this.bazarName,
+    required this.roadName,
+    this.streetName,
     required this.lat,
     required this.lng,
     this.pic,
@@ -69,6 +86,10 @@ class AddWholesalerRetailerModel {
         zone: _refId(json['zone']),
         town: _refId(json['town']),
         address: json['address'] ?? '',
+        marketName: json['marketName'] ?? '',
+        bazarName: json['bazarName'] ?? '',
+        roadName: json['roadName'] ?? '',
+        streetName: json['streetName'],
         lat: (json['addressFromGoogle']?['lat'] ?? json['lat'] ?? 0).toDouble(),
         lng: (json['addressFromGoogle']?['lng'] ?? json['lng'] ?? 0).toDouble(),
         pic: json['pic'],
@@ -80,6 +101,10 @@ class AddWholesalerRetailerModel {
     'zone': zone,
     'town': town,
     'address': address,
+    'marketName': marketName,
+    'bazarName': bazarName,
+    'roadName': roadName,
+    if (streetName != null && streetName!.isNotEmpty) 'streetName': streetName,
     'addressFromGoogle': {
       'lat': lat,
       'lng': lng,
@@ -105,6 +130,10 @@ class WholesalerRetailerModel {
   final String town;
   final String townName;
   final String address;
+  final String marketName;
+  final String bazarName;
+  final String roadName;
+  final String streetName;
   final double lat;
   final double lng;
   final String? pic;
@@ -121,6 +150,10 @@ class WholesalerRetailerModel {
     required this.town,
     required this.townName,
     required this.address,
+    this.marketName = '',
+    this.bazarName = '',
+    this.roadName = '',
+    this.streetName = '',
     required this.lat,
     required this.lng,
     this.pic,
@@ -128,6 +161,15 @@ class WholesalerRetailerModel {
     this.createdAt,
     this.updatedAt,
   });
+
+  /// Joins the new market/bazar/road/street fields for display, falling
+  /// back to the map-picked `address` if none of those were set (e.g. for
+  /// records created before this change).
+  String get fullAddressDisplay {
+    final parts = [marketName, bazarName, roadName, streetName]
+        .where((s) => s.isNotEmpty);
+    return parts.isNotEmpty ? parts.join(' · ') : address;
+  }
 
   factory WholesalerRetailerModel.fromJson(Map<String, dynamic> json) {
     final geo = json['addressFromGoogle'];
@@ -140,6 +182,10 @@ class WholesalerRetailerModel {
       town: _refId(json['town']),
       townName: (json['townName'] ?? _refName(json['town'])).toString(),
       address: json['address'] ?? '',
+      marketName: json['marketName'] ?? '',
+      bazarName: json['bazarName'] ?? '',
+      roadName: json['roadName'] ?? '',
+      streetName: json['streetName'] ?? '',
       lat: (geo is Map ? geo['lat'] : json['lat'] ?? 0).toDouble(),
       lng: (geo is Map ? geo['lng'] : json['lng'] ?? 0).toDouble(),
       pic: json['pic'],
@@ -158,6 +204,10 @@ class WholesalerRetailerModel {
     'town': town,
     'townName': townName,
     'address': address,
+    'marketName': marketName,
+    'bazarName': bazarName,
+    'roadName': roadName,
+    'streetName': streetName,
     'addressFromGoogle': {'lat': lat, 'lng': lng},
     'pic': pic,
     'isDeleted': isDeleted,

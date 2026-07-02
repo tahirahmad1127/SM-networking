@@ -210,6 +210,10 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       return;
     }
 
+    // Refresh the device's current location so the map opens centered on
+    // "me" rather than a stale/null value.
+    await _fetchLocation();
+
     final existingLat = d.shopLocation?.lat;
     final existingLng = d.shopLocation?.lng;
     final LatLng? previousLocation =
@@ -222,6 +226,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
         builder: (_) => _UpdateDistributorLocationScreen(
           title: d.distributionName ?? d.name ?? 'Distributor',
           previousLocation: previousLocation,
+          currentUserLocation: _currentLocation,
         ),
       ),
     );
@@ -345,6 +350,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       builder: (_) => SlideToCheckOutSheet(
         onComplete: () {
           Navigator.pop(ctx);
+          setState(() => _loading.add(distId));
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             final now = DateTime.now().toIso8601String();
@@ -408,12 +414,18 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
             await BackgroundLocationService.stopTracking();
             await Provider.of<CheckInProvider>(ctx, listen: false)
                 .checkOut();
+            // Clear state so card resets to Check In (user can re-visit same distributor)
+            await _clearForDist(distId);
           }
+          if (mounted) setState(() => _loading.remove(distId));
           _pendingDistId = null;
           if (mounted) {
             getFlushBar(ctx, title: 'Checked out successfully!');
           }
         } else if (state is AttendanceFailed) {
+          if (distId.isNotEmpty && mounted) {
+            setState(() => _loading.remove(distId));
+          }
           _pendingDistId = null;
           if (mounted) {
             getFlushBar(ctx, title: 'Error: ${state.message}');
@@ -697,22 +709,28 @@ class _DistributorCard extends StatelessWidget {
                     ),
                   )
                 else if (isDone)
-                // Already checked out today
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: Colors.grey.shade300, width: 1),
-                    ),
-                    child: Text(
-                      'Checked Out',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade500,
+                // Checked out — allow re-check-in for the same distributor
+                  SizedBox(
+                    height: 38,
+                    child: ElevatedButton(
+                      onPressed: isDisabled ? null : onCheckIn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: FrontendConfigs.kPrimaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        disabledBackgroundColor: Colors.grey.shade200,
+                        disabledForegroundColor: Colors.grey.shade400,
+                      ),
+                      child: const Text(
+                        'Check In',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   )
@@ -841,10 +859,12 @@ class _DistributorCard extends StatelessWidget {
 class _UpdateDistributorLocationScreen extends StatefulWidget {
   final String title;
   final LatLng? previousLocation;
+  final LatLng? currentUserLocation;
 
   const _UpdateDistributorLocationScreen({
     required this.title,
     this.previousLocation,
+    this.currentUserLocation,
   });
 
   @override
@@ -934,9 +954,15 @@ class _UpdateDistributorLocationScreenState
             mapType: MapType.normal,
             markers: _markers,
             zoomControlsEnabled: false,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
             initialCameraPosition: CameraPosition(
-              target: _selected ?? const LatLng(33.6844, 73.0479), // fallback: Islamabad
-              zoom: _selected == null ? 5 : 16,
+              target: _selected ??
+                  widget.currentUserLocation ??
+                  const LatLng(33.6844, 73.0479), // fallback: Islamabad if GPS unavailable
+              zoom: _selected != null
+                  ? 16
+                  : (widget.currentUserLocation != null ? 15 : 5),
             ),
             onMapCreated: (controller) => _mapController = controller,
           ),

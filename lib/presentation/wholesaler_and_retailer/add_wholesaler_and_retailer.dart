@@ -79,7 +79,10 @@ class _AddWholesalerRetailerViewState
   // ── Controllers ──────────────────────────────────────────────────────────
   final _nameController = TextEditingController();
   final _contactController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _marketNameController = TextEditingController();
+  final _bazarNameController = TextEditingController();
+  final _roadNameController = TextEditingController();
+  final _streetNameController = TextEditingController(); // retailer only
   final _shopAddressController = TextEditingController();
 
   // ── Image ─────────────────────────────────────────────────────────────────
@@ -363,11 +366,13 @@ class _AddWholesalerRetailerViewState
         contacts: phone,
         zone: _selectedZone!.id,
         town: _selectedTown!.id,
-        address: _addressController.text.trim().isNotEmpty
-            ? _addressController.text.trim()
-            : (_shopAddressController.text.trim().isNotEmpty
-            ? _shopAddressController.text.trim()
-            : ''),
+        address: _shopAddressController.text.trim(),
+        marketName: _marketNameController.text.trim(),
+        bazarName: _bazarNameController.text.trim(),
+        roadName: _roadNameController.text.trim(),
+        streetName: widget.type == WholesalerRetailerType.retailer
+            ? _streetNameController.text.trim()
+            : null,
         lat: _lat,
         lng: _lng,
       );
@@ -476,15 +481,43 @@ class _AddWholesalerRetailerViewState
               ),
               _sectionGap(),
 
-              // ── Address ───────────────────────────────────────────
-              _label("Address"),
+              // ── Market Name ─────────────────────────────────────
+              _label("Market Name"),
               TextFormField(
-                controller: _addressController,
+                controller: _marketNameController,
                 keyboardType: TextInputType.streetAddress,
-                maxLines: 2,
-                decoration: _fieldDecoration("Enter full address"),
+                decoration: _fieldDecoration("Enter market name"),
               ),
               _sectionGap(),
+
+              // ── Bazar Name ───────────────────────────────────────
+              _label("Bazar Name"),
+              TextFormField(
+                controller: _bazarNameController,
+                keyboardType: TextInputType.streetAddress,
+                decoration: _fieldDecoration("Enter bazar name"),
+              ),
+              _sectionGap(),
+
+              // ── Road Name ────────────────────────────────────────
+              _label("Road Name"),
+              TextFormField(
+                controller: _roadNameController,
+                keyboardType: TextInputType.streetAddress,
+                decoration: _fieldDecoration("Enter road name"),
+              ),
+              _sectionGap(),
+
+              // ── Street Name (Retailer only) ───────────────────────
+              if (widget.type == WholesalerRetailerType.retailer) ...[
+                _label("Street Name"),
+                TextFormField(
+                  controller: _streetNameController,
+                  keyboardType: TextInputType.streetAddress,
+                  decoration: _fieldDecoration("Enter street name"),
+                ),
+                _sectionGap(),
+              ],
 
               // ── Zone ─────────────────────────────────────────────
               _label("Zone", locked: _zoneIsLocked),
@@ -1012,7 +1045,10 @@ class _AddWholesalerRetailerViewState
   void dispose() {
     _nameController.dispose();
     _contactController.dispose();
-    _addressController.dispose();
+    _marketNameController.dispose();
+    _bazarNameController.dispose();
+    _roadNameController.dispose();
+    _streetNameController.dispose();
     _shopAddressController.dispose();
     super.dispose();
   }

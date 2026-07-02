@@ -40,6 +40,10 @@ class _AddRetailerViewState extends State<AddRetailerView> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _marketNameController = TextEditingController();
+  final _bazarNameController = TextEditingController();
+  final _roadNameController = TextEditingController();
+  final _streetNameController = TextEditingController();
 
   // ── Image ────────────────────────────────────────────────────────────────
   File? _profileImage;
@@ -317,6 +321,10 @@ class _AddRetailerViewState extends State<AddRetailerView> {
         'town': _selectedTown!.id,
         if (_addressController.text.trim().isNotEmpty)
           'address': _addressController.text.trim(),
+        'marketName': _marketNameController.text.trim(),
+        'bazarName': _bazarNameController.text.trim(),
+        'roadName': _roadNameController.text.trim(),
+        'streetName': _streetNameController.text.trim(),
         'addressFromGoogle': {
           'lat': _lat,
           'lng': _lng,
@@ -645,30 +653,92 @@ class _AddRetailerViewState extends State<AddRetailerView> {
               ),
               const SizedBox(height: 12),
 
-              // ── Address ────────────────────────────────────────────
-              _label("Address (Optional)"),
+              // ── Market Name ────────────────────────────────────────
+              _label("Market Name"),
               TextFormField(
-                controller: _addressController,
-                maxLines: 3,
+                controller: _marketNameController,
                 decoration: InputDecoration(
-                  hintText: "Address",
+                  hintText: "Enter market name",
                   hintStyle: TextStyle(
                     color: FrontendConfigs.kAuthTextColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                   ),
-                  prefixIcon: const Icon(Icons.place_outlined,
-                      color: Colors.grey),
                   border: OutlineInputBorder(
                     borderRadius: FrontendConfigs.kAppBorder,
                     borderSide: BorderSide.none,
                   ),
                   fillColor: FrontendConfigs.kTextFieldColor,
                   filled: true,
-                  helperText:
-                  "Auto-filled from map · you can edit if needed",
-                  helperStyle:
-                  TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+              ),
+              _sectionGap(),
+
+              // ── Bazar Name ─────────────────────────────────────────
+              _label("Bazar Name"),
+              TextFormField(
+                controller: _bazarNameController,
+                decoration: InputDecoration(
+                  hintText: "Enter bazar name",
+                  hintStyle: TextStyle(
+                    color: FrontendConfigs.kAuthTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    borderSide: BorderSide.none,
+                  ),
+                  fillColor: FrontendConfigs.kTextFieldColor,
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+              ),
+              _sectionGap(),
+
+              // ── Road Name ──────────────────────────────────────────
+              _label("Road Name"),
+              TextFormField(
+                controller: _roadNameController,
+                decoration: InputDecoration(
+                  hintText: "Enter road name",
+                  hintStyle: TextStyle(
+                    color: FrontendConfigs.kAuthTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    borderSide: BorderSide.none,
+                  ),
+                  fillColor: FrontendConfigs.kTextFieldColor,
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+              ),
+              _sectionGap(),
+
+              // ── Street Name ────────────────────────────────────────
+              _label("Street Name"),
+              TextFormField(
+                controller: _streetNameController,
+                decoration: InputDecoration(
+                  hintText: "Enter street name",
+                  hintStyle: TextStyle(
+                    color: FrontendConfigs.kAuthTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    borderSide: BorderSide.none,
+                  ),
+                  fillColor: FrontendConfigs.kTextFieldColor,
+                  filled: true,
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
                 ),
@@ -1071,6 +1141,10 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _marketNameController.dispose();
+    _bazarNameController.dispose();
+    _roadNameController.dispose();
+    _streetNameController.dispose();
     super.dispose();
   }
 }

@@ -278,7 +278,7 @@ class _EntryCard extends StatelessWidget {
                     color: Colors.grey.shade600,
                   ),
                   const SizedBox(height: 2),
-                  if (entry.address.isNotEmpty) ...[
+                  if (entry.fullAddressDisplay.isNotEmpty) ...[
                     Row(
                       children: [
                         Icon(Icons.home_outlined,
@@ -286,7 +286,7 @@ class _EntryCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Expanded(
                           child: CustomText(
-                            text: entry.address,
+                            text: entry.fullAddressDisplay,
                             fontSize: 12,
                             color: Colors.grey.shade500,
                           ),

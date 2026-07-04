@@ -3,7 +3,6 @@ import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/view/check_out/check_out_view.dart';
 import 'package:sm_networking/presentation/view/order/no_data_found_view.dart';
 import 'package:provider/provider.dart';
@@ -124,13 +123,6 @@ class _CartBodyState extends State<CartBody> {
                 ),
                 AppButton(
                   onPressed: () {
-                    // check condition if total price is less 2500, show flushBar message
-                    if (cart.getSubTotal() < 2500) {
-                      getFlushBar(context,
-                          title:
-                          "Sorry! You cannot place order of amount less than RS 2500.");
-                      return;
-                    }
                     Navigator.push(
                         context,
                         MaterialPageRoute(

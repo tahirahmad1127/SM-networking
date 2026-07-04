@@ -6,6 +6,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sm_networking/configurations/back_end_configs.dart';
 import 'package:sm_networking/infrastructure/services/auth.dart';
 import 'package:sm_networking/infrastructure/services/attendance.dart';
@@ -55,6 +56,20 @@ class _ProfileBodyState extends State<ProfileBody> {
   bool value = false;
   File? _image;
   bool isLoading = false;
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +217,18 @@ class _ProfileBodyState extends State<ProfileBody> {
                 ),
 
                 const SizedBox(height: 18),
+
+                // ── App Version ──────────────────────────────────────────────
+                if (_appVersion.isNotEmpty)
+                  Center(
+                    child: CustomText(
+                      text: 'App Version: $_appVersion',
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+
+                const SizedBox(height: 12),
 
                 // ── My Recoveries ───────────────────────────────────────────
                 InkWell(

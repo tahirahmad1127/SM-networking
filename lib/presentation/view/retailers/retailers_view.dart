@@ -722,6 +722,238 @@ class _RetailersViewState extends State<RetailersView>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Shared "Start Order / Start Booking" flow.
+  // Opens the visit bottom sheet, starts visit + auto-log monitoring, then
+  // saves the mapped RetailerModel and navigates to CategoryListingView.
+  // Used by distributor "Company Order", wholesaler/retailer "Market Booking".
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<void> _startOrderFlow(RetailerModel asRetailer) async {
+    if (currentLocation == null) {
+      getFlushBar(context, title: "Current location not available");
+      return;
+    }
+
+    await showVisitBottomSheet(context, (selectedImage) async {
+      final visitProvider = Provider.of<VisitProvider>(context, listen: false);
+      final locationProvider =
+      Provider.of<LocationProvider>(context, listen: false);
+      final imagePath = selectedImage?.path;
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      AppLogger.debug("📍 Initial GPS location obtained");
+      AppLogger.debug(
+          "   Location: ${position.latitude}, ${position.longitude}");
+      AppLogger.debug(
+          "   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
+
+      await visitProvider.setStartVisit(
+        location: currentLocation!,
+        imagePath: imagePath,
+        accuracy: position.accuracy,
+        onLocationCheckCallback: () async {
+          if (visitProvider.startVisit == null ||
+              visitProvider.visitLocation == null) {
+            AppLogger.debug("⚠️ Visit data cleared - skipping callback");
+            return;
+          }
+
+          Position freshPosition;
+          try {
+            freshPosition = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+              timeLimit: const Duration(seconds: 5),
+            );
+            AppLogger.debug("📍 Fresh GPS location obtained in timer callback");
+            log("   Location: ${freshPosition.latitude}, ${freshPosition.longitude}");
+            log("   Accuracy: ${freshPosition.accuracy.toStringAsFixed(2)}m");
+          } catch (e) {
+            AppLogger.debug("❌ Failed to get fresh GPS location: $e");
+            return;
+          }
+
+          final currentLoc =
+          LatLng(freshPosition.latitude, freshPosition.longitude);
+          locationProvider.setLatLng(currentLoc);
+
+          await visitProvider.checkAndAutoLogVisit(
+            currentLocation: currentLoc,
+            currentAccuracy: freshPosition.accuracy,
+            onShowNotification: (message) {
+              if (context.mounted) {
+                getFlushBar(context, title: message);
+              }
+            },
+            onAutoLogVisit: () async {
+              if (visitProvider.startVisit == null) {
+                AppLogger.debug("⚠️ Visit cleared before auto-log");
+                return;
+              }
+
+              final retailerProvider =
+              Provider.of<RetailerProvider>(context, listen: false);
+              final userProvider =
+              Provider.of<UserProvider>(context, listen: false);
+              final selectedRetailer = retailerProvider.getRetailer();
+              final userDetails = userProvider.getSalesUserDetails()?.user;
+              final startVisit = await visitProvider.getStartVisit();
+
+              if (selectedRetailer != null &&
+                  userDetails != null &&
+                  startVisit != null) {
+                final visit = VisitModel(
+                  retailerId: selectedRetailer.id.toString(),
+                  salesPersonId: userDetails.id.toString(),
+                  startTime: startVisit.toIso8601String(),
+                  endTime: DateTime.now().toIso8601String(),
+                  date: DateTime.now().toString().split(' ')[0],
+                  image: visitProvider.visitImage ?? "",
+                );
+
+                if (context.mounted) {
+                  context.read<VisitBloc>().add(AddVisitEvent(visit));
+                  await visitProvider.clearVisitData();
+                  AppLogger.debug(
+                      "✅ Visit auto-logged via background monitoring");
+                }
+              }
+            },
+          );
+        },
+      );
+
+      Provider.of<RetailerProvider>(context, listen: false)
+          .saveRetailer(asRetailer);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CategoryListingView(showCart: true),
+        ),
+      );
+
+      if (mounted) {
+        getFlushBar(context, title: "Visit Started Successfully");
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Long-press handlers — trigger the "update to current location" flow that
+  // used to live on the map-icon button. Each shows the same confirmation
+  // dialog, then commits via the existing per-type update methods.
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<void> _handleDistributorLongPress(
+      Distributor d, String displayName) async {
+    await _refreshCurrentLocation();
+    if (currentLocation == null) {
+      getFlushBar(context, title: "Current location not available");
+      return;
+    }
+    await showNavigationDialog(
+      context,
+      message: "Update ${displayName}'s location to your current location?",
+      buttonText: "Update",
+      navigation: () async {
+        Navigator.of(context).pop();
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          if (!mounted) return;
+          setState(() {
+            currentLocation = LatLng(pos.latitude, pos.longitude);
+          });
+          await _commitDistributorLocationUpdate(d, pos.latitude, pos.longitude);
+        } catch (e) {
+          if (mounted) {
+            getFlushBar(context, title: e.toString());
+          }
+        }
+      },
+      secondButtonText: "Cancel",
+      showSecondButton: true,
+    );
+  }
+
+  Future<void> _handleWholesalerLongPress(
+      Wholesaler w, String displayName, bool isRetailer) async {
+    if (_updatingLocationIds.contains(w.id)) return;
+    await _refreshCurrentLocation();
+    if (currentLocation == null) {
+      getFlushBar(context, title: "Current location not available");
+      return;
+    }
+    await showNavigationDialog(
+      context,
+      message: "Update ${displayName}'s location to your current location?",
+      buttonText: "Update",
+      navigation: () async {
+        Navigator.of(context).pop();
+        setState(() => _updatingLocationIds.add(w.id ?? ''));
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          if (!mounted) return;
+          setState(() {
+            currentLocation = LatLng(pos.latitude, pos.longitude);
+          });
+          if (isRetailer) {
+            await _commitRetailerLocationUpdate(w, pos.latitude, pos.longitude);
+          } else {
+            await _commitWholesalerLocationUpdate(w, pos.latitude, pos.longitude);
+          }
+        } catch (e) {
+          if (mounted) {
+            getFlushBar(context, title: e.toString());
+          }
+        } finally {
+          if (mounted) setState(() => _updatingLocationIds.remove(w.id ?? ''));
+        }
+      },
+      secondButtonText: "Cancel",
+      showSecondButton: true,
+    );
+  }
+
+  Future<void> _handleRetailerCardLongPress(
+      RetailerModel currentRetailer) async {
+    await _refreshCurrentLocation();
+    if (currentLocation == null) {
+      getFlushBar(context, title: "Current location not available");
+      return;
+    }
+    await showNavigationDialog(
+      context,
+      message:
+      "Update ${currentRetailer.shopName}'s location to your current location?",
+      buttonText: "Update",
+      navigation: () {
+        final token =
+            context.read<UserProvider>().getSalesUserDetails()?.token ?? '';
+        if (token.isEmpty) {
+          getFlushBar(context,
+              title: 'Session expired. Please log in again.');
+          Navigator.pop(context);
+          return;
+        }
+        BlocProvider.of<RetailerBloc>(context).add(UpdateRetailerLocationEvent(
+          retailerId: currentRetailer.id.toString(),
+          lat: currentLocation!.latitude,
+          lng: currentLocation!.longitude,
+          token: token,
+        ));
+        Navigator.pop(context);
+      },
+      secondButtonText: "Cancel",
+      showSecondButton: true,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Helper: resolve a valid shipping address from a Distributor
   // Tries: address → town name → distributionName → name → "N/A"
   // ─────────────────────────────────────────────────────────────────────────
@@ -749,154 +981,21 @@ class _RetailersViewState extends State<RetailersView>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5),
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
-          borderRadius: FrontendConfigs.kAppBorder,
-          color: FrontendConfigs.kTextFieldColor,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Avatar — tap to open visit image sheet
-              GestureDetector(
-                onTap: () async {
-                  if (currentLocation == null) {
-                    getFlushBar(context, title: "Current location not available");
-                    return;
-                  }
-
-                  await showVisitBottomSheet(context, (selectedImage) async {
-                    final visitProvider =
-                    Provider.of<VisitProvider>(context, listen: false);
-                    final locationProvider =
-                    Provider.of<LocationProvider>(context, listen: false);
-                    final imagePath = selectedImage?.path;
-
-                    final position = await Geolocator.getCurrentPosition(
-                      desiredAccuracy: LocationAccuracy.high,
-                    );
-
-                    AppLogger.debug("📍 Initial GPS location obtained");
-                    AppLogger.debug(
-                        "   Location: ${position.latitude}, ${position.longitude}");
-                    AppLogger.debug(
-                        "   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
-
-                    await visitProvider.setStartVisit(
-                      location: currentLocation!,
-                      imagePath: imagePath,
-                      accuracy: position.accuracy,
-                      onLocationCheckCallback: () async {
-                        if (visitProvider.startVisit == null ||
-                            visitProvider.visitLocation == null) {
-                          AppLogger.debug("⚠️ Visit data cleared - skipping callback");
-                          return;
-                        }
-
-                        Position freshPosition;
-                        try {
-                          freshPosition = await Geolocator.getCurrentPosition(
-                            desiredAccuracy: LocationAccuracy.high,
-                            timeLimit: const Duration(seconds: 5),
-                          );
-                          AppLogger.debug(
-                              "📍 Fresh GPS location obtained in timer callback");
-                          log("   Location: ${freshPosition.latitude}, ${freshPosition.longitude}");
-                          log("   Accuracy: ${freshPosition.accuracy.toStringAsFixed(2)}m");
-                        } catch (e) {
-                          AppLogger.debug("❌ Failed to get fresh GPS location: $e");
-                          return;
-                        }
-
-                        final currentLoc =
-                        LatLng(freshPosition.latitude, freshPosition.longitude);
-                        locationProvider.setLatLng(currentLoc);
-
-                        await visitProvider.checkAndAutoLogVisit(
-                          currentLocation: currentLoc,
-                          currentAccuracy: freshPosition.accuracy,
-                          onShowNotification: (message) {
-                            if (context.mounted) {
-                              getFlushBar(context, title: message);
-                            }
-                          },
-                          onAutoLogVisit: () async {
-                            if (visitProvider.startVisit == null) {
-                              AppLogger.debug("⚠️ Visit cleared before auto-log");
-                              return;
-                            }
-
-                            final retailerProvider =
-                            Provider.of<RetailerProvider>(context, listen: false);
-                            final userProvider =
-                            Provider.of<UserProvider>(context, listen: false);
-                            final selectedRetailer = retailerProvider.getRetailer();
-                            final userDetails =
-                                userProvider.getSalesUserDetails()?.user;
-                            final startVisit = await visitProvider.getStartVisit();
-
-                            if (selectedRetailer != null &&
-                                userDetails != null &&
-                                startVisit != null) {
-                              final visit = VisitModel(
-                                retailerId: selectedRetailer.id.toString(),
-                                salesPersonId: userDetails.id.toString(),
-                                startTime: startVisit.toIso8601String(),
-                                endTime: DateTime.now().toIso8601String(),
-                                date: DateTime.now().toString().split(' ')[0],
-                                image: visitProvider.visitImage ?? "",
-                              );
-
-                              if (context.mounted) {
-                                context.read<VisitBloc>().add(AddVisitEvent(visit));
-                                await visitProvider.clearVisitData();
-                                AppLogger.debug(
-                                    "✅ Visit auto-logged via background monitoring");
-                              }
-                            }
-                          },
-                        );
-                      },
-                    );
-
-                    // Resolve a non-empty shipping address before saving retailer
-                    final resolvedAddress = _resolveDistributorAddress(d);
-
-                    // Map Distributor → RetailerModel for downstream screens
-                    final asRetailer = RetailerModel(
-                      id: d.id ?? d.salesId,
-                      docId: d.id ?? d.salesId,
-                      name: d.name,
-                      shopName: d.distributionName ?? d.name,
-                      shopAddress1: resolvedAddress,
-                      phoneNumber: d.phone,
-                      lat: d.shopLocation?.lat,
-                      lng: d.shopLocation?.lng,
-                      image: d.image ?? '',
-                      isActive: d.isActive,
-                      customerType: 'distributor',
-                    );
-
-                    Provider.of<RetailerProvider>(context, listen: false)
-                        .saveRetailer(asRetailer);
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                        const CategoryListingView(showCart: true),
-                      ),
-                    );
-
-                    if (mounted) {
-                      getFlushBar(context, title: "Visit Started Successfully");
-                    }
-                  });
-                },
-                child: CircleAvatar(
+      child: GestureDetector(
+        onLongPress: () => _handleDistributorLongPress(d, displayName),
+        child: Container(
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+            borderRadius: FrontendConfigs.kAppBorder,
+            color: FrontendConfigs.kTextFieldColor,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Avatar (display only — tap the cart button to start an order)
+                CircleAvatar(
                   radius: 30,
                   backgroundColor:
                   FrontendConfigs.kPrimaryColor.withOpacity(0.12),
@@ -943,144 +1042,126 @@ class _RetailersViewState extends State<RetailersView>
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
 
-              // Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (d.name?.isNotEmpty == true) ...[
-                      const SizedBox(height: 5),
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        d.name!,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ],
-                    if (phone.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        phone,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ],
-                    if (!isDistributorSearching &&
-                        myLocation != null &&
-                        d.shopLocation?.lat != null &&
-                        d.shopLocation?.lng != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        "Distance: ${calculateDistance(start: myLocation!, end: LatLng(d.shopLocation!.lat!.toDouble(), d.shopLocation!.lng!.toDouble())).toStringAsFixed(2)} km(s) away",
-                        style: TextStyle(
+                        displayName,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 14,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Action buttons column
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Update location
-                  InkWell(
-                    onTap: () async {
-                      await _refreshCurrentLocation();
-                      if (currentLocation == null) {
-                        getFlushBar(context,
-                            title: "Current location not available");
-                        return;
-                      }
-                      await showNavigationDialog(
-                        context,
-                        message:
-                        "Update ${displayName}'s location to your current location?",
-                        buttonText: "Update",
-                        navigation: () async {
-                          Navigator.of(context).pop();
-                          try {
-                            final pos = await Geolocator.getCurrentPosition(
-                              desiredAccuracy: LocationAccuracy.high,
-                            );
-                            if (!mounted) return;
-                            setState(() {
-                              currentLocation =
-                                  LatLng(pos.latitude, pos.longitude);
-                            });
-                            await _commitDistributorLocationUpdate(
-                                d, pos.latitude, pos.longitude);
-                          } catch (e) {
-                            if (mounted) {
-                              getFlushBar(context, title: e.toString());
-                            }
-                          }
-                        },
-                        secondButtonText: "Cancel",
-                        showSecondButton: true,
-                      );
-                    },
-                    child: Container(
-                      height: 35,
-                      width: 35,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: FrontendConfigs.kPrimaryColor,
-                      ),
-                      child: const Icon(CupertinoIcons.location_solid,
-                          color: Colors.white, size: 18),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Add Recovery
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddRecoveryView(
-                            distributorId: d.id ?? d.salesId ?? '',
-                            paymentType: 'distributor',
-                            customerType: '',
+                      if (d.name?.isNotEmpty == true) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          d.name!,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          phone,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                      if (!isDistributorSearching &&
+                          myLocation != null &&
+                          d.shopLocation?.lat != null &&
+                          d.shopLocation?.lng != null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          "Distance: ${calculateDistance(start: myLocation!, end: LatLng(d.shopLocation!.lat!.toDouble(), d.shopLocation!.lng!.toDouble())).toStringAsFixed(2)} km(s) away",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: FrontendConfigs.kAuthTextColor,
                           ),
                         ),
-                      );
-                    },
-                    child: Container(
-                      height: 35,
-                      width: 35,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: FrontendConfigs.kPrimaryColor,
-                      ),
-                      child: const Icon(
-                          CupertinoIcons.money_dollar_circle_fill,
-                          color: Colors.white,
-                          size: 18),
-                    ),
+                      ],
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+
+                const SizedBox(width: 8),
+
+                // Action buttons column
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Start Company Order (long-press the tile to update location instead)
+                    InkWell(
+                      onTap: () {
+                        final resolvedAddress = _resolveDistributorAddress(d);
+                        final asRetailer = RetailerModel(
+                          id: d.id ?? d.salesId,
+                          docId: d.id ?? d.salesId,
+                          name: d.name,
+                          shopName: d.distributionName ?? d.name,
+                          shopAddress1: resolvedAddress,
+                          phoneNumber: d.phone,
+                          lat: d.shopLocation?.lat,
+                          lng: d.shopLocation?.lng,
+                          image: d.image ?? '',
+                          isActive: d.isActive,
+                          customerType: 'distributor',
+                        );
+                        _startOrderFlow(asRetailer);
+                      },
+                      child: Container(
+                        height: 35,
+                        width: 35,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: FrontendConfigs.kPrimaryColor,
+                        ),
+                        child: const Icon(CupertinoIcons.cart_fill,
+                            color: Colors.white, size: 18),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Add Recovery
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddRecoveryView(
+                              distributorId: d.id ?? d.salesId ?? '',
+                              paymentType: 'distributor',
+                              customerType: '',
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        height: 35,
+                        width: 35,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: FrontendConfigs.kPrimaryColor,
+                        ),
+                        child: const Icon(
+                            CupertinoIcons.money_dollar_circle_fill,
+                            color: Colors.white,
+                            size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1096,182 +1177,154 @@ class _RetailersViewState extends State<RetailersView>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5),
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
-          borderRadius: FrontendConfigs.kAppBorder,
-          color: FrontendConfigs.kTextFieldColor,
-        ),
-        child: Padding(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Avatar
-              CircleAvatar(
-                radius: 28,
-                backgroundColor:
-                FrontendConfigs.kPrimaryColor.withOpacity(0.15),
-                child: Text(
-                  (w.name?.isNotEmpty == true ? w.name![0] : 'W')
-                      .toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: FrontendConfigs.kPrimaryColor,
+      child: GestureDetector(
+        onLongPress: () =>
+            _handleWholesalerLongPress(w, displayName, isRetailer),
+        child: Container(
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+            borderRadius: FrontendConfigs.kAppBorder,
+            color: FrontendConfigs.kTextFieldColor,
+          ),
+          child: Padding(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor:
+                  FrontendConfigs.kPrimaryColor.withOpacity(0.15),
+                  child: Text(
+                    (w.name?.isNotEmpty == true ? w.name![0] : 'W')
+                        .toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: FrontendConfigs.kPrimaryColor,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (phone.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(phone,
-                          style: const TextStyle(fontSize: 13)),
-                    ],
-                    if (townName.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Icon(CupertinoIcons.map_pin,
-                              size: 12, color: Colors.grey.shade500),
-                          const SizedBox(width: 3),
-                          Text(
-                            townName,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (address.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                const SizedBox(width: 12),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        address,
+                        displayName,
                         style: const TextStyle(
-                            fontSize: 12, color: Colors.grey),
-                        maxLines: 2,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(phone,
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                      if (townName.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(CupertinoIcons.map_pin,
+                                size: 12, color: Colors.grey.shade500),
+                            const SizedBox(width: 3),
+                            Text(
+                              townName,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (address.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          address,
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Action buttons column
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Start Market Booking (long-press the tile to update location instead)
+                    InkWell(
+                      onTap: () {
+                        final asRetailer = RetailerModel(
+                          id: w.id,
+                          docId: w.id,
+                          name: w.name,
+                          shopName: w.name,
+                          shopAddress1: w.address,
+                          phoneNumber: w.contacts,
+                          lat: w.shopLocation?.lat ?? w.addressFromGoogle?.lat,
+                          lng: w.shopLocation?.lng ?? w.addressFromGoogle?.lng,
+                          image: w.pic ?? '',
+                          isActive: w.isActive,
+                          customerType: isRetailer ? 'retailer' : 'wholesaler',
+                        );
+                        _startOrderFlow(asRetailer);
+                      },
+                      child: Container(
+                        height: 35,
+                        width: 35,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: FrontendConfigs.kPrimaryColor,
+                        ),
+                        child: const Icon(CupertinoIcons.cart_fill,
+                            color: Colors.white, size: 18),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Add Recovery
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddRecoveryView(
+                              distributorId: w.id ?? '',
+                              paymentType: 'market_recovery',
+                              customerType: isRetailer ? 'retailer' : 'wholesaler',
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        height: 35,
+                        width: 35,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: FrontendConfigs.kPrimaryColor,
+                        ),
+                        child: const Icon(
+                            CupertinoIcons.money_dollar_circle_fill,
+                            color: Colors.white,
+                            size: 18),
+                      ),
+                    ),
+
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Action buttons column
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Update location to current position
-                  InkWell(
-                    onTap: _updatingLocationIds.contains(w.id) ? null : () async {
-                      await _refreshCurrentLocation();
-                      if (currentLocation == null) {
-                        getFlushBar(context,
-                            title: "Current location not available");
-                        return;
-                      }
-                      await showNavigationDialog(
-                        context,
-                        message:
-                        "Update ${displayName}'s location to your current location?",
-                        buttonText: "Update",
-                        navigation: () async {
-                          Navigator.of(context).pop();
-                          setState(() => _updatingLocationIds.add(w.id ?? ''));
-                          try {
-                            final pos = await Geolocator.getCurrentPosition(
-                              desiredAccuracy: LocationAccuracy.high,
-                            );
-                            if (!mounted) return;
-                            setState(() {
-                              currentLocation =
-                                  LatLng(pos.latitude, pos.longitude);
-                            });
-                            if (isRetailer) {
-                              await _commitRetailerLocationUpdate(
-                                  w, pos.latitude, pos.longitude);
-                            } else {
-                              await _commitWholesalerLocationUpdate(
-                                  w, pos.latitude, pos.longitude);
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              getFlushBar(context, title: e.toString());
-                            }
-                          } finally {
-                            if (mounted) setState(() => _updatingLocationIds.remove(w.id ?? ''));
-                          }
-                        },
-                        secondButtonText: "Cancel",
-                        showSecondButton: true,
-                      );
-                    },
-                    child: Container(
-                      height: 35,
-                      width: 35,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: FrontendConfigs.kPrimaryColor,
-                      ),
-                      child: _updatingLocationIds.contains(w.id)
-                          ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                          : const Icon(CupertinoIcons.location_solid,
-                          color: Colors.white, size: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Add Recovery
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddRecoveryView(
-                            distributorId: w.id ?? '',
-                            paymentType: 'market_recovery',
-                            customerType: isRetailer ? 'retailer' : 'wholesaler',
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      height: 35,
-                      width: 35,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: FrontendConfigs.kPrimaryColor,
-                      ),
-                      child: const Icon(
-                          CupertinoIcons.money_dollar_circle_fill,
-                          color: Colors.white,
-                          size: 18),
-                    ),
-                  ),
-
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1284,123 +1337,8 @@ class _RetailersViewState extends State<RetailersView>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5),
       child: InkWell(
-        onTap: () async {
-          if (currentLocation == null) {
-            getFlushBar(context, title: "Current location not available");
-            return;
-          }
-
-          await showVisitBottomSheet(context, (selectedImage) async {
-            final visitProvider =
-            Provider.of<VisitProvider>(context, listen: false);
-            final locationProvider =
-            Provider.of<LocationProvider>(context, listen: false);
-            final imagePath = selectedImage?.path;
-
-            final position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-            );
-
-            AppLogger.debug("📍 Initial GPS location obtained");
-            AppLogger.debug(
-                "   Location: ${position.latitude}, ${position.longitude}");
-            AppLogger.debug(
-                "   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
-
-            await visitProvider.setStartVisit(
-              location: currentLocation!,
-              imagePath: imagePath,
-              accuracy: position.accuracy,
-              onLocationCheckCallback: () async {
-                if (visitProvider.startVisit == null ||
-                    visitProvider.visitLocation == null) {
-                  AppLogger.debug("⚠️ Visit data cleared - skipping callback");
-                  return;
-                }
-
-                Position freshPosition;
-                try {
-                  freshPosition = await Geolocator.getCurrentPosition(
-                    desiredAccuracy: LocationAccuracy.high,
-                    timeLimit: const Duration(seconds: 5),
-                  );
-                  AppLogger.debug(
-                      "📍 Fresh GPS location obtained in timer callback");
-                  log("   Location: ${freshPosition.latitude}, ${freshPosition.longitude}");
-                  log("   Accuracy: ${freshPosition.accuracy.toStringAsFixed(2)}m");
-                } catch (e) {
-                  AppLogger.debug("❌ Failed to get fresh GPS location: $e");
-                  return;
-                }
-
-                final currentLoc =
-                LatLng(freshPosition.latitude, freshPosition.longitude);
-                locationProvider.setLatLng(currentLoc);
-
-                await visitProvider.checkAndAutoLogVisit(
-                  currentLocation: currentLoc,
-                  currentAccuracy: freshPosition.accuracy,
-                  onShowNotification: (message) {
-                    if (context.mounted) {
-                      getFlushBar(context, title: message);
-                    }
-                  },
-                  onAutoLogVisit: () async {
-                    if (visitProvider.startVisit == null) {
-                      AppLogger.debug("⚠️ Visit cleared before auto-log");
-                      return;
-                    }
-
-                    final retailerProvider =
-                    Provider.of<RetailerProvider>(context, listen: false);
-                    final userProvider =
-                    Provider.of<UserProvider>(context, listen: false);
-                    final selectedRetailer = retailerProvider.getRetailer();
-                    final userDetails =
-                        userProvider.getSalesUserDetails()?.user;
-                    final startVisit = await visitProvider.getStartVisit();
-
-                    if (selectedRetailer != null &&
-                        userDetails != null &&
-                        startVisit != null) {
-                      final visit = VisitModel(
-                        retailerId: selectedRetailer.id.toString(),
-                        salesPersonId: userDetails.id.toString(),
-                        startTime: startVisit.toIso8601String(),
-                        endTime: DateTime.now().toIso8601String(),
-                        date: DateTime.now().toString().split(' ')[0],
-                        image: visitProvider.visitImage ?? "",
-                      );
-
-                      if (context.mounted) {
-                        context.read<VisitBloc>().add(AddVisitEvent(visit));
-                        await visitProvider.clearVisitData();
-                        AppLogger.debug(
-                            "✅ Visit auto-logged via background monitoring");
-                      }
-                    }
-                  },
-                );
-              },
-            );
-
-            print('🔍 customerType before save: \${currentRetailer.customerType}');
-            Provider.of<RetailerProvider>(context, listen: false)
-                .saveRetailer(currentRetailer);
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                const CategoryListingView(showCart: true),
-              ),
-            );
-
-            if (mounted) {
-              getFlushBar(context, title: "Visit Started Successfully");
-            }
-          });
-        },
+        onTap: () => _startOrderFlow(currentRetailer),
+        onLongPress: () => _handleRetailerCardLongPress(currentRetailer),
         child: Container(
           height: 135,
           width: MediaQuery.of(context).size.width,
@@ -1494,47 +1432,9 @@ class _RetailersViewState extends State<RetailersView>
                           const SizedBox(width: 10),
                           Column(
                             children: [
+                              // Start Order (long-press the tile to update location instead)
                               InkWell(
-                                onTap: () async {
-                                  await _refreshCurrentLocation();
-                                  if (currentLocation == null) {
-                                    getFlushBar(context,
-                                        title:
-                                        "Current location not available");
-                                    return;
-                                  }
-                                  await showNavigationDialog(
-                                    context,
-                                    message:
-                                    "Update ${currentRetailer.shopName}'s location to your current location?",
-                                    buttonText: "Update",
-                                    navigation: () {
-                                      final token = context
-                                          .read<UserProvider>()
-                                          .getSalesUserDetails()
-                                          ?.token ??
-                                          '';
-                                      if (token.isEmpty) {
-                                        getFlushBar(context,
-                                            title:
-                                            'Session expired. Please log in again.');
-                                        Navigator.pop(context);
-                                        return;
-                                      }
-                                      BlocProvider.of<RetailerBloc>(context)
-                                          .add(UpdateRetailerLocationEvent(
-                                        retailerId:
-                                        currentRetailer.id.toString(),
-                                        lat: currentLocation!.latitude,
-                                        lng: currentLocation!.longitude,
-                                        token: token,
-                                      ));
-                                      Navigator.pop(context);
-                                    },
-                                    secondButtonText: "Cancel",
-                                    showSecondButton: true,
-                                  );
-                                },
+                                onTap: () => _startOrderFlow(currentRetailer),
                                 child: Container(
                                   height: 35,
                                   width: 35,
@@ -1544,7 +1444,7 @@ class _RetailersViewState extends State<RetailersView>
                                     color: FrontendConfigs.kPrimaryColor,
                                   ),
                                   child: const Icon(
-                                      CupertinoIcons.location_solid,
+                                      CupertinoIcons.cart_fill,
                                       color: Colors.white),
                                 ),
                               ),

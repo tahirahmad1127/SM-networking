@@ -6,6 +6,7 @@ import 'package:sm_networking/infrastructure/model/product.dart';
 import '../../configurations/end_points.dart';
 import '../api_helper.dart';
 import '../model/error.dart';
+import 'auth_token_helper.dart';
 
 abstract class ProductRepository {
   Future<Either<GlobalErrorModel, ProductListingModel>> getProducts({
@@ -43,12 +44,14 @@ class ProductRepositoryImp extends ProductRepository {
         '${ApiEndPoints.kGetProducts}/category/$categoryID?page=$page';
     log('ProductRepo.getProducts → $endpoint');
 
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: endpoint,
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
 
@@ -61,12 +64,14 @@ class ProductRepositoryImp extends ProductRepository {
   @override
   Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByBrandID(
       String brandID) async {
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: '${ApiEndPoints.kGetBrandDetail}$brandID',
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
 
@@ -79,12 +84,14 @@ class ProductRepositoryImp extends ProductRepository {
   @override
   Future<Either<GlobalErrorModel, ProductModel>> getProductByID(
       String productID) async {
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: '${ApiEndPoints.kGetProducts}/$productID',
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
 
@@ -111,12 +118,14 @@ class ProductRepositoryImp extends ProductRepository {
         '${ApiEndPoints.kGetProductsByCategory}$categoryID?page=$page';
     log('ProductRepo.getProductsByCategory → $endpoint');
 
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: endpoint,
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
 

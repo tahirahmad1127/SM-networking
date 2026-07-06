@@ -82,6 +82,25 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Overrides the per-unit price of an item already in the cart. Front-end
+  /// only — this does not touch the backend's actual product price, just
+  /// what this cart charges for this order.
+  ///
+  /// addItem() alone can't do this: when an item already exists it falls
+  /// through to increment(), which only ever touches quantity, never price.
+  /// This exists specifically to close that gap.
+  void updateItemPrice(String id, String newPrice) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    for (var e in _cartList) {
+      if (e.id == id) {
+        e.price = newPrice;
+        break;
+      }
+    }
+    prefs.setString('CART_DATA', cartModelToJson(_cartList));
+    notifyListeners();
+  }
+
   // ============ BULK DISCOUNT METHODS ============
 
   // Get bulk discount value and type for a specific cart item

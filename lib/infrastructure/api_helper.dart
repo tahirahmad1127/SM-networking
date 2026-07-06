@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../application/connectivity_status.dart';
 import '../configurations/back_end_configs.dart';
 import 'model/error.dart';
+import 'services/session_manager.dart';
 
 var logger = Logger();
 
@@ -370,6 +371,18 @@ class ApiBaseHelper {
     return null;
   }
 
+  /// Safely decodes a response body to a Map, or null if it isn't one.
+  /// Used to pull structured fields (code, canForceLogin) out of error
+  /// bodies without duplicating try/catch everywhere.
+  Map<String, dynamic>? _tryDecodeMap(String body) {
+    try {
+      final decoded = json.decode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Either<GlobalErrorModel, dynamic> _returnResponseEither(
       http.Response response) {
     log(response.body.toString());
@@ -378,11 +391,27 @@ class ApiBaseHelper {
         var responseJson = json.decode(response.body.toString());
         return Right(responseJson);
       } else if (response.statusCode == 400) {
+        final bodyMap = _tryDecodeMap(response.body.toString());
         final msg = _extractErrorMessage(response.body.toString());
-        if (msg != null) return Left(GlobalErrorModel(error: msg));
-        return Left(GlobalErrorModel(error: "Bad request."));
+        return Left(GlobalErrorModel(
+          error: msg ?? "Bad request.",
+          code: bodyMap?['code']?.toString(),
+          canForceLogin: bodyMap?['canForceLogin'] == true,
+        ));
       } else if (response.statusCode == 401) {
         final msg = _extractErrorMessage(response.body.toString());
+        // Only treat this as a forced-logout session expiry if the message
+        // matches what the backend documented for that specific case
+        // ("Session-expired, please re-login."). A plain 401 could still
+        // mean something else (e.g. bad credentials on some other
+        // endpoint), and blindly redirecting to login on every 401 risks
+        // false positives / redirect loops - this keeps it scoped to the
+        // one documented case.
+        if (msg != null && msg.toLowerCase().contains('session-expired')) {
+          // Fire-and-forget: _returnResponseEither is synchronous, and the
+          // caller just wants the error mapped, not to await the redirect.
+          handleSessionExpired();
+        }
         if (msg != null) return Left(GlobalErrorModel(error: msg));
         return Left(GlobalErrorModel(
             error: "Sorry! You are not allowed to perform this operation.!"));
@@ -390,9 +419,13 @@ class ApiBaseHelper {
         return Left(
             GlobalErrorModel(error: "Sorry! Your requested data not found!"));
       } else if (response.statusCode == 403) {
+        final bodyMap = _tryDecodeMap(response.body.toString());
         final msg = _extractErrorMessage(response.body.toString());
-        if (msg != null) return Left(GlobalErrorModel(error: msg));
-        return Left(GlobalErrorModel(error: "UnAuthorized"));
+        return Left(GlobalErrorModel(
+          error: msg ?? "UnAuthorized",
+          code: bodyMap?['code']?.toString(),
+          canForceLogin: bodyMap?['canForceLogin'] == true,
+        ));
       } else if (response.statusCode == 500) {
         log(response.reasonPhrase.toString());
         return Left(GlobalErrorModel(

@@ -12,15 +12,17 @@ class LoginUserEvent extends AuthEvent {
   final String identifier;
   final String password;
   final bool isPhone;
+  final bool isForce;
 
   const LoginUserEvent({
     required this.identifier,
     required this.password,
     this.isPhone = false,
+    this.isForce = false,
   });
 
   @override
-  List<Object> get props => [identifier, password, isPhone];
+  List<Object> get props => [identifier, password, isPhone, isForce];
 }
 
 

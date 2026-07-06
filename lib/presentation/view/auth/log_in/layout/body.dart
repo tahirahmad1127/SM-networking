@@ -44,6 +44,48 @@ class _LogInBodyState extends State<LogInBody> {
     return RegExp(r'^\d{8,15}$').hasMatch(cleanedInput);
   }
 
+  /// Shown when the backend rejects login with ALREADY_LOGGED_IN. On
+  /// confirm, re-fires LoginUserEvent with isForce: true using the
+  /// credentials carried on the state, so the user doesn't have to
+  /// retype anything.
+  ///
+  /// NOTE: I haven't seen error_dialog.dart's contents (it's imported
+  /// above but I don't know its API), so this uses a plain AlertDialog
+  /// rather than guessing at that helper's signature. Swap this out for
+  /// your existing dialog style if error_dialog.dart fits better here.
+  void _showForceLoginDialog(BuildContext context, AuthAlreadyLoggedIn state) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Already Logged In"),
+          content: Text(state.message),
+          actions: [
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            if (state.canForceLogin)
+              TextButton(
+                child: const Text("Yes, Log In"),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  BlocProvider.of<AuthBloc>(context).add(
+                    LoginUserEvent(
+                      identifier: state.identifier,
+                      password: state.password,
+                      isPhone: state.isPhone,
+                      isForce: true,
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<UserProvider>(context);
@@ -71,6 +113,8 @@ class _LogInBodyState extends State<LogInBody> {
             }
           } else if (state is AuthFailed) {
             getFlushBar(context, title: state.message.toString());
+          } else if (state is AuthAlreadyLoggedIn) {
+            _showForceLoginDialog(context, state);
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(

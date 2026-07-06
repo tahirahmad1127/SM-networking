@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/checkIn_provider.dart';
 import 'package:sm_networking/application/error_string.dart';
@@ -29,6 +30,7 @@ import 'application/wholesaler_retailer_provider.dart';
 import 'configurations/enums.dart';
 import 'infrastructure/services/auth.dart';
 import 'infrastructure/services/background_location.dart';
+import 'infrastructure/services/session_manager.dart';
 import 'infrastructure/services/work_manager.dart';
 import 'presentation/view/splash_screen/splash_view.dart';
 import 'presentation/view/stats/stats_view.dart';
@@ -66,6 +68,25 @@ void main() async {
   await Workmanager().initialize(callbackDispatcher, isInDebugMode: true,);
   await BackgroundLocationService.initializeService();
   log("✅ Background Location Service initialized");
+
+  // Clears the cached session on forced logout. Confirmed against
+  // presentation/view/auth/log_in/layout/body.dart, which is where the
+  // token/user is originally saved on login: SharedPreferences key
+  // 'USER_DATA', plus UserProvider. splash_screen/layout/body.dart also
+  // caches ALLOWED_CHECKIN_TIME/ALLOWED_CHECKOUT_TIME off the same user
+  // profile, so those are cleared too for consistency (harmless if unused
+  // elsewhere).
+  onSessionExpired = () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('USER_DATA');
+    await prefs.remove('ALLOWED_CHECKIN_TIME');
+    await prefs.remove('ALLOWED_CHECKOUT_TIME');
+
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) {
+      Provider.of<UserProvider>(ctx, listen: false).clearSalesData();
+    }
+  };
 
   /// Hive local storage for retailers
   final dir = await getApplicationDocumentsDirectory();
@@ -198,6 +219,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return VisitChecker(
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         supportedLocales: context.supportedLocales,
         localizationsDelegates: context.localizationDelegates,
         locale: context.locale,

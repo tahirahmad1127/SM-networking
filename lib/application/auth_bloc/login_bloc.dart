@@ -26,12 +26,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             identifier: event.identifier,
             password: event.password,
             isPhone: event.isPhone,
+            isForce: event.isForce,
           );
 
-          failureOrSuccess.fold((l) => emit(AuthFailed(l.error.toString())),
-              (r) {
-            return emit(LoginLoaded(r));
-          });
+          failureOrSuccess.fold((l) {
+            if (l.code == 'ALREADY_LOGGED_IN') {
+              return emit(AuthAlreadyLoggedIn(
+                message: l.error ?? 'This account is already logged in on another device.',
+                canForceLogin: l.canForceLogin,
+                identifier: event.identifier,
+                password: event.password,
+                isPhone: event.isPhone,
+              ));
+            }
+            return emit(AuthFailed(l.error.toString()));
+          },
+                  (r) {
+                return emit(LoginLoaded(r));
+              });
         } catch (e) {
           rethrow;
         }
@@ -41,9 +53,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
           final failureOrSuccess = await repositoryImp.getUserByID(event.userID);
           failureOrSuccess.fold((l) => emit(AuthFailed(l.error.toString())),
-              (r) {
-            return emit(UserLoaded(r));
-          });
+                  (r) {
+                return emit(UserLoaded(r));
+              });
         } catch (e) {
           rethrow;
         }

@@ -4,6 +4,10 @@ class ApiEndPoints {
 
   /// warehouse-manager/logout  →  clears activeDeviceId on the backend
   static const String kWarehouseManagerLogout = "warehouse-manager/logout";
+
+  /// warehouse-manager/force-login  →  logs out the other active device and
+  /// logs in on this one. Used when login returns ALREADY_LOGGED_IN.
+  static const String kWarehouseManagerForceLogin = "warehouse-manager/force-login";
   static const String kGetRetailers = "retailer/city/";
   static const String kUpdateRetailerLocation = "retailer/location/";
   static const String kUpdateWholesalerLocation = "wholesaler/location/";

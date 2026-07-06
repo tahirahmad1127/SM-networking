@@ -10,7 +10,7 @@ import '../api_helper.dart';
 import '../model/error.dart';
 
 abstract class AuthRepository {
-  Future<Either<GlobalErrorModel, UserModel>> login({required String identifier, required String password, required bool isPhone,});
+  Future<Either<GlobalErrorModel, UserModel>> login({required String identifier, required String password, required bool isPhone, bool isForce = false});
 
   Future<Either<GlobalErrorModel, User>> getUserByID(String userID);
 
@@ -51,10 +51,12 @@ class AuthRepositoryImp extends AuthRepository {
   }
 
   @override
-  Future<Either<GlobalErrorModel, UserModel>> login({required String identifier, required String password, required bool isPhone,}) async {
+  Future<Either<GlobalErrorModel, UserModel>> login({required String identifier, required String password, required bool isPhone, bool isForce = false,}) async {
     final deviceId = await _getDeviceId();
     var data = await ApiBaseHelper().postEither(
-        endPoint: ApiEndPoints.kWarehouseManagerLogin,
+        endPoint: isForce
+            ? ApiEndPoints.kWarehouseManagerForceLogin
+            : ApiEndPoints.kWarehouseManagerLogin,
         isRequiredHeader: true,
         hasBody: true,
         body: isPhone
@@ -73,7 +75,7 @@ class AuthRepositoryImp extends AuthRepository {
           'Content-Type': 'application/json'
         });
     return data.fold((l) {
-      return Left(GlobalErrorModel(error: l.error.toString()));
+      return Left(GlobalErrorModel(error: l.error.toString(), code: l.code, canForceLogin: l.canForceLogin));
     }, (r) {
       return Right(UserModel.fromJson(r));
     });

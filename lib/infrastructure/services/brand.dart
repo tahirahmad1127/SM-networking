@@ -5,6 +5,7 @@ import '../../configurations/end_points.dart';
 import '../api_helper.dart';
 import '../model/all_brands.dart';
 import '../model/error.dart';
+import 'auth_token_helper.dart';
 
 abstract class BrandRepository {
   Future<Either<GlobalErrorModel, BrandListingModel>> getBrands(String brandID);
@@ -15,12 +16,14 @@ class BrandRepositoryImp extends BrandRepository {
   @override
   Future<Either<GlobalErrorModel, BrandListingModel>> getBrands(
       String brandID) async {
+    final token = await getAuthToken();
     var data = await ApiBaseHelper().getEither(
         endPoint: ApiEndPoints.kGetBrands + brandID,
         isRequiredHeader: true,
         header: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          if (token != null) 'x-auth-token': token,
         });
     return data.fold((l) {
       return Left(GlobalErrorModel(error: l.error.toString()));
@@ -31,12 +34,14 @@ class BrandRepositoryImp extends BrandRepository {
 
   @override
   Future<Either<GlobalErrorModel, AllBrandsListingModel>> getAllBrands() async {
+    final token = await getAuthToken();
     var data = await ApiBaseHelper().getEither(
         endPoint: ApiEndPoints.kGetAllBrands,
         isRequiredHeader: true,
         header: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          if (token != null) 'x-auth-token': token,
         });
     return data.fold((l) {
       return Left(GlobalErrorModel(error: l.error.toString()));

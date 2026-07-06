@@ -5,17 +5,20 @@ import 'package:sm_networking/infrastructure/model/error.dart';
 import 'package:sm_networking/infrastructure/model/product.dart';
 
 import '../model/brand_category.dart';
+import 'auth_token_helper.dart';
 
 class BrandCategoryService {
   /// GET category/brand/{brandId}
   Future<Either<GlobalErrorModel, BrandCategoryListingModel>>
   getCategoriesByBrand(String brandId) async {
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: ApiEndPoints.kGetCategoriesByBrand + brandId,
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
     return data.fold(
@@ -31,12 +34,14 @@ class BrandCategoryService {
     required String categoryID,
     required int page,
   }) async {
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: '${ApiEndPoints.kGetProductsByBrandAndCategory}$brandId/category/$categoryID?page=$page&limit=500',
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
     return data.fold(
@@ -57,12 +62,14 @@ class BrandCategoryService {
     if (categoryId != null && categoryId.isNotEmpty) {
       params.write('&category=$categoryId');
     }
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: params.toString(),
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
     return data.fold(
@@ -76,12 +83,14 @@ class BrandCategoryService {
     required String categoryID,
     required int page,
   }) async {
+    final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
       endPoint: '${ApiEndPoints.kGetProductsByCategory}$categoryID?page=$page&limit=500',
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
       },
     );
     return data.fold(

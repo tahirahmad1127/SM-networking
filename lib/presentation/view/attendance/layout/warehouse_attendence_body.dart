@@ -912,6 +912,38 @@ class _UpdateDistributorLocationScreenState
     );
   }
 
+  Future<void> _useMyLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        final requested = await Geolocator.requestPermission();
+        if (requested == LocationPermission.denied ||
+            requested == LocationPermission.deniedForever) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permission denied.')),
+            );
+          }
+          return;
+        }
+      }
+      final position = await Geolocator.getCurrentPosition();
+      final here = LatLng(position.latitude, position.longitude);
+      setState(() => _selected = here);
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: here, zoom: 16),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not get current location: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _openDirections() async {
     final target = _selected;
     if (target == null) {
@@ -1004,14 +1036,28 @@ class _UpdateDistributorLocationScreenState
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 76),
-        child: FloatingActionButton.extended(
-          onPressed: _openDirections,
-          backgroundColor: const Color(0xFF2D3142),
-          icon: const Icon(Icons.directions, color: Colors.white),
-          label: const Text(
-            'Directions',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              heroTag: 'useMyLocation',
+              onPressed: _useMyLocation,
+              backgroundColor: Colors.white,
+              child: const Icon(Icons.my_location, color: Color(0xFF2D3142)),
+            ),
+            const SizedBox(height: 12),
+            FloatingActionButton.extended(
+              heroTag: 'openDirections',
+              onPressed: _openDirections,
+              backgroundColor: const Color(0xFF2D3142),
+              icon: const Icon(Icons.directions, color: Colors.white),
+              label: const Text(
+                'Directions',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
       ),
     );

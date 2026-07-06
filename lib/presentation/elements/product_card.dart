@@ -43,6 +43,10 @@ class _ProductCardState extends State<ProductCard> {
 
   TextEditingController cartController = TextEditingController();
 
+  /// Front-end-only price override, set via the edit-price dialog. When
+  /// null, the computed _displayPrice() is used as-is.
+  num? _customPrice;
+
   @override
   void initState() {
     var cart = Provider.of<CartProvider>(context, listen: false);
@@ -198,11 +202,25 @@ class _ProductCardState extends State<ProductCard> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              CustomText(
-                                text: "${_displayPrice(context).toStringAsFixed(2)} Rs",
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: FrontendConfigs.kPrimaryColor,
+                              InkWell(
+                                onTap: () => _showEditPriceDialog(context),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CustomText(
+                                      text: "${_effectivePrice(context).toStringAsFixed(2)} Rs",
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: FrontendConfigs.kPrimaryColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.edit,
+                                      size: 14,
+                                      color: FrontendConfigs.kPrimaryColor.withOpacity(0.6),
+                                    ),
+                                  ],
+                                ),
                               ),
 
                             ],
@@ -225,6 +243,7 @@ class _ProductCardState extends State<ProductCard> {
                       onTap: () {
                         log("Cotton Selected");
                         isCtnSelected = true;
+                        _customPrice = null;
                         cart.removeItem(widget.model.id.toString());
                         setState(() {});
                       },
@@ -253,6 +272,7 @@ class _ProductCardState extends State<ProductCard> {
                       onTap: () {
                         log("Packet Selected");
                         isCtnSelected = false;
+                        _customPrice = null;
                         cart.removeItem(widget.model.id.toString());
                         setState(() {});
                       },
@@ -354,7 +374,7 @@ class _ProductCardState extends State<ProductCard> {
                                 cart.addItem(CartModel(
                                     name: widget.model.englishTitle.toString(),
                                     id: widget.model.id.toString(),
-                                    price: _displayPrice(context).toStringAsFixed(2),
+                                    price: _effectivePrice(context).toStringAsFixed(2),
                                     image: widget.model.image.toString(),
                                     offer: widget.model.isDiscounted ?? false,
                                     productDetails: widget.model,
@@ -381,7 +401,7 @@ class _ProductCardState extends State<ProductCard> {
                         cart.addItem(CartModel(
                             name: widget.model.englishTitle.toString(),
                             id: widget.model.id.toString(),
-                            price: _displayPrice(context).toStringAsFixed(2),
+                            price: _effectivePrice(context).toStringAsFixed(2),
                             image: widget.model.image.toString(),
                             offer: widget.model.isDiscounted ?? false,
                             productDetails: widget.model,
@@ -437,6 +457,86 @@ class _ProductCardState extends State<ProductCard> {
     if (!widget.showCtnBox) return ratePerBox * boxesPerCarton;
 
     return isCtnSelected ? ratePerBox * boxesPerCarton : ratePerBox;
+  }
+
+  /// The price actually used for display and for cart/order totals — the
+  /// manually-entered override if one has been set via the edit-price
+  /// dialog, otherwise the normal computed price.
+  num _effectivePrice(BuildContext context) {
+    return _customPrice ?? _displayPrice(context);
+  }
+
+  /// Front-end-only price override. Does not call any API and does not
+  /// change the backend's actual product price — only what this specific
+  /// order charges for this item.
+  void _showEditPriceDialog(BuildContext context) {
+    final cart = Provider.of<CartProvider>(context, listen: false);
+    final currentPrice = _effectivePrice(context);
+    final controller = TextEditingController(
+        text: currentPrice.toStringAsFixed(
+            currentPrice.truncateToDouble() == currentPrice ? 0 : 2));
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Edit Price"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "This only changes the rate for this order. It does not "
+                    "change the product's actual price.",
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                decoration: const InputDecoration(
+                  prefixText: "Rs ",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text("Save"),
+              onPressed: () {
+                final entered = num.tryParse(controller.text.trim());
+                if (entered == null || entered <= 0) {
+                  getFlushBar(context, title: "Enter a valid price.");
+                  return;
+                }
+                Navigator.of(dialogContext).pop();
+                setState(() => _customPrice = entered);
+
+                // If this item is already sitting in the cart, addItem()
+                // alone won't update its price (it falls through to
+                // increment(), which only touches quantity) — so update
+                // the existing entry directly.
+                if (cart.getItemQuantity(widget.model.id.toString()) >= 1) {
+                  cart.updateItemPrice(
+                    widget.model.id.toString(),
+                    entered.toStringAsFixed(2),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

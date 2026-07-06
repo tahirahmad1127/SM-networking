@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:extended_image/extended_image.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sm_networking/application/locaition_helper.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
@@ -69,6 +71,42 @@ class _RetailersViewState extends State<RetailersView>
   bool isWholesalerSearching = false;
   bool isRetailerSearching = false;
   final Set<String> _updatingLocationIds = {};
+
+  // ── Town filter (warehouseManager) ──
+  // The town of whichever distributor is currently checked in, per the
+  // same 'wm_dist_{distributorId}' SharedPreferences state that
+  // warehouse_attendence_body.dart writes on check-in/check-out. Null
+  // means either the role isn't warehouseManager, or nobody is currently
+  // checked into any distributor — in both cases we fall back to showing
+  // the unfiltered lists rather than an empty screen.
+  String? _activeTownId;
+
+  Future<void> _resolveActiveTownId() async {
+    if (!mounted) return;
+    final user = Provider.of<UserProvider>(context, listen: false);
+    final distributors = user.getSalesUserDetails()?.distributors ?? [];
+    final prefs = await SharedPreferences.getInstance();
+
+    String? foundTownId;
+    for (final d in distributors) {
+      final id = (d.id ?? d.salesId ?? '').trim();
+      if (id.isEmpty) continue;
+      final raw = prefs.getString('wm_dist_$id');
+      if (raw == null) continue;
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+        final checkOutTime = decoded['checkOutTime'];
+        final isCheckedIn = checkOutTime == null ||
+            (checkOutTime is String && checkOutTime.isEmpty);
+        if (isCheckedIn) {
+          foundTownId = d.town?.id;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) setState(() => _activeTownId = foundTownId);
+  }
 
   void _searchData(String val) async {
     searchUser.clear();
@@ -164,6 +202,8 @@ class _RetailersViewState extends State<RetailersView>
     final role = user.getSalesUserDetails()?.role ?? '';
     if (role != 'warehouseManager') return;
 
+    _resolveActiveTownId();
+
     final list = user.getSalesUserDetails()?.distributors ?? [];
     if (list.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -258,11 +298,27 @@ class _RetailersViewState extends State<RetailersView>
     }
 
     // ── Data lists ──
-    final allDistributors = _fetchedDistributors.isNotEmpty
+    final allDistributorsRaw = _fetchedDistributors.isNotEmpty
         ? _fetchedDistributors
         : (user.getSalesUserDetails()?.distributors ?? []);
-    final allWholesalers = user.getSalesUserDetails()?.wholesalers ?? [];
-    final allRetailers = user.getSalesUserDetails()?.retailers ?? [];
+    final allWholesalersRaw = user.getSalesUserDetails()?.wholesalers ?? [];
+    final allRetailersRaw = user.getSalesUserDetails()?.retailers ?? [];
+
+    // Warehouse Manager only: narrow all three lists to the town of
+    // whichever distributor is currently checked in. If nobody is
+    // currently checked in, _activeTownId is null and we fall back to
+    // the unfiltered lists — a design choice, not something explicitly
+    // specified, so worth confirming this is the behavior wanted versus
+    // e.g. showing an empty state with a "check in first" message.
+    final allDistributors = (isWarehouseManager && _activeTownId != null)
+        ? allDistributorsRaw.where((d) => d.town?.id == _activeTownId).toList()
+        : allDistributorsRaw;
+    final allWholesalers = (isWarehouseManager && _activeTownId != null)
+        ? allWholesalersRaw.where((w) => w.town?.id == _activeTownId).toList()
+        : allWholesalersRaw;
+    final allRetailers = (isWarehouseManager && _activeTownId != null)
+        ? allRetailersRaw.where((r) => r.town?.id == _activeTownId).toList()
+        : allRetailersRaw;
 
     // ── AppBar title ──
     final appBarTitle = isOrderBooker

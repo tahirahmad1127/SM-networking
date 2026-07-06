@@ -29,3 +29,26 @@ class AuthFailed extends AuthState {
 
   const AuthFailed(this.message);
 }
+
+/// Emitted when the backend rejects login with ALREADY_LOGGED_IN. Carries
+/// the original credentials so the UI's confirmation dialog can re-fire
+/// LoginUserEvent with isForce: true without asking the user to retype
+/// their email/password.
+class AuthAlreadyLoggedIn extends AuthState {
+  final String message;
+  final bool canForceLogin;
+  final String identifier;
+  final String password;
+  final bool isPhone;
+
+  const AuthAlreadyLoggedIn({
+    required this.message,
+    required this.canForceLogin,
+    required this.identifier,
+    required this.password,
+    required this.isPhone,
+  });
+
+  @override
+  List<Object> get props => [message, canForceLogin, identifier, password, isPhone];
+}

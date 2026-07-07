@@ -144,6 +144,10 @@ class RecoveryModel {
   final String? updatedAt;
   final String paymentType;
   final String customerType;
+  // Present on the market-recovery endpoint (recorded by an orderBooker on
+  // behalf of their TSM); absent (→ empty) on the plain "my payments" one.
+  final String orderBooker;
+  final String orderBookerName;
 
   RecoveryModel({
     required this.id,
@@ -171,6 +175,8 @@ class RecoveryModel {
     this.updatedAt,
     this.paymentType = 'distributor',
     this.customerType = '',
+    this.orderBooker = '',
+    this.orderBookerName = '',
   });
 
   factory RecoveryModel.fromJson(Map<String, dynamic> json) => RecoveryModel(
@@ -205,6 +211,11 @@ class RecoveryModel {
     updatedAt: json["updatedAt"],
     paymentType: json["paymentType"] ?? "distributor",
     customerType: json["customerType"] ?? "",
+    orderBooker: recoveryModelRefId(json["orderBooker"]),
+    orderBookerName:
+    (json["orderBookerName"] ?? recoveryModelRefName(json["orderBooker"]))
+        ?.toString() ??
+        "",
   );
 
   Map<String, dynamic> toJson() => {
@@ -233,6 +244,8 @@ class RecoveryModel {
     "updatedAt": updatedAt,
     "paymentType": paymentType,
     "customerType": customerType,
+    "orderBooker": orderBooker,
+    "orderBookerName": orderBookerName,
   };
 }
 
@@ -241,12 +254,15 @@ class RecoveryListingModel {
   final int total;
   final int page;
   final int totalPages;
+  // Present on the market-recovery endpoint (sum of amounts); 0 if absent.
+  final num totalAmount;
 
   RecoveryListingModel({
     required this.data,
     required this.total,
     required this.page,
     required this.totalPages,
+    this.totalAmount = 0,
   });
 
   factory RecoveryListingModel.fromJson(Map<String, dynamic> json) {
@@ -272,6 +288,7 @@ class RecoveryListingModel {
       total: toInt(json["total"]),
       page: toInt(json["page"], 1),
       totalPages: toInt(json["totalPages"], 1),
+      totalAmount: (json["totalAmount"] as num?) ?? 0,
     );
   }
 }

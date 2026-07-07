@@ -12,23 +12,33 @@ class OrderListingModel {
   final String? msg;
   final List<OrderModel>? data;
   final int? totalPages;
+  // Present on the market-booking-orders / market-recovery style
+  // responses (list count + sum), absent (→ null) on older endpoints.
+  final int? total;
+  final num? totalAmount;
 
   OrderListingModel({
     this.msg,
     this.data,
     this.totalPages,
+    this.total,
+    this.totalAmount,
   });
 
   factory OrderListingModel.fromJson(Map<String, dynamic> json) => OrderListingModel(
     msg: json["msg"],
     data: json["data"] == null ? [] : List<OrderModel>.from(json["data"]!.map((x) => OrderModel.fromJson(x))),
     totalPages: json["totalPages"] == null ? null : (json["totalPages"] as num).toInt(),
+    total: json["total"] == null ? null : (json["total"] as num).toInt(),
+    totalAmount: json["totalAmount"] == null ? null : (json["totalAmount"] as num),
   );
 
   Map<String, dynamic> toJson() => {
     "msg": msg,
     "data": data == null ? [] : List<dynamic>.from(data!.map((x) => x.toJson())),
     "totalPages": totalPages,
+    "total": total,
+    "totalAmount": totalAmount,
   };
 }
 
@@ -51,6 +61,7 @@ class OrderModel {
   final num? bulkDiscount;      // ← Added
   final num? couponDiscount;    // ← Added
   final String? coupon;         // ← Added (coupon code)
+  final String? orderType;      // ← Added, e.g. "market_booking"
 
   OrderModel({
     this.id,
@@ -71,6 +82,7 @@ class OrderModel {
     this.bulkDiscount,      // ← Added
     this.couponDiscount,    // ← Added
     this.coupon,            // ← Added
+    this.orderType,         // ← Added
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -104,6 +116,7 @@ class OrderModel {
     bulkDiscount: json["bulkDiscount"],      // ← Added
     couponDiscount: json["couponDiscount"],  // ← Added
     coupon: json["coupon"],                  // ← Added
+    orderType: json["orderType"],            // ← Added
   );
 
   Map<String, dynamic> toJson() => {
@@ -125,6 +138,7 @@ class OrderModel {
     "bulkDiscount": bulkDiscount,      // ← Added
     "couponDiscount": couponDiscount,  // ← Added
     "coupon": coupon,                  // ← Added
+    "orderType": orderType,            // ← Added
   };
 }
 

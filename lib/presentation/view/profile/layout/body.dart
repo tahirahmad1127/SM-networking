@@ -44,6 +44,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/services/retailers_cache.dart';
 import '../../../elements/custom_text.dart';
+import '../order_booker_list_view.dart';
 
 class ProfileBody extends StatefulWidget {
   const ProfileBody({super.key});
@@ -242,6 +243,22 @@ class _ProfileBodyState extends State<ProfileBody> {
                   },
                   child: ProfileCard(lebal: 'My Recoveries'),
                 ),
+
+                // ── Orderbookers (Warehouse Manager only) ────────────────────
+                if (role == 'warehouseManager') ...[
+                  const SizedBox(height: 12),
+                  InkWell(
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                              const OrderBookersListView()));
+                    },
+                    child: ProfileCard(lebal: 'Orderbookers'),
+                  ),
+                ],
 
                 const SizedBox(height: 12),
 

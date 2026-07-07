@@ -26,6 +26,7 @@ class UserProvider extends ChangeNotifier {
     List<Distributor>? distributors,
     List<Wholesaler>? wholesalers,
     List<Wholesaler>? retailers,
+    List<OrderBooker>? orderBookers,
   }) {
     final m = _saleUserModel!;
     return UserModel(
@@ -37,6 +38,8 @@ class UserProvider extends ChangeNotifier {
       retailers: retailers ?? m.retailers,
       totalWholesalers: m.totalWholesalers,
       totalRetailers: m.totalRetailers,
+      orderBookers: orderBookers ?? m.orderBookers,
+      totalOrderBookers: m.totalOrderBookers,
     );
   }
 

@@ -19,6 +19,9 @@ class UserModel {
   final List<Wholesaler>? retailers;
   final int? totalWholesalers;
   final int? totalRetailers;
+  // orderBookers: returned only for the warehouseManager role
+  final List<OrderBooker>? orderBookers;
+  final int? totalOrderBookers;
 
   UserModel({
     this.token,
@@ -29,6 +32,8 @@ class UserModel {
     this.retailers,
     this.totalWholesalers,
     this.totalRetailers,
+    this.orderBookers,
+    this.totalOrderBookers,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -52,6 +57,12 @@ class UserModel {
         .toList(),
     totalWholesalers: json["totalWholesalers"],
     totalRetailers: json["totalRetailers"],
+    orderBookers: json["orderBookers"] == null
+        ? null
+        : (json["orderBookers"] as List)
+        .map((e) => OrderBooker.fromJson(e))
+        .toList(),
+    totalOrderBookers: json["totalOrderBookers"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -63,6 +74,8 @@ class UserModel {
     "retailers": retailers?.map((e) => e.toJson()).toList(),
     "totalWholesalers": totalWholesalers,
     "totalRetailers": totalRetailers,
+    "orderBookers": orderBookers?.map((e) => e.toJson()).toList(),
+    "totalOrderBookers": totalOrderBookers,
   };
 }
 
@@ -586,4 +599,175 @@ class Wholesaler {
     updatedAt: updatedAt,
     v: v,
   );
+}
+// ─── OrderBooker (returned only for the warehouseManager role) ──────────────
+// Each warehouseManager's login response includes the list of orderBookers
+// working under them, so this can be displayed straight from the in-memory
+// UserModel without an extra API call.
+
+class OrderBookerDistributorRef {
+  final String? id;
+  final String? name;
+  final String? distributionName;
+
+  OrderBookerDistributorRef({this.id, this.name, this.distributionName});
+
+  factory OrderBookerDistributorRef.fromJson(Map<String, dynamic> json) =>
+      OrderBookerDistributorRef(
+        id: json["_id"] ?? json["id"],
+        name: json["name"],
+        distributionName: json["distributionName"],
+      );
+
+  Map<String, dynamic> toJson() => {
+    "_id": id,
+    "name": name,
+    "distributionName": distributionName,
+  };
+}
+
+class OrderBooker {
+  final String? id;
+  final String? salesId;
+  final String? name;
+  final String? email;
+  final String? phone;
+  final bool? isAdminVerified;
+  final bool? isDeleted;
+  final bool? isActive;
+  final String? image;
+  final String? address;
+  final String? cnic;
+  final String? maritalStatus;
+  final DistributorRef? zone;
+  final DistributorRef? town;
+  final String? coordinator;
+  final DistributorRef? tsm;
+  final OrderBookerDistributorRef? distributor;
+  final num? basicSalary;
+  final num? allowanceDistance;
+  final num? dailyAllowance;
+  final num? miscellaneousAllowance;
+  final num? mobileAllowance;
+  final String? incentiveStructure;
+  final String? checkInTime;
+  final String? checkOutTime;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final int? v;
+
+  OrderBooker({
+    this.id,
+    this.salesId,
+    this.name,
+    this.email,
+    this.phone,
+    this.isAdminVerified,
+    this.isDeleted,
+    this.isActive,
+    this.image,
+    this.address,
+    this.cnic,
+    this.maritalStatus,
+    this.zone,
+    this.town,
+    this.coordinator,
+    this.tsm,
+    this.distributor,
+    this.basicSalary,
+    this.allowanceDistance,
+    this.dailyAllowance,
+    this.miscellaneousAllowance,
+    this.mobileAllowance,
+    this.incentiveStructure,
+    this.checkInTime,
+    this.checkOutTime,
+    this.createdAt,
+    this.updatedAt,
+    this.v,
+  });
+
+  factory OrderBooker.fromJson(Map<String, dynamic> json) => OrderBooker(
+    id: json["_id"] ?? json["id"],
+    salesId: json["salesId"],
+    name: json["name"],
+    email: json["email"],
+    phone: json["phone"],
+    isAdminVerified: json["isAdminVerified"],
+    isDeleted: json["isDeleted"],
+    isActive: json["isActive"],
+    image: json["image"],
+    address: json["address"],
+    cnic: json["cnic"],
+    maritalStatus: json["maritalStatus"],
+    zone: json["zone"] == null
+        ? null
+        : (json["zone"] is String
+        ? DistributorRef(id: json["zone"])
+        : DistributorRef.fromJson(json["zone"])),
+    town: json["town"] == null
+        ? null
+        : (json["town"] is String
+        ? DistributorRef(id: json["town"])
+        : DistributorRef.fromJson(json["town"])),
+    coordinator: json["coordinator"] == null
+        ? null
+        : (json["coordinator"] is String
+        ? json["coordinator"] as String
+        : json["coordinator"]["_id"] as String),
+    tsm: json["tsm"] == null
+        ? null
+        : (json["tsm"] is String
+        ? DistributorRef(id: json["tsm"])
+        : DistributorRef.fromJson(json["tsm"])),
+    distributor: json["distributor"] == null
+        ? null
+        : OrderBookerDistributorRef.fromJson(json["distributor"]),
+    basicSalary: json["basicSalary"],
+    allowanceDistance: json["allowanceDistance"],
+    dailyAllowance: json["dailyAllowance"],
+    miscellaneousAllowance: json["miscellaneousAllowance"],
+    mobileAllowance: json["mobileAllowance"],
+    incentiveStructure: json["incentiveStructure"],
+    checkInTime: json["checkInTime"],
+    checkOutTime: json["checkOutTime"],
+    createdAt: json["createdAt"] == null
+        ? null
+        : DateTime.parse(json["createdAt"]),
+    updatedAt: json["updatedAt"] == null
+        ? null
+        : DateTime.parse(json["updatedAt"]),
+    v: json["__v"],
+  );
+
+  Map<String, dynamic> toJson() => {
+    "_id": id,
+    "salesId": salesId,
+    "name": name,
+    "email": email,
+    "phone": phone,
+    "isAdminVerified": isAdminVerified,
+    "isDeleted": isDeleted,
+    "isActive": isActive,
+    "image": image,
+    "address": address,
+    "cnic": cnic,
+    "maritalStatus": maritalStatus,
+    "zone": zone?.toJson(),
+    "town": town?.toJson(),
+    "coordinator": coordinator,
+    "tsm": tsm?.toJson(),
+    "distributor": distributor?.toJson(),
+    "basicSalary": basicSalary,
+    "allowanceDistance": allowanceDistance,
+    "dailyAllowance": dailyAllowance,
+    "miscellaneousAllowance": miscellaneousAllowance,
+    "mobileAllowance": mobileAllowance,
+    "incentiveStructure": incentiveStructure,
+    "checkInTime": checkInTime,
+    "checkOutTime": checkOutTime,
+    "createdAt": createdAt?.toIso8601String(),
+    "updatedAt": updatedAt?.toIso8601String(),
+    "__v": v,
+  };
 }

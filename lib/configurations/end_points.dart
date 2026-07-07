@@ -116,4 +116,16 @@ class ApiEndPoints {
 
   /// product/by-brand/{brandId}/category/{categoryId}
   static const String kGetProductsByBrandAndCategory = "product/by-brand/";
+
+  // ── Warehouse Manager → OrderBooker activity ──────────────────────────────
+  // Both are scoped by tsmId (the logged-in warehouseManager's own id) +
+  // orderBookerId (the tapped OrderBooker's id).
+
+  /// warehouse-manager/tsm/{tsmId}/order-booker/{orderBookerId}/market-booking-orders
+  static String kMarketBookingOrders(String tsmId, String orderBookerId) =>
+      "warehouse-manager/tsm/$tsmId/order-booker/$orderBookerId/market-booking-orders";
+
+  /// payment/tsm/{tsmId}/order-booker/{orderBookerId}/market-recovery
+  static String kMarketRecoveries(String tsmId, String orderBookerId) =>
+      "payment/tsm/$tsmId/order-booker/$orderBookerId/market-recovery";
 }

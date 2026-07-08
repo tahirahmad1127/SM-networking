@@ -2,9 +2,10 @@ class BackendConfigs {
   // static const String baseUrl = "https://synectics.pk";
   // static const String baseUrl = "http://54.153.208.108";
   // static const String baseUrl = "http://13.233.100.247";
+  // static const String baseUrl = "https://sm-api-iota.vercel.app";
 
   //________ Current Base URL
-  static const String baseUrl = "https://sm-api-iota.vercel.app";
+  static const String baseUrl = "https://api.iandunetworks.com";
 
   //________ Staging Base URl
   // static const String baseUrl = "https://primelinkdistribution.com";

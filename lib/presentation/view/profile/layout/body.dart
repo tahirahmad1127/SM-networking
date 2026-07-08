@@ -4,10 +4,7 @@ import 'dart:typed_data';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:sm_networking/configurations/back_end_configs.dart';
 import 'package:sm_networking/infrastructure/services/auth.dart';
 import 'package:sm_networking/infrastructure/services/attendance.dart';
 import 'package:flutter/cupertino.dart';
@@ -34,6 +31,8 @@ import 'package:sm_networking/presentation/view/category_listing/category_listin
 import 'package:sm_networking/presentation/view/map/map_retailers.dart';
 import 'package:sm_networking/presentation/view/profile/my_recoveries_view.dart';
 import 'package:sm_networking/presentation/view/profile/layout/widgets/profile_card.dart';
+import '../../orderbooker_recoveries_view.dart';
+import '../sales_view.dart';
 import 'package:launch_review_latest/launch_review_latest.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
@@ -44,7 +43,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/services/retailers_cache.dart';
 import '../../../elements/custom_text.dart';
-import '../order_booker_list_view.dart';
 
 class ProfileBody extends StatefulWidget {
   const ProfileBody({super.key});
@@ -244,7 +242,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                   child: ProfileCard(lebal: 'My Recoveries'),
                 ),
 
-                // ── Orderbookers (Warehouse Manager only) ────────────────────
+                // ── Orderbookers Recoveries (Warehouse Manager only) ─────────
                 if (role == 'warehouseManager') ...[
                   const SizedBox(height: 12),
                   InkWell(
@@ -254,49 +252,24 @@ class _ProfileBodyState extends State<ProfileBody> {
                           context,
                           MaterialPageRoute(
                               builder: (context) =>
-                              const OrderBookersListView()));
+                              const OrderBookerRecoveriesView()));
                     },
-                    child: ProfileCard(lebal: 'Orderbookers'),
+                    child: ProfileCard(lebal: 'Orderbookers Recoveries'),
                   ),
                 ],
 
                 const SizedBox(height: 12),
 
-                // ── Generate Order Summary ───────────────────────────────────
+                // ── Sales (Order Summary / Order Form / Overall Invoices) ────
                 InkWell(
                   borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () => _showReportDateSheet(
-                    buttonLabel: 'Generate Order Summary',
-                    useDateRange: true,
-                    onGenerate: _generateOrderSummary,
-                  ),
-                  child: ProfileCard(lebal: 'Generate Order Summary'),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Generate Order Form ──────────────────────────────────────
-                InkWell(
-                  borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () => _showReportDateSheet(
-                    buttonLabel: 'Generate Order Form',
-                    useDateRange: true,
-                    onGenerate: _generateOrderForm,
-                  ),
-                  child: ProfileCard(lebal: 'Generate Order Form'),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Generate Overall Invoices ────────────────────────────────
-                InkWell(
-                  borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () => _showReportDateSheet(
-                    buttonLabel: 'Generate Overall Invoices',
-                    useDateRange: true,
-                    onGenerate: _generateInvoices,
-                  ),
-                  child: ProfileCard(lebal: 'Generate Overall Invoices'),
+                  onTap: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SalesView()));
+                  },
+                  child: ProfileCard(lebal: 'Sales'),
                 ),
 
                 // ── Wholesalers (TSM only) ──────────────────────────────────
@@ -463,413 +436,6 @@ class _ProfileBodyState extends State<ProfileBody> {
     if (!await launchUrl(Uri.parse(url),
         mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
-    }
-  }
-
-  // ── Reports (Order Summary / Order Form / Overall Invoices) ─────────────────
-
-  /// Maps the app's internal role string to the value the backend expects
-  /// for `userType`. ASSUMPTION: anything containing "order"/"booker" is
-  /// treated as "Order Booker", everything else (including warehouseManager)
-  /// falls back to "TSM" — confirm this mapping is correct for all roles.
-  String _mapUserTypeForReports(String role) {
-    final r = role.toLowerCase();
-    if (r.contains('order') || r.contains('booker')) return 'Order Booker';
-    return 'TSM';
-  }
-
-  Future<void> _openPdf(String url) async {
-    try {
-      await _launchUrl(url);
-    } catch (_) {
-      if (mounted) getFlushBar(context, title: 'Could not open the PDF.');
-    }
-  }
-
-  /// If there's more than one invoice link, let the user pick which to open
-  /// (url_launcher can only open one at a time).
-  Future<void> _showInvoiceLinksSheet(List<String> urls) async {
-    if (!mounted) return;
-    await showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            CustomText(
-              text: "${urls.length} invoices found",
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-            const SizedBox(height: 8),
-            ...List.generate(urls.length, (i) {
-              return ListTile(
-                leading: Icon(Icons.picture_as_pdf_outlined,
-                    color: FrontendConfigs.kPrimaryColor),
-                title: Text('Invoice ${i + 1}'),
-                trailing: const Icon(Icons.open_in_new, size: 18),
-                onTap: () => _openPdf(urls[i]),
-              );
-            }),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Shared date-picker bottom sheet used by all 3 report actions.
-  /// [useDateRange] = true shows Start + End Date fields; false shows a
-  /// single Date field (used for Overall Invoices, which only takes `date`).
-  void _showReportDateSheet({
-    required String buttonLabel,
-    required bool useDateRange,
-    required Future<void> Function(DateTime start, DateTime? end) onGenerate,
-  }) {
-    DateTime? startDate;
-    DateTime? endDate;
-    bool isGenerating = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            Future<void> pickDate(bool isStart) async {
-              final now = DateTime.now();
-              final picked = await showDatePicker(
-                context: sheetContext,
-                initialDate: now,
-                firstDate: DateTime(now.year - 3),
-                lastDate: now,
-              );
-              if (picked == null) return;
-              setSheetState(() {
-                if (isStart) {
-                  startDate = picked;
-                } else {
-                  endDate = picked;
-                }
-              });
-            }
-
-            Future<void> handleGenerate() async {
-              if (startDate == null || (useDateRange && endDate == null)) {
-                getFlushBar(sheetContext,
-                    title: 'Please select the required date(s)');
-                return;
-              }
-              if (useDateRange && endDate!.isBefore(startDate!)) {
-                getFlushBar(sheetContext,
-                    title: 'End date cannot be before start date');
-                return;
-              }
-              setSheetState(() => isGenerating = true);
-              try {
-                await onGenerate(startDate!, useDateRange ? endDate : null);
-              } finally {
-                if (mounted) setSheetState(() => isGenerating = false);
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-              ),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    CustomText(
-                      text: buttonLabel,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                    const SizedBox(height: 20),
-                    if (useDateRange)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ReportDateField(
-                              label: 'Start Date',
-                              value: startDate,
-                              onTap: () => pickDate(true),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _ReportDateField(
-                              label: 'End Date',
-                              value: endDate,
-                              onTap: () => pickDate(false),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      _ReportDateField(
-                        label: 'Date',
-                        value: startDate,
-                        onTap: () => pickDate(true),
-                      ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: isGenerating ? null : handleGenerate,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: FrontendConfigs.kPrimaryColor,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isGenerating
-                            ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                            : Text(
-                          buttonLabel,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Map<String, String> _reportHeaders(String token) {
-    final rawToken = token.startsWith('Bearer ') ? token.substring(7) : token;
-    return {
-      'Content-Type': 'application/json',
-      'x-auth-token': rawToken,
-    };
-  }
-
-  /// NOTE: /api/order/by-salesperson-date currently returns raw JSON order
-  /// data (for rendering a summary grid), not a `pdfUrl` — per your backend
-  /// dev's own spec. This is wired up assuming a `data.pdfUrl` field gets
-  /// added later, mirroring _generateOrderForm exactly. Until then, this
-  /// will show a "not available yet" message instead of a PDF.
-  Future<void> _generateOrderSummary(DateTime start, DateTime? end) async {
-    final user = Provider.of<UserProvider>(context, listen: false);
-    final details = user.getSalesUserDetails();
-    final salePersonId = details?.user?.id ?? '';
-    final token = details?.token ?? '';
-    final userType = _mapUserTypeForReports(details?.role ?? '');
-
-    try {
-      final uri = Uri.parse('${BackendConfigs.apiUrl}order/by-salesperson-date');
-      final response = await http.post(
-        uri,
-        headers: _reportHeaders(token),
-        body: jsonEncode({
-          'salePerson': salePersonId,
-          'userType': userType,
-          'startDate': DateFormat('yyyy-MM-dd').format(start),
-          'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        if (mounted) {
-          getFlushBar(context,
-              title: 'Failed to generate order summary: ${_extractErrorMessage(response)}');
-        }
-        return;
-      }
-
-      final decoded = jsonDecode(response.body);
-      // NOTE: unlike order/load-form, this endpoint returns pdfUrl at the
-      // top level (data is the raw orders array), per backend dev's update.
-      final pdfUrl = decoded['pdfUrl'];
-
-      if (!mounted) return;
-      if (pdfUrl != null && pdfUrl.toString().isNotEmpty) {
-        Navigator.pop(context); // close the sheet
-        await _openPdf(pdfUrl.toString());
-      } else {
-        getFlushBar(context, title: 'No orders found for the selected dates.');
-      }
-    } catch (e) {
-      if (mounted) {
-        getFlushBar(context, title: 'Something went wrong. Please try again.');
-      }
-    }
-  }
-
-  Future<void> _generateOrderForm(DateTime start, DateTime? end) async {
-    final user = Provider.of<UserProvider>(context, listen: false);
-    final details = user.getSalesUserDetails();
-    final salePersonId = details?.user?.id ?? '';
-    final token = details?.token ?? '';
-    final userType = _mapUserTypeForReports(details?.role ?? '');
-
-    try {
-      final uri = Uri.parse('${BackendConfigs.apiUrl}order/load-form');
-      final response = await http.post(
-        uri,
-        headers: _reportHeaders(token),
-        body: jsonEncode({
-          'salePerson': salePersonId,
-          'userType': userType,
-          'startDate': DateFormat('yyyy-MM-dd').format(start),
-          'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        if (mounted) {
-          getFlushBar(context,
-              title: 'Failed to generate order form: ${_extractErrorMessage(response)}');
-        }
-        return;
-      }
-
-      final decoded = jsonDecode(response.body);
-      final pdfUrl = decoded['data']?['pdfUrl'];
-
-      if (!mounted) return;
-      if (pdfUrl != null && pdfUrl.toString().isNotEmpty) {
-        Navigator.pop(context); // close the sheet
-        await _openPdf(pdfUrl.toString());
-      } else {
-        getFlushBar(context, title: 'No orders found for the selected dates.');
-      }
-    } catch (e) {
-      if (mounted) {
-        getFlushBar(context, title: 'Something went wrong. Please try again.');
-      }
-    }
-  }
-
-  /// Extracts a human-readable error message from a failed response body,
-  /// falling back to the raw status code if the body isn't JSON/expected shape.
-  String _extractErrorMessage(http.Response response) {
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map) {
-        final msg = decoded['msg'] ?? decoded['message'] ?? decoded['error'];
-        if (msg != null && msg.toString().trim().isNotEmpty) {
-          return msg.toString();
-        }
-      }
-    } catch (_) {
-      // response wasn't JSON — fall through to generic message below
-    }
-    return 'Server returned ${response.statusCode}.';
-  }
-
-  /// Backend's /api/order/report only accepts a single `date`, so for a
-  /// selected range we call it once per day and merge all the returned
-  /// invoice links together.
-  Future<void> _generateInvoices(DateTime start, DateTime? end) async {
-    final user = Provider.of<UserProvider>(context, listen: false);
-    final details = user.getSalesUserDetails();
-    final salePersonId = details?.user?.id ?? '';
-    final token = details?.token ?? '';
-
-    final rangeEnd = end ?? start;
-    final days = <DateTime>[];
-    for (var d = start;
-    !d.isAfter(rangeEnd);
-    d = d.add(const Duration(days: 1))) {
-      days.add(d);
-    }
-
-    final allUrls = <String>[];
-    String? lastError;
-
-    try {
-      final uri = Uri.parse('${BackendConfigs.apiUrl}order/report');
-
-      for (final day in days) {
-        final response = await http.post(
-          uri,
-          headers: _reportHeaders(token),
-          body: jsonEncode({
-            'date': DateFormat('yyyy-MM-dd').format(day),
-            'salePerson': salePersonId,
-          }),
-        );
-
-        if (response.statusCode != 200) {
-          lastError = _extractErrorMessage(response);
-          continue; // keep trying the remaining days
-        }
-
-        final decoded = jsonDecode(response.body);
-        final urls = (decoded['data'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .where((s) => s.isNotEmpty);
-        allUrls.addAll(urls);
-      }
-
-      if (!mounted) return;
-
-      if (allUrls.isEmpty) {
-        getFlushBar(
-          context,
-          title: lastError != null
-              ? 'Failed to generate invoices: $lastError'
-              : 'No invoices found for the selected dates.',
-        );
-        return;
-      }
-
-      Navigator.pop(context); // close the sheet
-      if (allUrls.length == 1) {
-        await _openPdf(allUrls.first);
-      } else {
-        await _showInvoiceLinksSheet(allUrls);
-      }
-    } catch (e) {
-      if (mounted) {
-        getFlushBar(context, title: 'Something went wrong. Please try again.');
-      }
     }
   }
 
@@ -1078,68 +644,5 @@ class _ProfileBodyState extends State<ProfileBody> {
     }
 
     return null;
-  }
-}
-
-// ── Date input box used in the report-generation bottom sheets ──────────────
-// Styled to match the "mm/dd/yyyy" boxed date picker shown in the reference
-// screenshot.
-class _ReportDateField extends StatelessWidget {
-  final String label;
-  final DateTime? value;
-  final VoidCallback onTap;
-
-  const _ReportDateField({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = value == null
-        ? 'mm/dd/yyyy'
-        : DateFormat('MM/dd/yyyy').format(value!);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CustomText(
-          text: label,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: Colors.grey.shade700,
-        ),
-        const SizedBox(height: 6),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: FrontendConfigs.kTextFieldColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: value == null
-                        ? Colors.grey.shade500
-                        : Colors.black87,
-                  ),
-                ),
-                Icon(Icons.calendar_today_outlined,
-                    size: 17, color: Colors.grey.shade600),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

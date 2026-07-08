@@ -25,6 +25,16 @@ abstract class OrderBookerActivityRepository {
     required String orderBookerId,
     required String token,
   });
+
+  /// Recoveries across ALL order bookers under [tsmId] by default; pass
+  /// [orderBookerId] to filter to just one. Paginated.
+  Future<Either<GlobalErrorModel, RecoveryListingModel>> getAllMarketRecoveries({
+    required String tsmId,
+    String? orderBookerId,
+    required int page,
+    required int limit,
+    required String token,
+  });
 }
 
 class OrderBookerActivityRepositoryImp
@@ -83,6 +93,35 @@ class OrderBookerActivityRepositoryImp
       );
     } catch (e) {
       log("getMarketRecoveries error: $e");
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, RecoveryListingModel>> getAllMarketRecoveries({
+    required String tsmId,
+    String? orderBookerId,
+    required int page,
+    required int limit,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kAllMarketRecoveries(
+          tsmId: tsmId,
+          orderBookerId: orderBookerId,
+          page: page,
+          limit: limit,
+        ),
+        isRequiredHeader: true,
+        header: _headers(token),
+      );
+      return data.fold(
+            (l) => Left(GlobalErrorModel(error: l.error.toString())),
+            (r) => Right(RecoveryListingModel.fromJson(r)),
+      );
+    } catch (e) {
+      log("getAllMarketRecoveries error: $e");
       return Left(GlobalErrorModel(error: e.toString()));
     }
   }

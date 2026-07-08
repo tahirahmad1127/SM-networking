@@ -128,4 +128,25 @@ class ApiEndPoints {
   /// payment/tsm/{tsmId}/order-booker/{orderBookerId}/market-recovery
   static String kMarketRecoveries(String tsmId, String orderBookerId) =>
       "payment/tsm/$tsmId/order-booker/$orderBookerId/market-recovery";
+
+  /// payment/tsm/{tsmId}/market-recovery?orderBookerId=<optional>&page=<n>&limit=<n>
+  ///
+  /// Recoveries across ALL order bookers under this TSM by default; pass
+  /// [orderBookerId] to filter to just one. Paginated via `page`/`limit`.
+  static String kAllMarketRecoveries({
+    required String tsmId,
+    String? orderBookerId,
+    required int page,
+    required int limit,
+  }) {
+    final params = <String, String>{
+      'page': '$page',
+      'limit': '$limit',
+      if (orderBookerId != null && orderBookerId.isNotEmpty)
+        'orderBookerId': orderBookerId,
+    };
+    final query =
+    params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
+    return "payment/tsm/$tsmId/market-recovery?$query";
+  }
 }

@@ -7,6 +7,7 @@ import '../api_helper.dart';
 import '../model/add_recovery.dart';
 import '../model/error.dart';
 import '../model/order.dart';
+import '../model/user.dart';
 
 /// Read-only activity for a specific orderBooker, from the perspective of
 /// their warehouseManager (TSM). Both endpoints are scoped by
@@ -33,6 +34,18 @@ abstract class OrderBookerActivityRepository {
     String? orderBookerId,
     required int page,
     required int limit,
+    required String token,
+  });
+
+  Future<Either<GlobalErrorModel, List<OrderBooker>>> getOrderBookersForTsm({
+    required String tsmId,
+    required String token,
+  });
+
+  Future<Either<GlobalErrorModel, dynamic>> getOrderBookerReport({
+    required String tsmId,
+    required String orderBookerId,
+    required String reportType,
     required String token,
   });
 }
@@ -122,6 +135,85 @@ class OrderBookerActivityRepositoryImp
       );
     } catch (e) {
       log("getAllMarketRecoveries error: $e");
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, List<OrderBooker>>> getOrderBookersForTsm({
+    required String tsmId,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kWarehouseManagerOrderBookers(tsmId),
+        isRequiredHeader: true,
+        header: _headers(token),
+      );
+
+      return data.fold(
+            (l) => Left(GlobalErrorModel(error: l.error.toString())),
+            (r) {
+          final list = <OrderBooker>[];
+          if (r is List) {
+            for (final item in r) {
+              if (item is Map<String, dynamic>) {
+                list.add(OrderBooker.fromJson(item));
+              }
+            }
+            return Right(list);
+          }
+
+          if (r is Map<String, dynamic>) {
+            final rawList = r['data'] ?? r['orderBookers'] ?? r['orderBooker'];
+            if (rawList is List) {
+              for (final item in rawList) {
+                if (item is Map<String, dynamic>) {
+                  list.add(OrderBooker.fromJson(item));
+                }
+              }
+              return Right(list);
+            }
+          }
+
+          return Left(GlobalErrorModel(
+              error: 'Unexpected response format for order bookers.'));
+        },
+      );
+    } catch (e) {
+      log("getOrderBookersForTsm error: $e");
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, dynamic>> getOrderBookerReport({
+    required String tsmId,
+    required String orderBookerId,
+    required String reportType,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kOrderBookerReport(
+          tsmId: tsmId,
+          orderBookerId: orderBookerId,
+          type: reportType,
+        ),
+        isRequiredHeader: true,
+        header: _headers(token),
+      );
+      return data.fold(
+            (l) => Left(GlobalErrorModel(error: l.error.toString())),
+            (r) {
+          if (r is Map<String, dynamic> && r.containsKey('data')) {
+            return Right(r['data']);
+          }
+          return Right(r);
+        },
+      );
+    } catch (e) {
+      log("getOrderBookerReport error: $e");
       return Left(GlobalErrorModel(error: e.toString()));
     }
   }

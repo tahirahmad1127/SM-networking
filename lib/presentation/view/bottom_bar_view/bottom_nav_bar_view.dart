@@ -35,6 +35,10 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
           "A new version of the application is available! Download it from the stores.",
         );
       }
+    }).catchError((e) {
+      // Silently handle errors (404, network issues, etc.)
+      // Version check is non-critical, app continues normally
+      debugPrint('Version check failed: $e');
     });
   }
 

@@ -78,13 +78,23 @@ class _SplashBodyState extends State<SplashBody> {
             (freshUser) async {
           debugPrint("✅ Fresh user profile retrieved");
 
+          // getUserByID's `distributor` field isn't confirmed to be
+          // populated with a name the same way sale-user/login's is — if
+          // this fresher profile is missing it, keep the cached one instead
+          // of silently erasing the "Working under" banner on every cold
+          // start (see infrastructure/model/user.dart's distributorName).
+          final mergedUser = (freshUser.distributorName?.isNotEmpty ?? false)
+              ? freshUser
+              : freshUser.copyWith(
+                  distributorName: currentUserModel.user?.distributorName);
+
           // ✅ CRITICAL: keep role + all lists from the cached login response.
           // Only the User profile object (name, times, etc.) is refreshed here.
           // getUserByID does NOT re-send distributors/wholesalers/retailers,
           // so we must carry them forward from the cached model or they vanish.
           final updatedUserModel = UserModel(
             token: currentUserModel.token,
-            user: freshUser,
+            user: mergedUser,
             role: currentUserModel.role,
             distributors: currentUserModel.distributors,
             wholesalers: currentUserModel.wholesalers,   // ← was missing

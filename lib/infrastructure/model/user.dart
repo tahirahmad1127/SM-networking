@@ -101,6 +101,12 @@ class User {
   final String? coordinator;
   final String? tsm;
   final String? distributor;
+  // Only populated when `distributor` arrives as a nested {_id, name} object
+  // rather than a bare ObjectId string — mirrors OrderBookerDistributorRef,
+  // which the warehouse-manager/:tsmId/order-bookers endpoint already
+  // returns populated this way. sale-user/login doesn't populate it yet
+  // (see attendance/layout/body.dart's assigned-distributor banner).
+  final String? distributorName;
   final num? basicSalary;
   final num? allowanceDistance;
   final num? dailyAllowance;
@@ -132,6 +138,7 @@ class User {
     this.coordinator,
     this.tsm,
     this.distributor,
+    this.distributorName,
     this.basicSalary,
     this.allowanceDistance,
     this.dailyAllowance,
@@ -189,6 +196,9 @@ class User {
         ? json["tsm"] as String
         : json["tsm"]["_id"] as String),
     distributor: json["distributor"] is String ? json["distributor"] : json["distributor"]?["_id"],
+    distributorName: json["distributor"] is Map
+        ? (json["distributor"]["distributionName"] ?? json["distributor"]["name"])
+        : null,
     basicSalary: json["basicSalary"],
     allowanceDistance: json["allowanceDistance"],
     dailyAllowance: json["dailyAllowance"],
@@ -225,6 +235,7 @@ class User {
     "coordinator": coordinator,
     "tsm": tsm,
     "distributor": distributor,
+    "distributorName": distributorName,
     "basicSalary": basicSalary,
     "allowanceDistance": allowanceDistance,
     "dailyAllowance": dailyAllowance,
@@ -237,6 +248,43 @@ class User {
     "updatedAt": updatedAt?.toIso8601String(),
     "__v": v,
   };
+
+  /// Used by splash_screen/layout/body.dart to carry [distributorName]
+  /// forward across the post-login `getUserByID` refresh, in case that
+  /// endpoint's `distributor` field isn't populated the same way
+  /// sale-user/login's is.
+  User copyWith({String? distributorName}) => User(
+    id: id,
+    salesId: salesId,
+    name: name,
+    email: email,
+    password: password,
+    phone: phone,
+    isAdminVerified: isAdminVerified,
+    isDeleted: isDeleted,
+    isActive: isActive,
+    image: image,
+    address: address,
+    cnic: cnic,
+    maritalStatus: maritalStatus,
+    zone: zone,
+    town: town,
+    coordinator: coordinator,
+    tsm: tsm,
+    distributor: distributor,
+    distributorName: distributorName ?? this.distributorName,
+    basicSalary: basicSalary,
+    allowanceDistance: allowanceDistance,
+    dailyAllowance: dailyAllowance,
+    miscellaneousAllowance: miscellaneousAllowance,
+    mobileAllowance: mobileAllowance,
+    incentiveStructure: incentiveStructure,
+    checkInTime: checkInTime,
+    checkOutTime: checkOutTime,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    v: v,
+  );
 }
 
 // ─── Distributor (returned only for TSM role) ────────────────────────────────

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:sm_networking/presentation/view/order/layout/tab_bars/draft_tabbar.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../application/user_provider.dart';
 import '../../../../configurations/frontend_configs.dart';
-import '../../../../configurations/translation_helper.dart';
-import 'tab_bars/processed_tab_bar.dart';
-import 'tab_bars/cancelled_tab_bar.dart';
-import 'tab_bars/completed_tab_bar.dart';
-import 'tab_bars/in_progress_tab_bar.dart';
+import '../../../../infrastructure/model/order.dart';
+import '../../../../infrastructure/services/order.dart';
+import '../../../../injection_container.dart';
+import '../../../elements/custom_text.dart';
+import '../../../elements/processing_widget.dart';
+import '../no_data_found_view.dart';
+import '../order_details/order_details_view.dart';
+import '../widgets/order_card.dart';
 
 class OrderBody extends StatefulWidget {
   const OrderBody({super.key});
@@ -15,102 +21,185 @@ class OrderBody extends StatefulWidget {
 }
 
 class _OrderBodyState extends State<OrderBody> {
-  final _draftsKey = GlobalKey<DraftsTabBarState>();
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final tc = DefaultTabController.maybeOf(context);
-    if (tc != null) {
-      tc.addListener(_onTabChanged);
-    }
-  }
+  DateTime _selectedDate = DateTime.now();
+  bool _loading = true;
+  String? _error;
+  List<OrderModel> _orders = [];
 
-  void _onTabChanged() {
-    final tc = DefaultTabController.maybeOf(context);
-    if (tc?.index == 3) {
-      _draftsKey.currentState?.reload();
-    }
+  bool get _isToday {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
   }
 
   @override
-  void dispose() {
-    DefaultTabController.maybeOf(context)?.removeListener(_onTabChanged);
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final userId = Provider.of<UserProvider>(context, listen: false)
+        .getSalesUserDetails()!
+        .user!
+        .id
+        .toString();
+    final repo = sl<OrderRepositoryImp>();
+
+    // The backend has no single "all statuses" endpoint, so pull every
+    // status bucket that used to be its own tab and merge them here.
+    final results = await Future.wait([
+      repo.getPendingOrders(userId),
+      repo.getProcessedOrders(userId),
+      repo.getCompletedOrders(userId),
+      repo.getCancelledOrders(userId),
+    ]);
+
+    final merged = <OrderModel>[];
+    String? errorMsg;
+    for (final result in results) {
+      result.fold(
+        (l) => errorMsg ??= l.error.toString(),
+        (r) => merged.addAll(r.data ?? []),
+      );
+    }
+
+    final filtered = merged.where((o) {
+      final created = o.createdAt?.toLocal();
+      if (created == null) return false;
+      return created.year == _selectedDate.year &&
+          created.month == _selectedDate.month &&
+          created.day == _selectedDate.day;
+    }).toList()
+      ..sort((a, b) =>
+          (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _orders = filtered;
+      // Only surface an error if every bucket failed; a partial failure
+      // still shows whatever orders did come back.
+      _error = merged.isEmpty ? errorMsg : null;
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+      _loadOrders();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: DefaultTabController(
-        length: 4,
-        child: Builder(
-          builder: (context) {
-            // Attach listener after DefaultTabController is in tree
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final tc = DefaultTabController.maybeOf(context);
-              tc?.removeListener(_onTabChanged);
-              tc?.addListener(_onTabChanged);
-            });
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FrontendConfigs.appDivider,
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                FrontendConfigs.appDivider,
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      borderRadius: FrontendConfigs.kAppBorder,
-                      color: FrontendConfigs.kTextFieldColor,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0, vertical: 5),
-                      child: TabBar(
-                        isScrollable: false,
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        indicatorColor: FrontendConfigs.kPrimaryColor,
-                        dividerColor: Colors.transparent,
-                        labelColor: FrontendConfigs.kPrimaryColor,
-                        unselectedLabelColor: Colors.black,
-                        indicator: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.white,
+                CustomText(
+                  text: _isToday
+                      ? "Today's Orders"
+                      : DateFormat('d MMM yyyy').format(_selectedDate),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                Row(
+                  children: [
+                    if (!_isToday)
+                      IconButton(
+                        tooltip: 'Back to today',
+                        icon: Icon(Icons.today_outlined,
+                            color: FrontendConfigs.kAuthTextColor),
+                        onPressed: () {
+                          setState(() => _selectedDate = DateTime.now());
+                          _loadOrders();
+                        },
+                      ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: _pickDate,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month_outlined,
+                                size: 18, color: FrontendConfigs.kPrimaryColor),
+                            const SizedBox(width: 6),
+                            CustomText(
+                              text: 'Filter by date',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: FrontendConfigs.kPrimaryColor,
+                            ),
+                          ],
                         ),
-                        labelStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        unselectedLabelStyle: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        tabs: [
-                          Tab(text: TranslationHelper.getTranslatedText('pending')),
-                          Tab(text: TranslationHelper.getTranslatedText('completed')),
-                          Tab(text: TranslationHelper.getTranslatedText('cancelled')),
-                          const Tab(text: 'Drafts'),
-                        ],
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: TabBarView(children: [
-                    InProgressTabBar(),
-                    const CompletedTabBar(),
-                    const CancelledTabBar(),
-                    DraftsTabBar(key: _draftsKey),
-                  ]),
+                  ],
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: ProcessingWidget());
+    }
+    if (_error != null) {
+      return Center(child: Text(_error!));
+    }
+    if (_orders.isEmpty) {
+      return const NoDataFoundView();
+    }
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      child: ListView.builder(
+        itemCount: _orders.length,
+        itemBuilder: (context, i) {
+          final order = _orders[i];
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderDetailsView(model: order),
+                ),
+              ).then((val) {
+                if (val == true) _loadOrders();
+              });
+            },
+            child: OrderCard(status: order.status ?? 'Pending', model: order),
+          );
+        },
       ),
     );
   }

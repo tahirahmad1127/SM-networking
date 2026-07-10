@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:printing/printing.dart';
 
+import '../../infrastructure/services/export_helper.dart';
 import 'custom_text.dart';
+import 'flush_bar.dart';
 
 /// Full-screen in-app PDF viewer.
 ///
@@ -48,6 +50,19 @@ class _PdfViewerViewState extends State<PdfViewerView> {
     return response.bodyBytes;
   }
 
+  Future<void> _download() async {
+    try {
+      final bytes = await _pdfBytesFuture;
+      final safeTitle = widget.title.replaceAll(RegExp(r'[^A-Za-z0-9_\-]+'), '_');
+      final file = await ExportHelper.saveBytes(bytes, '$safeTitle.pdf');
+      await ExportHelper.open(file);
+    } catch (e) {
+      if (mounted) {
+        getFlushBar(context, title: 'Could not download the PDF.');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,6 +76,13 @@ class _PdfViewerViewState extends State<PdfViewerView> {
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Download',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: _download,
+          ),
+        ],
       ),
       body: FutureBuilder<Uint8List>(
         future: _pdfBytesFuture,

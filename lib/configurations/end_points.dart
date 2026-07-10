@@ -149,4 +149,26 @@ class ApiEndPoints {
     params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
     return "payment/tsm/$tsmId/market-recovery?$query";
   }
+
+  /// warehouse-manager/{tsmId}/order-bookers
+  static String kWarehouseManagerOrderBookers(String tsmId) =>
+      "warehouse-manager/$tsmId/order-bookers";
+
+  /// warehouse-manager/order-booker-report?tsmId={tsmId}&orderBookerId={orderBookerId}&type={attendance|tracking|visit|productivity}
+  static String kOrderBookerReport({
+    required String tsmId,
+    required String orderBookerId,
+    required String type,
+  }) {
+    final params = {
+      'tsmId': tsmId,
+      'orderBookerId': orderBookerId,
+      'type': type,
+    };
+    final query = params.entries
+        .map((entry) =>
+            '${entry.key}=${Uri.encodeQueryComponent(entry.value)}')
+        .join('&');
+    return "warehouse-manager/order-booker-report?$query";
+  }
 }

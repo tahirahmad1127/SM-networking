@@ -2,12 +2,14 @@
 
 import 'dart:async';
 import 'dart:developer';
+import 'dart:ui' as ui;
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:marquee/marquee.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/services/location.dart';
@@ -30,6 +32,48 @@ import 'package:http/http.dart' as http;
 import '../../../../configurations/back_end_configs.dart';
 import '../../../../infrastructure/services/permission_helper.dart';
 import '../../../../infrastructure/services/work_manager.dart';
+
+/// Renders [text] as plain, non-wrapping text when it fits the available
+/// width; otherwise loops it in a horizontally-scrolling marquee so the
+/// full value is still readable (used for the "Working under: {distributor}"
+/// banner, where distributor names can run long).
+class _AutoScrollText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+
+  const _AutoScrollText({required this.text, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          maxLines: 1,
+          textDirection: ui.TextDirection.ltr,
+        )..layout();
+
+        if (painter.width <= constraints.maxWidth) {
+          return Text(text,
+              style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
+        }
+
+        return SizedBox(
+          height: (style.fontSize ?? 13) + 4,
+          child: Marquee(
+            text: text,
+            style: style,
+            blankSpace: 40,
+            velocity: 30,
+            pauseAfterRound: const Duration(seconds: 1),
+            fadingEdgeStartFraction: 0.05,
+            fadingEdgeEndFraction: 0.05,
+          ),
+        );
+      },
+    );
+  }
+}
 
 class AttendanceBody extends StatefulWidget {
   const AttendanceBody({super.key});
@@ -712,6 +756,54 @@ class _AttendanceBodyState extends State<AttendanceBody>
                               fontSize: 14,
                               color: Colors.grey.shade600,
                             ),
+                            // ── Assigned distributor (orderBooker only) ──────
+                            // sale-user/login currently returns `distributor`
+                            // as a bare ID, not populated with a name — see
+                            // the note on User.distributorName. Nothing shows
+                            // here until the backend populates it.
+                            if (user.getSalesUserDetails()?.role == 'orderBooker' &&
+                                (user.getSalesUserDetails()?.user?.distributorName ?? '')
+                                    .isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              // Bounded width, same as the name field above —
+                              // this Column is a plain (non-flex) child of the
+                              // outer spaceBetween Row, so Flutter gives it an
+                              // UNBOUNDED width by design (Row only bounds
+                              // Expanded/Flexible children). A Flexible/Expanded
+                              // inside an unbounded-width Row crashes
+                              // ("incoming width constraints are unbounded"),
+                              // so this must be explicitly sized instead.
+                              SizedBox(
+                                width: MediaQuery.of(context).size.width * 0.6,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.storefront_outlined,
+                                        size: 15, color: FrontendConfigs.kPrimaryColor),
+                                    const SizedBox(width: 4),
+                                    CustomText(
+                                      text: "Working under:",
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: FrontendConfigs.kPrimaryColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: _AutoScrollText(
+                                        text: user
+                                            .getSalesUserDetails()!
+                                            .user!
+                                            .distributorName!,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: FrontendConfigs.kPrimaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             CustomText(
                               text: "Shift Duration: ${checkInProvider.formattedAllowedCheckInTime} - ${checkInProvider.formattedAllowedCheckOutTime}",

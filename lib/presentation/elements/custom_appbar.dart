@@ -4,6 +4,7 @@ AppBar customAppBar(
   BuildContext context, {
   String? text,
   bool showText = false,
+  List<Widget>? actions,
 }) {
   return AppBar(
     centerTitle: true,
@@ -25,5 +26,6 @@ AppBar customAppBar(
             style: TextStyle(color: Colors.black),
           )
         : null,
+    actions: actions,
   );
 }

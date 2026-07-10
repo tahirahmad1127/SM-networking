@@ -30,9 +30,9 @@ import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
 import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
 import 'package:sm_networking/presentation/view/map/map_retailers.dart';
 import 'package:sm_networking/presentation/view/profile/my_recoveries_view.dart';
+import 'package:sm_networking/presentation/view/profile/my_sales_view.dart';
 import 'package:sm_networking/presentation/view/profile/layout/widgets/profile_card.dart';
-import '../../orderbooker_recoveries_view.dart';
-import '../sales_view.dart';
+import '../order_booker_reporting_view.dart';
 import 'package:launch_review_latest/launch_review_latest.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
@@ -242,7 +242,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                   child: ProfileCard(lebal: 'My Recoveries'),
                 ),
 
-                // ── Orderbookers Recoveries (Warehouse Manager only) ─────────
+                // ── OrderBookers Reporting (Warehouse Manager only) ───────
                 if (role == 'warehouseManager') ...[
                   const SizedBox(height: 12),
                   InkWell(
@@ -252,25 +252,28 @@ class _ProfileBodyState extends State<ProfileBody> {
                           context,
                           MaterialPageRoute(
                               builder: (context) =>
-                              const OrderBookerRecoveriesView()));
+                                  const OrderBookersReportingView()));
                     },
-                    child: ProfileCard(lebal: 'Orderbookers Recoveries'),
+                    child: ProfileCard(lebal: 'OrderBookers Reporting'),
+                  ),
+
+                  // ── My Sales (TSM's own Order Summary / Order Form /
+                  // Overall Invoices — no distributor/order-booker filter) ──
+                  const SizedBox(height: 12),
+                  InkWell(
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const MySalesView()));
+                    },
+                    child: ProfileCard(lebal: 'My Sales'),
                   ),
                 ],
-
-                const SizedBox(height: 12),
-
-                // ── Sales (Order Summary / Order Form / Overall Invoices) ────
-                InkWell(
-                  borderRadius: FrontendConfigs.kAppBorder,
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const SalesView()));
-                  },
-                  child: ProfileCard(lebal: 'Sales'),
-                ),
+                // ── Sales (Order Summary / Order Form / Overall Invoices) —
+                // TSM only. orderBooker (and any other non-TSM role) doesn't
+                // get this section at all. ─────────────────────────────────
 
                 // ── Wholesalers (TSM only) ──────────────────────────────────
                 // if (isTsm) ...[

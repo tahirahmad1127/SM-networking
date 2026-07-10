@@ -10,6 +10,17 @@ StatsListingModel statsListingModelFromJson(String str) =>
 String statsListingModelToJson(StatsListingModel data) =>
     json.encode(data.toJson());
 
+// Backend aggregates (sums/averages) come back as JSON numbers that are
+// sometimes whole and sometimes fractional (e.g. 1500 vs 1500.5) — decoding
+// a fractional one straight into an `int?` field throws
+// "type 'double' is not a subtype of type 'int?'". Route every `int?` field
+// here so either shape is accepted.
+int? _toInt(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString());
+}
+
 class StatsListingModel {
   final String? msg;
   final StatModel? data;
@@ -53,10 +64,10 @@ class StatModel {
   });
 
   factory StatModel.fromJson(Map<String, dynamic> json) => StatModel(
-    orders: json["orders"],
-    shops: json["shops"],
-    sales: json["sales"],
-    todaySales: json["todaySales"],
+    orders: _toInt(json["orders"]),
+    shops: _toInt(json["shops"]),
+    sales: _toInt(json["sales"]),
+    todaySales: _toInt(json["todaySales"]),
     monthsSales: json["monthsSales"] == null
         ? []
         : List<MonthsSale>.from(
@@ -91,7 +102,7 @@ class MonthsSale {
 
   factory MonthsSale.fromJson(Map<String, dynamic> json) => MonthsSale(
     month: json["month"],
-    sales: json["sales"],
+    sales: _toInt(json["sales"]),
   );
 
   Map<String, dynamic> toJson() => {

@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/model/add_recovery.dart';
+import 'package:sm_networking/infrastructure/services/excel_report_builder.dart';
+import 'package:sm_networking/infrastructure/services/export_helper.dart';
 import 'package:sm_networking/infrastructure/services/order_booker_activity.dart';
+import 'package:sm_networking/infrastructure/services/pdf_report_builder.dart';
 import 'package:sm_networking/presentation/elements/custom_appbar.dart';
+import 'package:sm_networking/presentation/elements/export_actions_sheet.dart';
+import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 
-/// Shown for the `warehouseManager` role (reached from the "Orderbookers
-/// Recoveries" tile). Lists market recoveries across ALL order bookers
-/// under this TSM by default; the "Orderbookers" dropdown at the top lets
-/// the user narrow down to one specific order booker.
+/// Shown for the `warehouseManager` role (reached from the "OrderBookers
+/// Reporting" -> "Recovery" tile). Lists market recoveries across ALL order
+/// bookers under this TSM by default; the "Orderbookers" dropdown at the top
+/// lets the user narrow down to one specific order booker.
 ///
 /// Both the "all" and "single" cases hit the same paginated endpoint —
 /// `payment/tsm/{tsmId}/market-recovery` — just with or without
@@ -73,6 +79,27 @@ class _OrderBookerRecoveriesViewState
   Future<void> _loadFirstPage() async {
     final details = context.read<UserProvider>().getSalesUserDetails();
     _orderBookers = details?.orderBookers ?? [];
+
+    if (_orderBookers.isEmpty) {
+      final tsmId = details?.user?.id ?? '';
+      final token = details?.token ?? '';
+      if (tsmId.isNotEmpty && token.isNotEmpty) {
+        final result = await OrderBookerActivityRepositoryImp().getOrderBookersForTsm(
+          tsmId: tsmId,
+          token: token,
+        );
+        result.fold(
+          (_) {},
+          (orderBookers) {
+            if (mounted) {
+              setState(() {
+                _orderBookers = orderBookers;
+              });
+            }
+          },
+        );
+      }
+    }
 
     setState(() {
       _isInitialLoading = true;
@@ -151,11 +178,111 @@ class _OrderBookerRecoveriesViewState
     });
   }
 
+  // ── export (Excel / PDF) ─────────────────────────────────────────────
+  //
+  // Exports whatever the "Orderbookers" dropdown currently has selected —
+  // one specific order booker, or all of them when it's "All Orderbookers".
+  // Pulls every page fresh (not just what's been scrolled into [_items])
+  // so the export is always complete regardless of scroll position.
+
+  Future<List<RecoveryModel>> _fetchAllForExport() async {
+    final details = context.read<UserProvider>().getSalesUserDetails();
+    final tsmId = details?.user?.id ?? '';
+    final token = details?.token ?? '';
+    if (tsmId.isEmpty || token.isEmpty) return [];
+
+    const exportPageSize = 200;
+    final repo = OrderBookerActivityRepositoryImp();
+    final all = <RecoveryModel>[];
+    var page = 1;
+    var totalPages = 1;
+    do {
+      final result = await repo.getAllMarketRecoveries(
+        tsmId: tsmId,
+        orderBookerId: _selectedOrderBookerId,
+        page: page,
+        limit: exportPageSize,
+        token: token,
+      );
+      final ok = result.fold((_) => null, (r) => r);
+      if (ok == null) break;
+      all.addAll(ok.data);
+      totalPages = ok.totalPages;
+      page++;
+    } while (page <= totalPages);
+    return all;
+  }
+
+  /// File-name-safe label for whichever filter is active — the selected
+  /// order booker's name, or "All_OrderBookers".
+  String get _exportFileSuffix {
+    if (_selectedOrderBookerId == null) return 'All_OrderBookers';
+    final match = _orderBookers.firstWhere(
+      (ob) => (ob.id ?? ob.salesId ?? '').toString() == _selectedOrderBookerId,
+      orElse: () => null,
+    );
+    final name = (match?.name ?? 'OrderBooker').toString();
+    return name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+  }
+
+  Future<void> _exportRecoveries({required bool asExcel}) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+
+    final recoveries = await _fetchAllForExport();
+    if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close loading dialog
+
+    if (recoveries.isEmpty) {
+      if (mounted) getFlushBar(context, title: 'No recoveries to export.');
+      return;
+    }
+    if (!mounted) return;
+
+    final suffix = _exportFileSuffix;
+    if (asExcel) {
+      final bytes = ExcelReportBuilder.buildMarketRecoveriesSheet(recoveries);
+      final file = await ExportHelper.saveBytes(
+          bytes, 'Market_Recoveries_$suffix.xlsx');
+      if (!mounted) return;
+      await showExportActionsSheet(context,
+          file: file, title: 'Market Recoveries');
+    } else {
+      final bytes = await PdfReportBuilder.buildMarketRecoveriesPdf(
+          recoveries,
+          title: 'Market Recoveries');
+      final file = await ExportHelper.saveBytes(
+          bytes, 'Market_Recoveries_$suffix.pdf');
+      if (!mounted) return;
+      await showExportActionsSheet(context,
+          file: file, title: 'Market Recoveries');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: customAppBar(context,
-          text: 'Orderbookers Recoveries', showText: true),
+      appBar: customAppBar(
+        context,
+        text: 'Recovery',
+        showText: true,
+        actions: [
+          PopupMenuButton<bool>(
+            tooltip: 'Export',
+            icon: const Icon(Icons.ios_share, color: Colors.black),
+            onSelected: (asExcel) => _exportRecoveries(asExcel: asExcel),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: true, child: Text('Export as Excel')),
+              PopupMenuItem(value: false, child: Text('Export as PDF')),
+            ],
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -224,7 +351,7 @@ class _OrderBookerRecoveriesViewState
           style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
         ),
         Text(
-          '${_totalAmount.toStringAsFixed(0)} Rs',
+          'PKR ${NumberFormat('#,##0').format(_totalAmount)}',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -260,108 +387,219 @@ class _OrderBookerRecoveriesViewState
 
     final showMoreLoader = _page < _totalPages;
 
-    return ListView.separated(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      itemCount: _items.length + (showMoreLoader ? 1 : 0),
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, i) {
-        if (i >= _items.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: SizedBox(
+        width: 950,
+        child: Column(
+          children: [
+            _tableHeader(const [
+              _Col('S.No', 50),
+              _Col('Date', 170),
+              _Col('Distributor Name', 150),
+              _Col('OrderBooker', 140),
+              _Col('Town', 100),
+              _Col('Payment', 120),
+              _Col('Zone', 110),
+              _Col('', 40),
+            ]),
+            Expanded(
+              child: ListView.separated(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: _items.length + (showMoreLoader ? 1 : 0),
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: Colors.grey.shade200),
+                itemBuilder: (context, i) {
+                  if (i >= _items.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+                  final m = _items[i];
+                  return _tableRow([
+                    _cell('${i + 1}', 50),
+                    _cell(_formatDate(m.date), 170),
+                    _cell(m.distributionName.isNotEmpty ? m.distributionName : '-', 150),
+                    _cell(m.orderBookerName.isNotEmpty ? m.orderBookerName : '-', 140),
+                    _cell(m.townName.isNotEmpty ? m.townName : '-', 100),
+                    _cell(
+                      'PKR ${NumberFormat('#,##0').format(m.amount)}',
+                      120,
+                      bold: true,
+                    ),
+                    _cell(m.zoneName.isNotEmpty ? m.zoneName : '-', 110),
+                    SizedBox(
+                      width: 40,
+                      child: InkWell(
+                        onTap: () => _showRecoveryDetails(context, m),
+                        child: Icon(Icons.remove_red_eye_outlined,
+                            size: 20, color: FrontendConfigs.kPrimaryColor),
+                      ),
+                    ),
+                  ]);
+                },
               ),
             ),
-          );
-        }
-        final m = _items[i];
-        return _RecoveryCard(
-          recovery: m,
-          // Only show whose recovery it is when we're already looking at
-          // a mix of order bookers (i.e. "All" is selected).
-          showOrderBooker: _selectedOrderBookerId == null,
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _RecoveryCard extends StatelessWidget {
-  final RecoveryModel recovery;
-  final bool showOrderBooker;
+// ── recovery details dialog (behind the eye icon) ─────────────────────────
 
-  const _RecoveryCard({required this.recovery, required this.showOrderBooker});
+void _showRecoveryDetails(BuildContext context, RecoveryModel m) {
+  final rows = <MapEntry<String, String>>[
+    MapEntry('Date', _formatDate(m.date)),
+    MapEntry('Distributor', m.distributionName),
+    MapEntry('OrderBooker', m.orderBookerName),
+    MapEntry('Zone', m.zoneName),
+    MapEntry('Town', m.townName),
+    MapEntry('Amount', 'PKR ${NumberFormat('#,##0').format(m.amount)}'),
+    MapEntry('Payment Mode', m.paymentMode),
+    MapEntry('Bank', m.bankName),
+    if (m.branchCode.isNotEmpty) MapEntry('Branch Code', m.branchCode),
+    if (m.beneficiaryAccountName.isNotEmpty)
+      MapEntry('Beneficiary Name', m.beneficiaryAccountName),
+    if (m.beneficiaryAccountNumber.isNotEmpty)
+      MapEntry('Beneficiary Account', m.beneficiaryAccountNumber),
+  ].where((e) => e.value.trim().isNotEmpty).toList();
 
-  @override
-  Widget build(BuildContext context) {
-    final m = recovery;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: FrontendConfigs.kAppBorder,
-        color: FrontendConfigs.kTextFieldColor,
+  showDialog(
+    context: context,
+    builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: FrontendConfigs.kAppBorder),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recovery Details',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (m.receiptPic != null && m.receiptPic!.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  m.receiptPic!,
+                  height: 140,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            ...rows.map((e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        child: Text(
+                          e.key,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(e.value, style: const TextStyle(fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
       ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
+    ),
+  );
+}
+
+// ── shared table building blocks ─────────────────────────────────────────
+
+class _Col {
+  final String label;
+  final double width;
+
+  const _Col(this.label, this.width);
+}
+
+Widget _tableHeader(List<_Col> cols) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1.5)),
+    ),
+    child: Row(
+      children: cols
+          .map((c) => SizedBox(
+                width: c.width,
                 child: Text(
-                  m.srNo,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                  c.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
                   ),
                 ),
-              ),
-              Text(
-                '${m.amount.toStringAsFixed(0)} Rs',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: FrontendConfigs.kPrimaryColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            m.distributionName,
-            style: const TextStyle(fontSize: 13),
-          ),
-          if (showOrderBooker && m.orderBookerName.isNotEmpty)
-            Text(
-              'Orderbooker: ${m.orderBookerName}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            ),
-          if (m.zoneName.isNotEmpty)
-            Text(
-              'Zone: ${m.zoneName}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            ),
-          if (m.townName.isNotEmpty)
-            Text(
-              'Town: ${m.townName}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            ),
-          if (m.date != null && m.date!.isNotEmpty)
-            Text(
-              'Date: ${m.date}',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-            ),
-          const SizedBox(height: 4),
-          Text(
-            '${m.bankName} · ${m.paymentMode}',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-          ),
-        ],
+              ))
+          .toList(),
+    ),
+  );
+}
+
+Widget _tableRow(List<Widget> cells) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: cells),
+  );
+}
+
+Widget _cell(String text, double width, {bool bold = false}) {
+  return SizedBox(
+    width: width,
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       ),
-    );
+      overflow: TextOverflow.ellipsis,
+      maxLines: 2,
+    ),
+  );
+}
+
+String _formatDate(String? isoDate) {
+  if (isoDate == null || isoDate.isEmpty) return '-';
+  try {
+    return DateFormat('EEEE, MMMM d, yyyy').format(DateTime.parse(isoDate));
+  } catch (_) {
+    return isoDate;
   }
 }

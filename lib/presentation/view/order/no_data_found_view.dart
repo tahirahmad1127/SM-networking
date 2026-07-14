@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
-import 'package:sm_networking/presentation/elements/custom_appbar.dart';
-import 'package:sm_networking/presentation/elements/custom_text.dart';
 
 class NoDataFoundView extends StatelessWidget {
   const NoDataFoundView({super.key});

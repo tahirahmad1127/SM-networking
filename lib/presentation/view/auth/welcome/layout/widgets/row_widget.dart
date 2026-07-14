@@ -3,8 +3,7 @@ import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 
 class RowWidget extends StatelessWidget {
-  const RowWidget({Key? key, required this.logo, required this.text})
-      : super(key: key);
+  const RowWidget({super.key, required this.logo, required this.text});
   final String logo;
   final String text;
 
@@ -19,7 +18,9 @@ class RowWidget extends StatelessWidget {
               height: 28,
               width: 28,
             ),
-            const SizedBox(width:10,),
+            const SizedBox(
+              width: 10,
+            ),
             Expanded(
               child: CustomText(
                 text: text,
@@ -30,7 +31,9 @@ class RowWidget extends StatelessWidget {
             )
           ],
         ),
-        const SizedBox(height:20,)
+        const SizedBox(
+          height: 20,
+        )
       ],
     );
   }

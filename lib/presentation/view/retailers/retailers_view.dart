@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:dartz/dartz.dart' hide State;
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +12,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sm_networking/application/locaition_helper.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
+import 'package:sm_networking/infrastructure/model/error.dart';
 import 'package:sm_networking/infrastructure/model/retailer.dart';
 import 'package:sm_networking/infrastructure/model/user.dart';
+import 'package:sm_networking/infrastructure/services/order_booker_activity.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +38,135 @@ import '../add_recovery/add_recovery.dart';
 import '../map/widget/visit_bottomsheet_widget.dart';
 import '../order/no_data_found_view.dart';
 
+// ── Paginated tab state ─────────────────────────────────────────────────────
+//
+// One instance per tab (Distributors / Wholesalers / Retailers). Owns its
+// own scroll position, search box, and loaded page — so switching tabs never
+// loses where you were, and search is scoped to whichever tab is active.
+// Mirrors the pattern already used in orderbooker_recoveries_view.dart.
+class _Page<T> {
+  final List<T> data;
+  final int page;
+  final int totalPages;
+  final int total;
+
+  const _Page({
+    required this.data,
+    required this.page,
+    required this.totalPages,
+    required this.total,
+  });
+}
+
+class _PaginatedTabState<T> {
+  static const int pageSize = 10;
+
+  final Future<Either<GlobalErrorModel, _Page<T>>> Function(
+      {required int page, required int limit, String? searchTerm}) fetchPage;
+  final VoidCallback onChanged;
+
+  _PaginatedTabState({required this.fetchPage, required this.onChanged});
+
+  final List<T> items = [];
+  int page = 1;
+  int totalPages = 1;
+  int total = 0;
+  bool isInitialLoading = true;
+  bool isLoadingMore = false;
+  String? errorMessage;
+  String? searchTerm;
+  final ScrollController scrollController = ScrollController();
+  final TextEditingController searchController = TextEditingController();
+
+  void attach() => scrollController.addListener(_onScroll);
+
+  void dispose() {
+    scrollController.removeListener(_onScroll);
+    scrollController.dispose();
+    searchController.dispose();
+  }
+
+  void _onScroll() {
+    if (isLoadingMore || isInitialLoading) return;
+    if (page >= totalPages) return;
+    if (scrollController.position.pixels >=
+        scrollController.position.maxScrollExtent - 200) {
+      loadNextPage();
+    }
+  }
+
+  Future<void> loadFirstPage() => _fetch(page: 1, replace: true);
+
+  /// Pull-to-refresh — deliberately does NOT clear [items] first, so the old
+  /// list stays visible under RefreshIndicator's own spinner instead of
+  /// flashing to a blank/loading screen.
+  Future<void> refresh() => _fetch(page: 1, replace: true);
+
+  Future<void> loadNextPage() async {
+    isLoadingMore = true;
+    onChanged();
+    await _fetch(page: page + 1, replace: false);
+  }
+
+  /// Called on keyboard-search submit (not on every keystroke). Unlike
+  /// [refresh], this clears the old (now-irrelevant) results and shows the
+  /// full loading spinner immediately — otherwise the stale list from
+  /// before the search just sits there with zero feedback while the
+  /// request is in flight, which is exactly what looked like a stuck app.
+  Future<void> submitSearch(String value) {
+    final trimmed = value.trim();
+    searchTerm = trimmed.isEmpty ? null : trimmed;
+    items.clear();
+    isInitialLoading = true;
+    onChanged();
+    return _fetch(page: 1, replace: true);
+  }
+
+  Future<void> _fetch({required int page, required bool replace}) async {
+    if (replace) errorMessage = null;
+    onChanged();
+
+    final result =
+        await fetchPage(page: page, limit: pageSize, searchTerm: searchTerm);
+
+    result.fold(
+      (l) {
+        errorMessage = l.error.toString();
+        if (replace) items.clear();
+      },
+      (r) {
+        if (replace) items.clear();
+        items.addAll(r.data);
+        this.page = r.page;
+        totalPages = r.totalPages;
+        total = r.total;
+      },
+    );
+
+    isInitialLoading = false;
+    isLoadingMore = false;
+    onChanged();
+
+    // If the page(s) loaded so far don't fill the viewport, no scroll event
+    // will ever fire to trigger the next page — without this, a short
+    // result set (e.g. a search match found on only 1-2 items) leaves
+    // `page < totalPages` true forever with the trailing "loading more"
+    // spinner spinning indefinitely for nothing. Check once the list has
+    // actually rendered, and keep pulling pages until it either fills the
+    // viewport or genuinely runs out.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fillViewportIfNeeded());
+  }
+
+  void _fillViewportIfNeeded() {
+    if (isLoadingMore || isInitialLoading) return;
+    if (page >= totalPages) return;
+    if (!scrollController.hasClients) return;
+    if (scrollController.position.maxScrollExtent <= 0) {
+      loadNextPage();
+    }
+  }
+}
+
 class RetailersView extends StatefulWidget {
   const RetailersView({super.key});
 
@@ -51,26 +183,19 @@ class _RetailersViewState extends State<RetailersView>
   late TabController _tabController;
   String _tabRole = ''; // tracks which role the controller was built for
 
-  // ── Retailer search (non-distributor roles) ──
+  // ── Retailer search (legacy retailer-bloc view — non-TSM/orderBooker roles) ──
   List<RetailerModel> searchUser = [];
   bool isSearchingAllow = false;
   bool isSearched = false;
 
-  // ── Distributor search (warehouseManager) ──
-  List<Distributor> searchDistributors = [];
-  bool isDistributorSearching = false;
-
-  // ── Distributor fetch state (warehouseManager) ──
-  List<Distributor> _fetchedDistributors = [];
-  bool _distributorsLoading = false;
-  String? _distributorsError;
-
-  // ── Wholesaler / Retailer search (orderBooker AND warehouseManager) ──
-  List<Wholesaler> searchWholesalers = [];
-  List<Wholesaler> searchRetailers = [];
-  bool isWholesalerSearching = false;
-  bool isRetailerSearching = false;
   final Set<String> _updatingLocationIds = {};
+
+  // ── Paginated tabs — warehouseManager sees Distributors/Wholesalers/
+  // Retailers, orderBooker sees Wholesalers/Retailers. Each tab owns its own
+  // scroll position, page, and on-submit search box (see _PaginatedTabState).
+  late final _PaginatedTabState<Distributor> _distributorsTab;
+  late final _PaginatedTabState<Wholesaler> _wholesalersTab;
+  late final _PaginatedTabState<Wholesaler> _retailersTab;
 
   // ── Town filter (warehouseManager) ──
   // The town of whichever distributor is currently checked in, per the
@@ -125,46 +250,89 @@ class _RetailersViewState extends State<RetailersView>
     }
   }
 
-  void _searchDistributors(String val, List<Distributor> allDistributors) {
-    searchDistributors.clear();
-    final lower = val.toLowerCase();
-    for (final d in allDistributors) {
-      final name = (d.name ?? '').toLowerCase();
-      final distName = (d.distributionName ?? '').toLowerCase();
-      final town = (d.town?.name ?? '').toLowerCase();
-      if (name.contains(lower) ||
-          distName.contains(lower) ||
-          town.contains(lower)) {
-        searchDistributors.add(d);
-      }
-    }
-    setState(() {});
-  }
+  /// Builds the three paginated tabs. Called once — each tab's fetchPage
+  /// closure re-reads UserProvider/_activeTownId fresh on every call, so it
+  /// always uses the latest token/role/town filter without needing to be
+  /// rebuilt.
+  void _initPaginatedTabs() {
+    _distributorsTab = _PaginatedTabState<Distributor>(
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
+      fetchPage: ({required page, required limit, searchTerm}) async {
+        final details =
+            Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+        final tsmId = details?.user?.id ?? '';
+        final token = details?.token ?? '';
+        final result = await OrderBookerActivityRepositoryImp().getDistributorsForTsm(
+          tsmId: tsmId,
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+          token: token,
+        );
+        return result.map((r) => _Page(
+            data: r.data, page: r.page, totalPages: r.totalPages, total: r.total));
+      },
+    );
 
-  void _searchWholesalers(String val, List<Wholesaler> all) {
-    searchWholesalers.clear();
-    final lower = val.toLowerCase();
-    for (final w in all) {
-      if ((w.name ?? '').toLowerCase().contains(lower) ||
-          (w.address ?? '').toLowerCase().contains(lower) ||
-          (w.town?.name ?? '').toLowerCase().contains(lower)) {
-        searchWholesalers.add(w);
-      }
-    }
-    setState(() {});
-  }
+    _wholesalersTab = _PaginatedTabState<Wholesaler>(
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
+      fetchPage: ({required page, required limit, searchTerm}) async {
+        final details =
+            Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+        final token = details?.token ?? '';
+        final isWarehouseManager = details?.role == 'warehouseManager';
+        final result = await RetailerRepositoryImp().getWholesalersPaginated(
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+          town: isWarehouseManager ? _activeTownId : null,
+          token: token,
+        );
+        return result.map((r) => _Page(
+            data: r.data, page: r.page, totalPages: r.totalPages, total: r.total));
+      },
+    );
 
-  void _searchRetailers(String val, List<Wholesaler> all) {
-    searchRetailers.clear();
-    final lower = val.toLowerCase();
-    for (final r in all) {
-      if ((r.name ?? '').toLowerCase().contains(lower) ||
-          (r.address ?? '').toLowerCase().contains(lower) ||
-          (r.town?.name ?? '').toLowerCase().contains(lower)) {
-        searchRetailers.add(r);
-      }
-    }
-    setState(() {});
+    _retailersTab = _PaginatedTabState<Wholesaler>(
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
+      fetchPage: ({required page, required limit, searchTerm}) async {
+        final details =
+            Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+        final token = details?.token ?? '';
+        final isWarehouseManager = details?.role == 'warehouseManager';
+        final result = await RetailerRepositoryImp().getRetailersPaginated(
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+          town: isWarehouseManager ? _activeTownId : null,
+          token: token,
+        );
+        return result.map((r) => _Page(
+            data: r.data, page: r.page, totalPages: r.totalPages, total: r.total));
+      },
+    );
+
+    _distributorsTab.attach();
+    _wholesalersTab.attach();
+    _retailersTab.attach();
+
+    final role =
+        Provider.of<UserProvider>(context, listen: false).getSalesUserDetails()?.role ?? '';
+
+    // Resolve the checked-in-distributor town filter before the first fetch
+    // so wholesalers/retailers load already scoped to it, when applicable.
+    _resolveActiveTownId().then((_) {
+      if (!mounted) return;
+      if (role == 'warehouseManager') _distributorsTab.loadFirstPage();
+      _wholesalersTab.loadFirstPage();
+      _retailersTab.loadFirstPage();
+    });
   }
 
   @override
@@ -172,78 +340,33 @@ class _RetailersViewState extends State<RetailersView>
     super.initState();
     // Default length 2; will be rebuilt in build() when role is known
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
+    _initPaginatedTabs();
     determinePosition().then((value) {
       if (!mounted) return;
       setState(() {
         myLocation = LatLng(value.latitude, value.longitude);
         currentLocation = LatLng(value.latitude, value.longitude);
       });
-      _syncDistributorsFromProvider();
     }).catchError((Object e) {
       log(e.toString());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final cached =
-        Provider.of<LocationProvider>(context, listen: false).getLatLng();
+            Provider.of<LocationProvider>(context, listen: false).getLatLng();
         setState(() {
           myLocation = cached ?? const LatLng(24.8607, 67.0011);
           currentLocation = myLocation;
         });
-        _syncDistributorsFromProvider();
       });
     });
   }
 
-  /// Syncs [_fetchedDistributors] from the UserProvider (warehouseManager only).
-  void _syncDistributorsFromProvider() {
-    if (!mounted) return;
-    final user = Provider.of<UserProvider>(context, listen: false);
-    final role = user.getSalesUserDetails()?.role ?? '';
-    if (role != 'warehouseManager') return;
-
-    _resolveActiveTownId();
-
-    final list = user.getSalesUserDetails()?.distributors ?? [];
-    if (list.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final retryList =
-            Provider.of<UserProvider>(context, listen: false)
-                .getSalesUserDetails()
-                ?.distributors ??
-                [];
-        setState(() {
-          _fetchedDistributors = retryList;
-          _distributorsLoading = retryList.isEmpty;
-        });
-      });
-    } else {
-      setState(() {
-        _fetchedDistributors = list;
-        _distributorsLoading = false;
-        _distributorsError = null;
-      });
-    }
-  }
-
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      setState(() {
-        isDistributorSearching = false;
-        isWholesalerSearching = false;
-        isRetailerSearching = false;
-        searchDistributors.clear();
-        searchWholesalers.clear();
-        searchRetailers.clear();
-      });
-    }
-  }
-
   @override
   void dispose() {
-    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _distributorsTab.dispose();
+    _wholesalersTab.dispose();
+    _retailersTab.dispose();
     super.dispose();
   }
 
@@ -251,8 +374,15 @@ class _RetailersViewState extends State<RetailersView>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Re-sync distributors on every dependency change (covers logout -> login).
-    _syncDistributorsFromProvider();
+    // Re-resolve the checked-in-distributor town filter on every dependency
+    // change (covers check-in/out elsewhere, and logout -> login), and
+    // refresh the wholesaler/retailer tabs if it actually changed.
+    final previousTownId = _activeTownId;
+    _resolveActiveTownId().then((_) {
+      if (!mounted || _activeTownId == previousTownId) return;
+      _wholesalersTab.refresh();
+      _retailersTab.refresh();
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final visitProvider = Provider.of<VisitProvider>(context, listen: false);
@@ -281,6 +411,15 @@ class _RetailersViewState extends State<RetailersView>
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context);
     final search = Provider.of<SearchProviders>(context);
+
+    // Session can be cleared out from under this screen mid-build (forced
+    // logout on a 401) — several branches below assume a non-null user
+    // (e.g. the legacy retailer-bloc view's zone lookup), so bail out to a
+    // harmless placeholder for that one frame instead of crashing.
+    if (user.getSalesUserDetails()?.user == null) {
+      return const SizedBox.shrink();
+    }
+
     final role = user.getSalesUserDetails()?.role ?? '';
     final isOrderBooker = role == 'orderBooker';
     final isWarehouseManager = role == 'warehouseManager';
@@ -290,79 +429,39 @@ class _RetailersViewState extends State<RetailersView>
     // ── Rebuild TabController if role changed ──
     final neededLength = hasThreeTabs ? 3 : 2;
     if (_tabRole != role || _tabController.length != neededLength) {
-      _tabController.removeListener(_onTabChanged);
       _tabController.dispose();
       _tabController = TabController(length: neededLength, vsync: this);
-      _tabController.addListener(_onTabChanged);
       _tabRole = role;
     }
-
-    // ── Data lists ──
-    final allDistributorsRaw = _fetchedDistributors.isNotEmpty
-        ? _fetchedDistributors
-        : (user.getSalesUserDetails()?.distributors ?? []);
-    final allWholesalersRaw = user.getSalesUserDetails()?.wholesalers ?? [];
-    final allRetailersRaw = user.getSalesUserDetails()?.retailers ?? [];
-
-    // Warehouse Manager only: narrow all three lists to the town of
-    // whichever distributor is currently checked in. If nobody is
-    // currently checked in, _activeTownId is null and we fall back to
-    // the unfiltered lists — a design choice, not something explicitly
-    // specified, so worth confirming this is the behavior wanted versus
-    // e.g. showing an empty state with a "check in first" message.
-    final allDistributors = (isWarehouseManager && _activeTownId != null)
-        ? allDistributorsRaw.where((d) => d.town?.id == _activeTownId).toList()
-        : allDistributorsRaw;
-    final allWholesalers = (isWarehouseManager && _activeTownId != null)
-        ? allWholesalersRaw.where((w) => w.town?.id == _activeTownId).toList()
-        : allWholesalersRaw;
-    final allRetailers = (isWarehouseManager && _activeTownId != null)
-        ? allRetailersRaw.where((r) => r.town?.id == _activeTownId).toList()
-        : allRetailersRaw;
 
     // ── AppBar title ──
     final appBarTitle = isOrderBooker
         ? 'Wholesalers/Retailers'
         : isWarehouseManager
-        ? 'Customers'
-        : 'Distributors';
+            ? 'Customers'
+            : 'Distributors';
 
-    // ── Search handler — routes to correct list based on role + active tab ──
+    // ── Search handler — on-submit only (keyboard search key), routes to
+    // whichever tab is currently active. Empty query clears that tab's
+    // search filter and reloads it unfiltered.
     void handleSearch(String query) {
-      if (query.isEmpty) {
-        isSearchingAllow = false;
-        isDistributorSearching = false;
-        isWholesalerSearching = false;
-        isRetailerSearching = false;
-        searchUser.clear();
-        searchDistributors.clear();
-        searchWholesalers.clear();
-        searchRetailers.clear();
-        setState(() {});
-        return;
-      }
       if (isWarehouseManager) {
         final idx = _tabController.index;
         if (idx == 0) {
-          isDistributorSearching = true;
-          _searchDistributors(query, allDistributors);
+          _distributorsTab.submitSearch(query);
         } else if (idx == 1) {
-          isWholesalerSearching = true;
-          _searchWholesalers(query, allWholesalers);
+          _wholesalersTab.submitSearch(query);
         } else {
-          isRetailerSearching = true;
-          _searchRetailers(query, allRetailers);
+          _retailersTab.submitSearch(query);
         }
       } else if (isOrderBooker) {
         if (_tabController.index == 0) {
-          isWholesalerSearching = true;
-          _searchWholesalers(query, allWholesalers);
+          _wholesalersTab.submitSearch(query);
         } else {
-          isRetailerSearching = true;
-          _searchRetailers(query, allRetailers);
+          _retailersTab.submitSearch(query);
         }
       } else {
-        isSearchingAllow = true;
+        isSearchingAllow = query.isNotEmpty;
         _searchData(query);
       }
     }
@@ -370,33 +469,33 @@ class _RetailersViewState extends State<RetailersView>
     // ── Tab definitions ──
     final tabBar = showTabs
         ? Container(
-      color: Colors.white,
-      child: TabBar(
-        controller: _tabController,
-        labelColor: FrontendConfigs.kPrimaryColor,
-        unselectedLabelColor: FrontendConfigs.kAuthTextColor,
-        indicatorColor: FrontendConfigs.kPrimaryColor,
-        indicatorWeight: 2.5,
-        labelStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-        tabs: isWarehouseManager
-            ? const [
-          Tab(text: "Distributors"),
-          Tab(text: "Wholesalers"),
-          Tab(text: "Retailers"),
-        ]
-            : const [
-          Tab(text: "Wholesalers"),
-          Tab(text: "Retailers"),
-        ],
-      ),
-    )
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: FrontendConfigs.kPrimaryColor,
+              unselectedLabelColor: FrontendConfigs.kAuthTextColor,
+              indicatorColor: FrontendConfigs.kPrimaryColor,
+              indicatorWeight: 2.5,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: isWarehouseManager
+                  ? const [
+                      Tab(text: "Distributors"),
+                      Tab(text: "Wholesalers"),
+                      Tab(text: "Retailers"),
+                    ]
+                  : const [
+                      Tab(text: "Wholesalers"),
+                      Tab(text: "Retailers"),
+                    ],
+            ),
+          )
         : null;
 
     return Scaffold(
@@ -410,15 +509,16 @@ class _RetailersViewState extends State<RetailersView>
             AnimatedSearchAppBar(
               title: appBarTitle,
               onCancel: () {
-                log('Called');
                 isSearchingAllow = false;
-                isDistributorSearching = false;
-                isWholesalerSearching = false;
-                isRetailerSearching = false;
                 searchUser.clear();
-                searchDistributors.clear();
-                searchWholesalers.clear();
-                searchRetailers.clear();
+                if (isWarehouseManager) {
+                  _distributorsTab.submitSearch('');
+                  _wholesalersTab.submitSearch('');
+                  _retailersTab.submitSearch('');
+                } else if (isOrderBooker) {
+                  _wholesalersTab.submitSearch('');
+                  _retailersTab.submitSearch('');
+                }
                 setState(() {});
               },
               onSearch: handleSearch,
@@ -430,145 +530,175 @@ class _RetailersViewState extends State<RetailersView>
       body: myLocation == null
           ? const Center(child: ProcessingWidget())
           : isWarehouseManager
-      // ── warehouseManager: 3 tabs ──
-          ? (_distributorsLoading && allDistributors.isEmpty)
-          ? const Center(child: ProcessingWidget())
-          : _distributorsError != null && allDistributors.isEmpty
-          ? Center(child: Text(_distributorsError!))
-          : TabBarView(
-        controller: _tabController,
-        children: [
-          _buildDistributorView(context, allDistributors),
-          _buildWholesalerListView(
-            context,
-            allWholesalers,
-            isSearching: isWholesalerSearching,
-            searchResults: searchWholesalers,
-            emptyMessage: "No wholesalers assigned.",
-            heading: "Wholesalers",
-            isRetailer: false,
-          ),
-          _buildWholesalerListView(
-            context,
-            allRetailers,
-            isSearching: isRetailerSearching,
-            searchResults: searchRetailers,
-            emptyMessage: "No retailers assigned.",
-            heading: "Retailers",
-            isRetailer: true,
-          ),
-        ],
-      )
-          : isOrderBooker
-      // ── orderBooker: 2 tabs ──
-          ? TabBarView(
-        controller: _tabController,
-        children: [
-          _buildWholesalerListView(
-            context,
-            allWholesalers,
-            isSearching: isWholesalerSearching,
-            searchResults: searchWholesalers,
-            emptyMessage: "No wholesalers assigned.",
-            heading: "Wholesalers",
-            isRetailer: false,
-          ),
-          _buildWholesalerListView(
-            context,
-            allRetailers,
-            isSearching: isRetailerSearching,
-            searchResults: searchRetailers,
-            emptyMessage: "No retailers assigned.",
-            heading: "Retailers",
-            isRetailer: true,
-          ),
-        ],
-      )
-      // ── other roles (TSM): original retailer BLoC flow ──
-          : _buildRetailerBlocView(context, user, search),
+              // ── warehouseManager: 3 tabs ──
+              ? TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDistributorTab(context, _distributorsTab),
+                    _buildWholesalerTab(
+                      context,
+                      _wholesalersTab,
+                      emptyMessage: "No wholesalers found.",
+                      heading: "Wholesalers",
+                      isRetailer: false,
+                    ),
+                    _buildWholesalerTab(
+                      context,
+                      _retailersTab,
+                      emptyMessage: "No retailers found.",
+                      heading: "Retailers",
+                      isRetailer: true,
+                    ),
+                  ],
+                )
+              : isOrderBooker
+                  // ── orderBooker: 2 tabs ──
+                  ? TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildWholesalerTab(
+                          context,
+                          _wholesalersTab,
+                          emptyMessage: "No wholesalers found.",
+                          heading: "Wholesalers",
+                          isRetailer: false,
+                        ),
+                        _buildWholesalerTab(
+                          context,
+                          _retailersTab,
+                          emptyMessage: "No retailers found.",
+                          heading: "Retailers",
+                          isRetailer: true,
+                        ),
+                      ],
+                    )
+                  // ── other roles (TSM): original retailer BLoC flow ──
+                  : _buildRetailerBlocView(context, user, search),
     );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Wholesaler / Retailer list view (orderBooker)
+  // Paginated infinite-scroll list — shared shape for Wholesalers/Retailers
+  // and Distributors tabs (see _buildDistributorTab below).
   // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildWholesalerListView(
-      BuildContext context,
-      List<Wholesaler> all, {
-        required bool isSearching,
-        required List<Wholesaler> searchResults,
-        required String emptyMessage,
-        required String heading,
-        bool isRetailer = false,
-      }) {
-    if (isSearching && searchResults.isEmpty) {
-      return const Center(child: NoDataFoundView());
+  Widget _buildWholesalerTab(
+    BuildContext context,
+    _PaginatedTabState<Wholesaler> tab, {
+    required String emptyMessage,
+    required String heading,
+    bool isRetailer = false,
+  }) {
+    if (tab.isInitialLoading && tab.items.isEmpty) {
+      return const Center(child: ProcessingWidget());
     }
-    if (all.isEmpty) {
+    if (tab.errorMessage != null && tab.items.isEmpty) {
+      return Center(child: Text(tab.errorMessage!));
+    }
+    if (tab.items.isEmpty) {
       return Center(child: Text(emptyMessage));
     }
-    final displayList = isSearching ? searchResults : all;
-    return ListView.builder(
-      itemCount: displayList.length + 1,
-      itemBuilder: (context, i) {
-        if (i == 0) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              "$heading (${all.length})",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: FrontendConfigs.kAuthTextColor,
+
+    // Only while an actual fetch is running — `page < totalPages` alone can
+    // stay true for a long stretch while nothing is happening until the
+    // user scrolls further; showing the spinner for that whole idle
+    // stretch reads as a stuck/indefinite loader.
+    final showMoreLoader = tab.isLoadingMore;
+    return RefreshIndicator(
+      onRefresh: tab.refresh,
+      child: ListView.builder(
+        controller: tab.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: tab.items.length + 1 + (showMoreLoader ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                "$heading (${tab.total})",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: FrontendConfigs.kAuthTextColor,
+                ),
               ),
-            ),
-          );
-        }
-        return _buildWholesalerCard(context, displayList[i - 1], isRetailer: isRetailer);
-      },
+            );
+          }
+          if (i > tab.items.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          return _buildWholesalerCard(context, tab.items[i - 1],
+              isRetailer: isRetailer);
+        },
+      ),
     );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Distributor view — warehouseManager only
+  // Distributor tab — warehouseManager only
   // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildDistributorView(
-      BuildContext context,
-      List<Distributor> allDistributors,
-      ) {
-    final displayList = (isDistributorSearching && searchDistributors.isNotEmpty)
-        ? searchDistributors
-        : isDistributorSearching
-        ? <Distributor>[]
-        : allDistributors;
-
-    if (isDistributorSearching && searchDistributors.isEmpty) {
-      return const Center(child: NoDataFoundView());
+  Widget _buildDistributorTab(
+    BuildContext context,
+    _PaginatedTabState<Distributor> tab,
+  ) {
+    if (tab.isInitialLoading && tab.items.isEmpty) {
+      return const Center(child: ProcessingWidget());
+    }
+    if (tab.errorMessage != null && tab.items.isEmpty) {
+      return Center(child: Text(tab.errorMessage!));
+    }
+    if (tab.items.isEmpty) {
+      return const Center(child: Text("No distributors found."));
     }
 
-    if (allDistributors.isEmpty) {
-      return const Center(child: Text("No distributors assigned."));
-    }
-
-    return ListView.builder(
-      itemCount: displayList.length + 1,
-      itemBuilder: (context, i) {
-        if (i == 0) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              "Distributors (${allDistributors.length})",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: FrontendConfigs.kAuthTextColor,
+    // Only while an actual fetch is running — `page < totalPages` alone can
+    // stay true for a long stretch while nothing is happening until the
+    // user scrolls further; showing the spinner for that whole idle
+    // stretch reads as a stuck/indefinite loader.
+    final showMoreLoader = tab.isLoadingMore;
+    return RefreshIndicator(
+      onRefresh: tab.refresh,
+      child: ListView.builder(
+        controller: tab.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: tab.items.length + 1 + (showMoreLoader ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                "Distributors (${tab.total})",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: FrontendConfigs.kAuthTextColor,
+                ),
               ),
-            ),
-          );
-        }
-        final d = displayList[i - 1];
-        return _buildDistributorCard(context, d);
-      },
+            );
+          }
+          if (i > tab.items.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          return _buildDistributorCard(context, tab.items[i - 1]);
+        },
+      ),
     );
   }
 
@@ -576,10 +706,10 @@ class _RetailersViewState extends State<RetailersView>
   // Original retailer BLoC view (unchanged for non-distributor roles)
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildRetailerBlocView(
-      BuildContext context,
-      UserProvider user,
-      SearchProviders search,
-      ) {
+    BuildContext context,
+    UserProvider user,
+    SearchProviders search,
+  ) {
     return BlocProvider(
       create: (context) => sl<RetailerBloc>(),
       child: BlocListener<RetailerBloc, RetailerState>(
@@ -603,9 +733,9 @@ class _RetailersViewState extends State<RetailersView>
             } else if (state is RetailerLoading) {
               return const Center(child: ProcessingWidget());
             } else if (state is RetailerLoaded) {
-              List<RetailerModel> _retailerList = [];
+              List<RetailerModel> retailerList = [];
               search.saveRetailerList(state.model.data!);
-              _retailerList = state.model.data!.map((e) {
+              retailerList = state.model.data!.map((e) {
                 return RetailerModel(
                   createdAt: e.createdAt,
                   docId: e.id,
@@ -624,37 +754,38 @@ class _RetailersViewState extends State<RetailersView>
                   shopName: e.shopName,
                   cnicBack: e.cnicBack,
                   cnicFront: e.cnicFront,
-                  customerType: e.customerType.isNotEmpty ? e.customerType : 'retailer',
+                  customerType:
+                      e.customerType.isNotEmpty ? e.customerType : 'retailer',
                   distance: calculateDistance(
                       start: myLocation!,
                       end: LatLng(e.lat!.toDouble(), e.lng!.toDouble())),
                 );
               }).toList();
-              _retailerList.sort((a, b) => a.distance!.compareTo(b.distance!));
+              retailerList.sort((a, b) => a.distance!.compareTo(b.distance!));
 
               if (searchUser.isEmpty && isSearchingAllow == true) {
                 return const Center(child: NoDataFoundView());
               } else {
                 final customerList =
-                searchUser.isEmpty ? _retailerList : searchUser;
+                    searchUser.isEmpty ? retailerList : searchUser;
 
                 return customerList.isNotEmpty
                     ? customerList[0].docId == null
-                    ? SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.7,
-                  child: const Center(child: ProcessingWidget()),
-                )
-                    : ListView.builder(
-                  itemCount: customerList.length,
-                  itemBuilder: (context, i) {
-                    return _buildRetailerCard(
-                        context, customerList[i]);
-                  },
-                )
+                        ? SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.7,
+                            child: const Center(child: ProcessingWidget()),
+                          )
+                        : ListView.builder(
+                            itemCount: customerList.length,
+                            itemBuilder: (context, i) {
+                              return _buildRetailerCard(
+                                  context, customerList[i]);
+                            },
+                          )
                     : const Center(
-                  child: Text(
-                      "Sorry! We cannot find any shop related to your search."),
-                );
+                        child: Text(
+                            "Sorry! We cannot find any shop related to your search."),
+                      );
               }
             } else if (state is RetailerFailed) {
               return Center(child: Text(state.message.toString()));
@@ -694,8 +825,8 @@ class _RetailersViewState extends State<RetailersView>
     );
     if (!mounted) return;
     result.fold(
-          (l) => getFlushBar(context, title: l.error.toString()),
-          (_) {
+      (l) => getFlushBar(context, title: l.error.toString()),
+      (_) {
         userProvider.patchDistributorShopLocation(id, lat, lng);
         setState(() {
           currentLocation = LatLng(lat, lng);
@@ -730,9 +861,10 @@ class _RetailersViewState extends State<RetailersView>
     );
     if (!mounted) return;
     result.fold(
-          (l) => getFlushBar(context, title: l.error.toString()),
-          (updated) {
-        userProvider.patchWholesalerShopLocation(id, lat, lng, address: updated.address);
+      (l) => getFlushBar(context, title: l.error.toString()),
+      (updated) {
+        userProvider.patchWholesalerShopLocation(id, lat, lng,
+            address: updated.address);
         setState(() {
           currentLocation = LatLng(lat, lng);
         });
@@ -766,9 +898,10 @@ class _RetailersViewState extends State<RetailersView>
     );
     if (!mounted) return;
     result.fold(
-          (l) => getFlushBar(context, title: l.error.toString()),
-          (updated) {
-        userProvider.patchRetailerShopLocation(id, lat, lng, address: updated.shopAddress1);
+      (l) => getFlushBar(context, title: l.error.toString()),
+      (updated) {
+        userProvider.patchRetailerShopLocation(id, lat, lng,
+            address: updated.shopAddress1);
         setState(() {
           currentLocation = LatLng(lat, lng);
         });
@@ -792,7 +925,7 @@ class _RetailersViewState extends State<RetailersView>
     await showVisitBottomSheet(context, (selectedImage) async {
       final visitProvider = Provider.of<VisitProvider>(context, listen: false);
       final locationProvider =
-      Provider.of<LocationProvider>(context, listen: false);
+          Provider.of<LocationProvider>(context, listen: false);
       final imagePath = selectedImage?.path;
 
       final position = await Geolocator.getCurrentPosition(
@@ -802,8 +935,7 @@ class _RetailersViewState extends State<RetailersView>
       AppLogger.debug("📍 Initial GPS location obtained");
       AppLogger.debug(
           "   Location: ${position.latitude}, ${position.longitude}");
-      AppLogger.debug(
-          "   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
+      AppLogger.debug("   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
 
       await visitProvider.setStartVisit(
         location: currentLocation!,
@@ -831,7 +963,7 @@ class _RetailersViewState extends State<RetailersView>
           }
 
           final currentLoc =
-          LatLng(freshPosition.latitude, freshPosition.longitude);
+              LatLng(freshPosition.latitude, freshPosition.longitude);
           locationProvider.setLatLng(currentLoc);
 
           await visitProvider.checkAndAutoLogVisit(
@@ -849,9 +981,9 @@ class _RetailersViewState extends State<RetailersView>
               }
 
               final retailerProvider =
-              Provider.of<RetailerProvider>(context, listen: false);
+                  Provider.of<RetailerProvider>(context, listen: false);
               final userProvider =
-              Provider.of<UserProvider>(context, listen: false);
+                  Provider.of<UserProvider>(context, listen: false);
               final selectedRetailer = retailerProvider.getRetailer();
               final userDetails = userProvider.getSalesUserDetails()?.user;
               final startVisit = await visitProvider.getStartVisit();
@@ -903,6 +1035,8 @@ class _RetailersViewState extends State<RetailersView>
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _handleDistributorLongPress(
       Distributor d, String displayName) async {
+    final idKey = d.id ?? d.salesId ?? '';
+    if (_updatingLocationIds.contains(idKey)) return;
     await _refreshCurrentLocation();
     if (currentLocation == null) {
       getFlushBar(context, title: "Current location not available");
@@ -910,10 +1044,12 @@ class _RetailersViewState extends State<RetailersView>
     }
     await showNavigationDialog(
       context,
-      message: "Update ${displayName}'s location to your current location?",
+      message: "Update $displayName's location to your current location?",
       buttonText: "Update",
       navigation: () async {
         Navigator.of(context).pop();
+        setState(() => _updatingLocationIds.add(idKey));
+        getFlushBar(context, title: "Updating location...");
         try {
           final pos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
@@ -922,11 +1058,14 @@ class _RetailersViewState extends State<RetailersView>
           setState(() {
             currentLocation = LatLng(pos.latitude, pos.longitude);
           });
-          await _commitDistributorLocationUpdate(d, pos.latitude, pos.longitude);
+          await _commitDistributorLocationUpdate(
+              d, pos.latitude, pos.longitude);
         } catch (e) {
           if (mounted) {
             getFlushBar(context, title: e.toString());
           }
+        } finally {
+          if (mounted) setState(() => _updatingLocationIds.remove(idKey));
         }
       },
       secondButtonText: "Cancel",
@@ -944,11 +1083,12 @@ class _RetailersViewState extends State<RetailersView>
     }
     await showNavigationDialog(
       context,
-      message: "Update ${displayName}'s location to your current location?",
+      message: "Update $displayName's location to your current location?",
       buttonText: "Update",
       navigation: () async {
         Navigator.of(context).pop();
         setState(() => _updatingLocationIds.add(w.id ?? ''));
+        getFlushBar(context, title: "Updating location...");
         try {
           final pos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
@@ -960,7 +1100,8 @@ class _RetailersViewState extends State<RetailersView>
           if (isRetailer) {
             await _commitRetailerLocationUpdate(w, pos.latitude, pos.longitude);
           } else {
-            await _commitWholesalerLocationUpdate(w, pos.latitude, pos.longitude);
+            await _commitWholesalerLocationUpdate(
+                w, pos.latitude, pos.longitude);
           }
         } catch (e) {
           if (mounted) {
@@ -985,14 +1126,13 @@ class _RetailersViewState extends State<RetailersView>
     await showNavigationDialog(
       context,
       message:
-      "Update ${currentRetailer.shopName}'s location to your current location?",
+          "Update ${currentRetailer.shopName}'s location to your current location?",
       buttonText: "Update",
-      navigation: () {
+      navigation: () async {
         final token =
             context.read<UserProvider>().getSalesUserDetails()?.token ?? '';
         if (token.isEmpty) {
-          getFlushBar(context,
-              title: 'Session expired. Please log in again.');
+          getFlushBar(context, title: 'Session expired. Please log in again.');
           Navigator.pop(context);
           return;
         }
@@ -1054,48 +1194,48 @@ class _RetailersViewState extends State<RetailersView>
                 CircleAvatar(
                   radius: 30,
                   backgroundColor:
-                  FrontendConfigs.kPrimaryColor.withOpacity(0.12),
+                      FrontendConfigs.kPrimaryColor.withOpacity(0.12),
                   child: ClipOval(
                     child: (d.image != null && d.image!.isNotEmpty)
                         ? ExtendedImage.network(
-                      d.image!,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      cache: true,
-                      loadStateChanged: (ExtendedImageState state) {
-                        switch (state.extendedImageLoadState) {
-                          case LoadState.loading:
-                          case LoadState.failed:
-                            return Center(
-                              child: Text(
-                                (d.name?.isNotEmpty == true
-                                    ? d.name![0]
-                                    : 'D')
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: FrontendConfigs.kPrimaryColor,
-                                ),
-                              ),
-                            );
-                          default:
-                            return state.completedWidget;
-                        }
-                      },
-                    )
+                            d.image!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            cache: true,
+                            loadStateChanged: (ExtendedImageState state) {
+                              switch (state.extendedImageLoadState) {
+                                case LoadState.loading:
+                                case LoadState.failed:
+                                  return Center(
+                                    child: Text(
+                                      (d.name?.isNotEmpty == true
+                                              ? d.name![0]
+                                              : 'D')
+                                          .toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: FrontendConfigs.kPrimaryColor,
+                                      ),
+                                    ),
+                                  );
+                                default:
+                                  return state.completedWidget;
+                              }
+                            },
+                          )
                         : Center(
-                      child: Text(
-                        (d.name?.isNotEmpty == true ? d.name![0] : 'D')
-                            .toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: FrontendConfigs.kPrimaryColor,
-                        ),
-                      ),
-                    ),
+                            child: Text(
+                              (d.name?.isNotEmpty == true ? d.name![0] : 'D')
+                                  .toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: FrontendConfigs.kPrimaryColor,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
 
@@ -1129,7 +1269,7 @@ class _RetailersViewState extends State<RetailersView>
                           style: const TextStyle(fontSize: 13),
                         ),
                       ],
-                      if (!isDistributorSearching &&
+                      if (_distributorsTab.searchTerm == null &&
                           myLocation != null &&
                           d.shopLocation?.lat != null &&
                           d.shopLocation?.lng != null) ...[
@@ -1225,7 +1365,8 @@ class _RetailersViewState extends State<RetailersView>
   }
 
   // ── Wholesaler / Retailer card (orderBooker list items) ─────────────────
-  Widget _buildWholesalerCard(BuildContext context, Wholesaler w, {bool isRetailer = false}) {
+  Widget _buildWholesalerCard(BuildContext context, Wholesaler w,
+      {bool isRetailer = false}) {
     final displayName = w.name ?? '—';
     final phone = w.contacts ?? '';
     final address = w.address ?? '';
@@ -1243,8 +1384,7 @@ class _RetailersViewState extends State<RetailersView>
             color: FrontendConfigs.kTextFieldColor,
           ),
           child: Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1252,7 +1392,7 @@ class _RetailersViewState extends State<RetailersView>
                 CircleAvatar(
                   radius: 28,
                   backgroundColor:
-                  FrontendConfigs.kPrimaryColor.withOpacity(0.15),
+                      FrontendConfigs.kPrimaryColor.withOpacity(0.15),
                   child: Text(
                     (w.name?.isNotEmpty == true ? w.name![0] : 'W')
                         .toUpperCase(),
@@ -1280,8 +1420,7 @@ class _RetailersViewState extends State<RetailersView>
                       ),
                       if (phone.isNotEmpty) ...[
                         const SizedBox(height: 3),
-                        Text(phone,
-                            style: const TextStyle(fontSize: 13)),
+                        Text(phone, style: const TextStyle(fontSize: 13)),
                       ],
                       if (townName.isNotEmpty) ...[
                         const SizedBox(height: 3),
@@ -1293,8 +1432,7 @@ class _RetailersViewState extends State<RetailersView>
                             Text(
                               townName,
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600),
+                                  fontSize: 12, color: Colors.grey.shade600),
                             ),
                           ],
                         ),
@@ -1303,8 +1441,8 @@ class _RetailersViewState extends State<RetailersView>
                         const SizedBox(height: 3),
                         Text(
                           address,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1357,7 +1495,8 @@ class _RetailersViewState extends State<RetailersView>
                             builder: (context) => AddRecoveryView(
                               distributorId: w.id ?? '',
                               paymentType: 'market_recovery',
-                              customerType: isRetailer ? 'retailer' : 'wholesaler',
+                              customerType:
+                                  isRetailer ? 'retailer' : 'wholesaler',
                             ),
                           ),
                         );
@@ -1376,7 +1515,6 @@ class _RetailersViewState extends State<RetailersView>
                             size: 18),
                       ),
                     ),
-
                   ],
                 ),
               ],
@@ -1472,8 +1610,8 @@ class _RetailersViewState extends State<RetailersView>
                                 const SizedBox(height: 5),
                                 if (isSearchingAllow != true)
                                   SizedBox(
-                                    width: MediaQuery.of(context).size.width *
-                                        0.6,
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.6,
                                     child: Text(
                                       "Distance: ${currentRetailer.distance!.toStringAsFixed(2)} km(s) away",
                                       style: TextStyle(
@@ -1499,8 +1637,7 @@ class _RetailersViewState extends State<RetailersView>
                                     borderRadius: BorderRadius.circular(8),
                                     color: FrontendConfigs.kPrimaryColor,
                                   ),
-                                  child: const Icon(
-                                      CupertinoIcons.cart_fill,
+                                  child: const Icon(CupertinoIcons.cart_fill,
                                       color: Colors.white),
                                 ),
                               ),
@@ -1511,7 +1648,9 @@ class _RetailersViewState extends State<RetailersView>
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => AddRecoveryView(
-                                        distributorId: currentRetailer.id?.toString() ?? '',
+                                        distributorId:
+                                            currentRetailer.id?.toString() ??
+                                                '',
                                         paymentType: 'market_recovery',
                                         customerType: 'retailer',
                                       ),

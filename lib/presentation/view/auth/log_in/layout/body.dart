@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
@@ -8,21 +7,14 @@ import 'package:sm_networking/presentation/view/bottom_bar_view/bottom_nav_bar_v
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:string_validator/string_validator.dart';
 import '../../../../../application/auth_bloc/login_bloc.dart';
-import '../../../../../application/error_string.dart';
 import '../../../../../application/user_provider.dart';
-import '../../../../../configurations/enums.dart';
-import '../../../../../infrastructure/model/agent.dart';
 import '../../../../../infrastructure/model/user.dart';
-import '../../../../../infrastructure/services/auth.dart';
 import '../../../../../injection_container.dart';
 import '../../../../elements/app_button.dart';
 import '../../../../elements/auth_field.dart';
-import '../../../../elements/error_dialog.dart';
 import '../../../../elements/flush_bar.dart';
 import '../../../../elements/processing_widget.dart';
-import '../../widgets/auth_button.dart';
 
 class LogInBody extends StatefulWidget {
   const LogInBody({super.key});
@@ -96,7 +88,8 @@ class _LogInBodyState extends State<LogInBody> {
           if (state is LoginLoaded) {
             if (state.model.user!.isAdminVerified == true &&
                 state.model.user!.isAdminVerified == true) {
-              sl<SharedPreferences>().setString('USER_DATA', userModelToJson(state.model));
+              sl<SharedPreferences>()
+                  .setString('USER_DATA', userModelToJson(state.model));
 
               user.saveSalesUserDetails(state.model);
               print("Userdate: ${userModelToJson(state.model)}");
@@ -126,7 +119,7 @@ class _LogInBodyState extends State<LogInBody> {
               child: Scaffold(
                 bottomNavigationBar: Padding(
                   padding:
-                  const EdgeInsets.only(bottom: 18.0, right: 18, left: 18),
+                      const EdgeInsets.only(bottom: 18.0, right: 18, left: 18),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -144,7 +137,8 @@ class _LogInBodyState extends State<LogInBody> {
                               return;
                             }
 
-                            final input = emailController.text.trim().toLowerCase();
+                            final input =
+                                emailController.text.trim().toLowerCase();
                             final isPhone = isPhoneNumber(input);
 
                             BlocProvider.of<AuthBloc>(context).add(
@@ -155,7 +149,8 @@ class _LogInBodyState extends State<LogInBody> {
                               ),
                             );
                           },
-                          btnLabel: TranslationHelper.getTranslatedText("login")),
+                          btnLabel:
+                              TranslationHelper.getTranslatedText("login")),
                       const SizedBox(
                         height: 10,
                       ),

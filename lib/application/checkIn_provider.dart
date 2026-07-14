@@ -51,12 +51,10 @@ class CheckInProvider extends ChangeNotifier {
     final checkInDisplay = formattedAllowedCheckInTime;
     final checkOutDisplay = formattedAllowedCheckOutTime;
 
-    AppLogger.debug(
-        "🕐 Allowed Times Updated:\n"
-            "   Check-In Starts At: $checkInDisplay\n"
-            "   Check-In Ends/Auto Check-Out: $checkOutDisplay\n"
-            "   Raw Values: CheckIn=$checkInTime, CheckOut=$checkOutTime"
-    );
+    AppLogger.debug("🕐 Allowed Times Updated:\n"
+        "   Check-In Starts At: $checkInDisplay\n"
+        "   Check-In Ends/Auto Check-Out: $checkOutDisplay\n"
+        "   Raw Values: CheckIn=$checkInTime, CheckOut=$checkOutTime");
     notifyListeners();
   }
 
@@ -103,9 +101,9 @@ class CheckInProvider extends ChangeNotifier {
 
     AppLogger.debug(
       "📊 Current Status => "
-          "isCheckedIn: $_isCheckedIn, "
-          "checkInTime: $_checkInTime, "
-          "checkOutTime: $_checkOutTime",
+      "isCheckedIn: $_isCheckedIn, "
+      "checkInTime: $_checkInTime, "
+      "checkOutTime: $_checkOutTime",
     );
 
     notifyListeners();
@@ -127,14 +125,15 @@ class CheckInProvider extends ChangeNotifier {
     _checkOutTime = prefs.getString(_keyCheckOutTime);
 
     if (wasCheckedIn != _isCheckedIn) {
-      AppLogger.debug("⚠️ CHECK-IN STATUS CHANGED: $wasCheckedIn → $_isCheckedIn");
+      AppLogger.debug(
+          "⚠️ CHECK-IN STATUS CHANGED: $wasCheckedIn → $_isCheckedIn");
     }
 
     log(
       "✅ Force Reload Complete => "
-          "isCheckedIn: $_isCheckedIn, "
-          "checkInTime: $_checkInTime, "
-          "checkOutTime: $_checkOutTime",
+      "isCheckedIn: $_isCheckedIn, "
+      "checkInTime: $_checkInTime, "
+      "checkOutTime: $_checkOutTime",
     );
 
     // CRITICAL: Always notify listeners to force UI rebuild
@@ -153,7 +152,8 @@ class CheckInProvider extends ChangeNotifier {
     await prefs.setString(_keyCheckInTime, now);
     await prefs.remove(_keyCheckOutTime);
 
-    AppLogger.debug("✅ Checked In at: ${DateFormat('hh:mm a').format(DateTime.parse(now))}");
+    AppLogger.debug(
+        "✅ Checked In at: ${DateFormat('hh:mm a').format(DateTime.parse(now))}");
     notifyListeners();
   }
 
@@ -167,7 +167,8 @@ class CheckInProvider extends ChangeNotifier {
     await prefs.setBool(_keyIsCheckedIn, false);
     await prefs.setString(_keyCheckOutTime, now);
 
-    AppLogger.debug("✅ Checked Out at: ${DateFormat('hh:mm a').format(DateTime.parse(now))}");
+    AppLogger.debug(
+        "✅ Checked Out at: ${DateFormat('hh:mm a').format(DateTime.parse(now))}");
     notifyListeners();
   }
 
@@ -207,20 +208,12 @@ class CheckInProvider extends ChangeNotifier {
     }
   }
 
-  bool get canCheckIn {
-    final now = DateTime.now();
-    final checkInStartTime = checkInDateTime;
-    final checkoutTime = checkOutDateTime;
-
-    if (checkInStartTime == null || checkoutTime == null) {
-      return now.hour >= 9 && now.hour < 17;
-    }
-
-    final isAfterCheckInTime = now.isAfter(checkInStartTime) || now.isAtSameMomentAs(checkInStartTime);
-    final isBeforeCheckOutTime = now.isBefore(checkoutTime);
-
-    return isAfterCheckInTime && isBeforeCheckOutTime;
-  }
+  // No time-window restriction on check-in — orderBooker can check in at
+  // any time of day. Shift-time display (formattedAllowedCheckInTime /
+  // formattedAllowedCheckOutTime) and the end-of-shift auto-checkout are
+  // unaffected by this; only the "you can't check in right now" block is
+  // removed.
+  bool get canCheckIn => true;
 
   String get checkInStatusMessage {
     final now = DateTime.now();
@@ -232,14 +225,14 @@ class CheckInProvider extends ChangeNotifier {
     }
 
     if (now.isBefore(checkInStartTime)) {
-      return "Check-in will be available from ${formattedAllowedCheckInTime}";
+      return "Check-in will be available from $formattedAllowedCheckInTime";
     }
 
     if (now.isAfter(checkoutTime) || now.isAtSameMomentAs(checkoutTime)) {
-      return "Check-in period ended at ${formattedAllowedCheckOutTime}";
+      return "Check-in period ended at $formattedAllowedCheckOutTime";
     }
 
-    return "Check-in available until ${formattedAllowedCheckOutTime}";
+    return "Check-in available until $formattedAllowedCheckOutTime";
   }
 
   String get formattedAllowedCheckInTime {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -35,7 +34,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
   @override
   void initState() {
     super.initState();
-    AppLogger.debug("📱 CategoryListingView loaded - VisitProvider timer should already be running");
+    AppLogger.debug(
+        "📱 CategoryListingView loaded - VisitProvider timer should already be running");
   }
 
   @override
@@ -50,15 +50,18 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     _isDisposed = true;
 
     final visitProvider = Provider.of<VisitProvider>(context, listen: false);
-    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    final locationProvider =
+        Provider.of<LocationProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final retailerProvider = Provider.of<RetailerProvider>(context, listen: false);
+    final retailerProvider =
+        Provider.of<RetailerProvider>(context, listen: false);
 
     visitProvider.stopLocationMonitoring();
     AppLogger.debug("🛑 VisitProvider timer stopped on back press");
 
     if (visitProvider.isVisitAutoLogged) {
-      AppLogger.debug("Visit already auto-logged, clearing and allowing back navigation");
+      AppLogger.debug(
+          "Visit already auto-logged, clearing and allowing back navigation");
       await visitProvider.clearVisitData();
       return true;
     }
@@ -78,8 +81,10 @@ class _CategoryListingViewState extends State<CategoryListingView> {
     final currentLocation = LatLng(position.latitude, position.longitude);
 
     AppLogger.debug("📍 Back Press - Location Check:");
-    AppLogger.debug("   START: ${visitLocation.latitude}, ${visitLocation.longitude}");
-    AppLogger.debug("   CURRENT: ${currentLocation.latitude}, ${currentLocation.longitude}");
+    AppLogger.debug(
+        "   START: ${visitLocation.latitude}, ${visitLocation.longitude}");
+    AppLogger.debug(
+        "   CURRENT: ${currentLocation.latitude}, ${currentLocation.longitude}");
 
     final hasMovedAway = visitProvider.hasMovedBeyondThreshold(
       currentLocation,
@@ -109,7 +114,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
         await visitProvider.clearVisitData();
 
         if (mounted) {
-          getFlushBar(context, title: "Visit logged. You moved away from location.");
+          getFlushBar(context,
+              title: "Visit logged. You moved away from location.");
         }
 
         AppLogger.debug("✅ Visit logged via API and data cleared");
@@ -133,7 +139,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
           listener: (context, state) {
             if (state is VisitLoaded) {
               AppLogger.debug("✅ Visit Added Successfully via API");
-              final visitProvider = Provider.of<VisitProvider>(context, listen: false);
+              final visitProvider =
+                  Provider.of<VisitProvider>(context, listen: false);
               visitProvider.clearVisitData();
             } else if (state is VisitFailed) {
               AppLogger.debug("❌ Visit Add Failed: ${state.message}");
@@ -142,7 +149,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
           child: Scaffold(
             appBar: customAppBar(context, text: 'Brands', showText: true),
             body: BlocProvider(
-              create: (context) => sl<BrandBloc>()..add(const GetAllBrandsEvent()),
+              create: (context) =>
+                  sl<BrandBloc>()..add(const GetAllBrandsEvent()),
               child: BlocBuilder<BrandBloc, BrandState>(
                 builder: (context, state) {
                   if (state is BrandInitial || state is BrandLoading) {
@@ -165,7 +173,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
                             // rebuilding this screen and re-triggering initState
                             // on BrandCategoriesBody.
                             final visitProvider = Provider.of<VisitProvider>(
-                                context, listen: false);
+                                context,
+                                listen: false);
                             visitProvider.stopLocationMonitoring();
 
                             await Navigator.push(
@@ -186,7 +195,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
                           child: Column(
                             children: [
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 13.0),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 13.0),
                                 child: Row(
                                   children: [
                                     const SizedBox(width: 10),
@@ -197,7 +207,8 @@ class _CategoryListingViewState extends State<CategoryListingView> {
                                       width: 40,
                                       decoration: BoxDecoration(
                                         color: Colors.grey.shade200,
-                                        borderRadius: BorderRadius.circular(100),
+                                        borderRadius:
+                                            BorderRadius.circular(100),
                                       ),
                                       child: Icon(
                                         Icons.storefront_outlined,

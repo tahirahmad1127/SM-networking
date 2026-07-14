@@ -1,27 +1,15 @@
-import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/infrastructure/model/order.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
-import 'package:sm_networking/infrastructure/services/order.dart';
-import 'package:sm_networking/infrastructure/services/retailer.dart';
-import 'package:sm_networking/infrastructure/services/transaction.dart';
-import 'package:sm_networking/presentation/elements/app_button.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
-import 'package:sm_networking/presentation/view/cart/cart_view.dart';
 import 'package:sm_networking/presentation/view/stats/layout/widget/yearly_chart.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../../application/stats_bloc/stats_bloc.dart';
-import '../../../../infrastructure/model/cart.dart';
 import '../../../../infrastructure/model/stats.dart';
 import '../../../../infrastructure/model/transaction.dart';
 import '../../../../injection_container.dart';
@@ -50,6 +38,15 @@ class _StatsViewBodyState extends State<StatsViewBody> {
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<UserProvider>(context);
+
+    // Session can be cleared out from under this screen mid-build (forced
+    // logout on a 401) — the StatsBloc fetch below assumes a non-null user,
+    // so bail out to a harmless placeholder for that one frame instead of
+    // crashing.
+    if (user.getSalesUserDetails()?.user == null) {
+      return const SizedBox.shrink();
+    }
+
     return BlocProvider(
       create: (context) => sl<StatsBloc>(),
       child: BlocBuilder<StatsBloc, StatsState>(
@@ -58,7 +55,10 @@ class _StatsViewBodyState extends State<StatsViewBody> {
             BlocProvider.of<StatsBloc>(context).add(
               GetStatsEvent(
                 user.getSalesUserDetails()!.user!.id.toString(),
-                user.getSalesUserDetails()!.role.toString(), // ← role is on UserModel
+                user
+                    .getSalesUserDetails()!
+                    .role
+                    .toString(), // ← role is on UserModel
               ),
             );
             return Center(
@@ -79,7 +79,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                           ),
                           Padding(
                             padding:
-                            const EdgeInsets.symmetric(horizontal: 18.0),
+                                const EdgeInsets.symmetric(horizontal: 18.0),
                             child: Container(
                               height: 50,
                               decoration: BoxDecoration(
@@ -94,9 +94,9 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                                       child: TabBar(
                                           dividerColor: Colors.transparent,
                                           indicatorSize:
-                                          TabBarIndicatorSize.tab,
+                                              TabBarIndicatorSize.tab,
                                           labelColor:
-                                          FrontendConfigs.kPrimaryColor,
+                                              FrontendConfigs.kPrimaryColor,
                                           onTap: (val) {
                                             selectedIndex = val;
                                             setState(() {});
@@ -104,7 +104,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                                           unselectedLabelColor: Colors.black,
                                           indicator: BoxDecoration(
                                               borderRadius:
-                                              BorderRadius.circular(10),
+                                                  BorderRadius.circular(10),
                                               color: Colors.white),
                                           labelStyle: const TextStyle(
                                               fontSize: 14,
@@ -118,7 +118,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                                           tabs: const [
                                             Row(
                                               mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Tab(
                                                   text: "Daily",
@@ -127,7 +127,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                                             ),
                                             Row(
                                               mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Tab(
                                                   text: "Monthly",
@@ -149,15 +149,15 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                               if (selectedIndex == 0)
                                 Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 18.0),
-                                      child: _customCard(
-                                          title: 'Today\'s Sales',
-                                          value:
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 18.0),
+                                  child: _customCard(
+                                      title: 'Today\'s Sales',
+                                      value:
                                           'RS ${state.model.data!.todaySales.toString()}',
-                                          icon: Icons.account_balance_wallet,
-                                          cardColor: Colors.green),
-                                    ))
+                                      icon: Icons.account_balance_wallet,
+                                      cardColor: Colors.green),
+                                ))
                               else
                                 MonthDashboardChart(
                                     state.model.data!.monthsSales!)
@@ -215,7 +215,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
                         decoration: BoxDecoration(
                           borderRadius: FrontendConfigs.kAppBorder,
                           border:
-                          Border.all(color: Colors.grey.withOpacity(0.4)),
+                              Border.all(color: Colors.grey.withOpacity(0.4)),
                           color: Colors.white,
                         ),
                         child: Padding(
@@ -273,9 +273,9 @@ class _StatsViewBodyState extends State<StatsViewBody> {
 
   Widget _customCard(
       {required String title,
-        required String value,
-        required IconData icon,
-        required Color cardColor}) {
+      required String value,
+      required IconData icon,
+      required Color cardColor}) {
     return Container(
       width: 120,
       decoration: BoxDecoration(
@@ -346,7 +346,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
 
     // Cap achieved at totalTarget for display
     double displayAchieved =
-    achievedTarget > totalTarget ? totalTarget : achievedTarget;
+        achievedTarget > totalTarget ? totalTarget : achievedTarget;
     double remaining = totalTarget - displayAchieved;
     double achievedPercentage = (displayAchieved / totalTarget) * 100;
     double remainingPercentage = 100 - achievedPercentage;
@@ -426,7 +426,7 @@ class _StatsViewBodyState extends State<StatsViewBody> {
       if (list[0].docId != null) {
         list.map((e) {
           if (DateTime(e.date!.toDate().year, e.date!.toDate().month,
-              e.date!.toDate().day, 0, 0) ==
+                  e.date!.toDate().day, 0, 0) ==
               DateTime(
                   DateTime.now().subtract(Duration(days: 0)).year,
                   DateTime.now().subtract(Duration(days: 0)).month,

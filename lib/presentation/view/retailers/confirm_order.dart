@@ -1,19 +1,14 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sm_networking/infrastructure/model/user.dart';
 import 'package:sm_networking/presentation/elements/app_button.dart';
 import 'package:sm_networking/presentation/elements/custom_appbar.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../../application/user_provider.dart';
 import '../../../configurations/frontend_configs.dart';
 import '../../../configurations/translation_helper.dart';
 import '../../../infrastructure/model/cart.dart';
-import '../../../infrastructure/model/order.dart';
-import '../../../infrastructure/services/order.dart';
-import '../../../infrastructure/services/product.dart';
 import '../../elements/custom_text.dart';
 import '../../elements/flush_bar.dart';
 import '../../elements/processing_widget.dart';
@@ -25,8 +20,7 @@ class RetailersProfileView extends StatefulWidget {
   final UserModel selectedRetailer;
 
   const RetailersProfileView(
-      {Key? key, required this.list, required this.selectedRetailer})
-      : super(key: key);
+      {super.key, required this.list, required this.selectedRetailer});
 
   @override
   State<RetailersProfileView> createState() => _RetailersProfileViewState();

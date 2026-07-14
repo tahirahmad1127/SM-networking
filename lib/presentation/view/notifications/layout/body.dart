@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
-import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/order/no_data_found_view.dart';
 import 'package:provider/provider.dart';
 
@@ -15,7 +14,7 @@ import 'widgets/notification_card.dart';
 class NotificationsBody extends StatefulWidget {
   final List<NotificationModel> list;
 
-  const NotificationsBody({Key? key, required this.list}) : super(key: key);
+  const NotificationsBody({super.key, required this.list});
 
   @override
   State<NotificationsBody> createState() => _NotificationsBodyState();
@@ -58,18 +57,18 @@ class _NotificationsBodyState extends State<NotificationsBody> {
                   .streamNotifications(user.getUserDetails()!.docId.toString()),
               initialData: [NotificationModel()],
               builder: (context, child) {
-                List<NotificationModel> _list =
+                List<NotificationModel> list =
                     context.watch<List<NotificationModel>>();
-                return _list.isNotEmpty
-                    ? _list[0].docId == null
+                return list.isNotEmpty
+                    ? list[0].docId == null
                         ? NotificationLoader()
                         : ListView.builder(
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _list.length,
+                            itemCount: list.length,
                             shrinkWrap: true,
                             itemBuilder: (context, i) {
                               return NotificationCard(
-                                model: _list[i],
+                                model: list[i],
                               );
                             })
                     : NoDataFoundView();

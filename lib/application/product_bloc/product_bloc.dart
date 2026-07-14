@@ -1,12 +1,8 @@
-import 'dart:async';
-import 'dart:developer';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../infrastructure/model/product.dart';
-import '../../infrastructure/model/user.dart';
 import '../../infrastructure/services/product.dart';
 
 part 'product_event.dart';
@@ -31,8 +27,8 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
             categoryID: event.categoryID,
           );
           failureOrSuccess.fold(
-                (l) => emit(ProductFailed(l.error.toString())),
-                (r) => emit(ProductLoaded(r)),
+            (l) => emit(ProductFailed(l.error.toString())),
+            (r) => emit(ProductLoaded(r)),
           );
           page++;
         } catch (e) {
@@ -42,10 +38,10 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         try {
           emit(ProductLoading());
           final failureOrSuccess =
-          await repositoryImp.getProductsByBrandID(event.brandID);
+              await repositoryImp.getProductsByBrandID(event.brandID);
           failureOrSuccess.fold(
-                (l) => emit(ProductFailed(l.error.toString())),
-                (r) => emit(ProductLoaded(r)),
+            (l) => emit(ProductFailed(l.error.toString())),
+            (r) => emit(ProductLoaded(r)),
           );
         } catch (e) {
           rethrow;
@@ -54,10 +50,10 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         try {
           emit(ProductLoading());
           final failureOrSuccess =
-          await repositoryImp.getProductByID(event.productID);
+              await repositoryImp.getProductByID(event.productID);
           failureOrSuccess.fold(
-                (l) => emit(ProductFailed(l.error.toString())),
-                (r) => emit(SingleProductLoaded(r)),
+            (l) => emit(ProductFailed(l.error.toString())),
+            (r) => emit(SingleProductLoaded(r)),
           );
         } catch (e) {
           rethrow;
@@ -73,8 +69,8 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
             page: page,
           );
           failureOrSuccess.fold(
-                (l) => emit(ProductFailed(l.error.toString())),
-                (r) => emit(ProductLoaded(r)),
+            (l) => emit(ProductFailed(l.error.toString())),
+            (r) => emit(ProductLoaded(r)),
           );
           page++;
         } catch (e) {

@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 import 'package:sm_networking/presentation/view/bottom_bar_view/bottom_nav_bar_view.dart';
-import 'package:sm_networking/presentation/view/order/order_view.dart';
 
 import '../../elements/app_button.dart';
-import 'widgets/order_details_card.dart';
 
 class OrderPlacedView extends StatelessWidget {
   const OrderPlacedView({super.key});
@@ -14,9 +11,8 @@ class OrderPlacedView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar:  Padding(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12),
         child: AppButton(
           onPressed: () {
             Navigator.push(
@@ -24,8 +20,7 @@ class OrderPlacedView extends StatelessWidget {
                 MaterialPageRoute(
                     builder: (context) => const BottomNavBarView()));
           },
-          btnLabel: TranslationHelper.getTranslatedText(
-              'Continue Shopping'),
+          btnLabel: TranslationHelper.getTranslatedText('Continue Shopping'),
           width: MediaQuery.of(context).size.width / 2.25,
           btnColor: const Color(0xff121212),
           height: 48,
@@ -87,7 +82,6 @@ class OrderPlacedView extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-
             ],
           ),
         ),

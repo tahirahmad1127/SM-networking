@@ -49,7 +49,7 @@ class _AddRetailerViewState extends State<AddRetailerView> {
   File? _profileImage;
 
   // ── Map ──────────────────────────────────────────────────────────────────
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   LatLng? _currentLocation;
   GoogleMapController? _mapController;
   final Completer<GoogleMapController> _mapCompleter = Completer();
@@ -95,7 +95,7 @@ class _AddRetailerViewState extends State<AddRetailerView> {
 
   void _initRoleAndLocks() {
     final userModel =
-    Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+        Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
     _role = userModel?.role ?? '';
     final user = userModel?.user;
 
@@ -112,11 +112,12 @@ class _AddRetailerViewState extends State<AddRetailerView> {
   Future<void> _initLocation() async {
     try {
       final pos = await determinePosition();
-      final latLng = LatLng(pos.latitude!, pos.longitude!);
+      final latLng = LatLng(pos.latitude, pos.longitude);
       _currentLocation = latLng;
       _lat = pos.latitude;
       _lng = pos.longitude;
-      _markers.add(Marker(markerId: const MarkerId('current'), position: latLng));
+      _markers
+          .add(Marker(markerId: const MarkerId('current'), position: latLng));
       if (mounted) setState(() {});
     } catch (_) {}
   }
@@ -136,11 +137,11 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     _locationSet = true;
 
     final address = (result.formattedAddress != null &&
-        result.formattedAddress!.trim().isNotEmpty)
+            result.formattedAddress!.trim().isNotEmpty)
         ? result.formattedAddress!
         : (result.name != null && result.name!.trim().isNotEmpty)
-        ? result.name!
-        : '${_lat.toStringAsFixed(6)}, ${_lng.toStringAsFixed(6)}';
+            ? result.name!
+            : '${_lat.toStringAsFixed(6)}, ${_lng.toStringAsFixed(6)}';
     _addressController.text = address;
 
     _markers
@@ -157,8 +158,8 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     setState(() => _loadingZones = true);
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
       final result = await _api.getEither(
         endPoint: 'zone/',
@@ -169,12 +170,11 @@ class _AddRetailerViewState extends State<AddRetailerView> {
         },
       );
       result.fold(
-            (error) =>
+        (error) =>
             getFlushBar(context, title: error.error ?? 'Failed to load zones'),
-            (data) {
-          final list = (data['data'] as List)
-              .map((e) => ZoneModel.fromJson(e))
-              .toList();
+        (data) {
+          final list =
+              (data['data'] as List).map((e) => ZoneModel.fromJson(e)).toList();
           if (!mounted) return;
           setState(() => _zones = list);
 
@@ -205,8 +205,8 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     });
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
       final result = await _api.getEither(
         endPoint: 'town/zone/$zoneId',
@@ -217,18 +217,16 @@ class _AddRetailerViewState extends State<AddRetailerView> {
         },
       );
       result.fold(
-            (error) =>
+        (error) =>
             getFlushBar(context, title: error.error ?? 'Failed to load towns'),
-            (data) {
-          final list = (data['data'] as List)
-              .map((e) => TownModel.fromJson(e))
-              .toList();
+        (data) {
+          final list =
+              (data['data'] as List).map((e) => TownModel.fromJson(e)).toList();
           if (!mounted) return;
           setState(() => _filteredTowns = list);
 
           if (_townIsLocked && _lockedTownId != null) {
-            final match =
-                list.where((t) => t.id == _lockedTownId).firstOrNull;
+            final match = list.where((t) => t.id == _lockedTownId).firstOrNull;
             if (match != null) {
               setState(() {
                 _selectedTown = match;
@@ -281,16 +279,14 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     if (hasError) return;
 
     if (_selectedZone == null) {
-      getFlushBar(
-          context,
+      getFlushBar(context,
           title: _zoneIsLocked
               ? "Zone could not be loaded. Please try again."
               : "Please select a zone.");
       return;
     }
     if (_selectedTown == null) {
-      getFlushBar(
-          context,
+      getFlushBar(context,
           title: _townIsLocked
               ? "Town could not be loaded. Please try again."
               : "Please select a town.");
@@ -306,8 +302,8 @@ class _AddRetailerViewState extends State<AddRetailerView> {
 
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
       final authHeader = {
         'Authorization': 'Bearer $token',
@@ -379,12 +375,14 @@ class _AddRetailerViewState extends State<AddRetailerView> {
 
         bool failed = false;
         result.fold(
-              (error) {
+          (error) {
             failed = true;
-            if (mounted)
-              getFlushBar(context, title: error.error ?? 'Something went wrong.');
+            if (mounted) {
+              getFlushBar(context,
+                  title: error.error ?? 'Something went wrong.');
+            }
           },
-              (data) {
+          (data) {
             newId = data['data']?['_id'] as String?;
           },
         );
@@ -413,8 +411,7 @@ class _AddRetailerViewState extends State<AddRetailerView> {
           addressFromGoogle: DistributorLocation(lat: _lat, lng: _lng),
         );
 
-        final userProvider =
-        Provider.of<UserProvider>(context, listen: false);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
         final currentList = List<Wholesaler>.from(
           userProvider.getSalesUserDetails()?.retailers ?? [],
         );
@@ -445,397 +442,397 @@ class _AddRetailerViewState extends State<AddRetailerView> {
       body: _currentLocation == null
           ? const Center(child: ProcessingWidget())
           : LoadingOverlay(
-        isLoading: _isLoading,
-        progressIndicator: const ProcessingWidget(),
-        color: Colors.transparent,
-        child: SingleChildScrollView(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Profile Image ──────────────────────────────────────
-              _label("Profile Image (Optional)"),
-              _buildImagePicker(
-                image: _profileImage,
-                title: "Upload Profile Image",
-                onImageChanged: (file) =>
-                    setState(() => _profileImage = file),
-                onCrop: () => _cropImage(),
-                onEdit: () => _editImage(),
-                onRemove: () => setState(() => _profileImage = null),
-              ),
-              _sectionGap(),
-
-              // ── Name ──────────────────────────────────────────────
-              _label("Name"),
-              TextFormField(
-                controller: _nameController,
-                keyboardType: TextInputType.text,
-                onChanged: (_) {
-                  if (_nameError != null)
-                    setState(() => _nameError = null);
-                },
-                decoration: _fieldDecoration("Name").copyWith(
-                  errorText: _nameError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Phone Number ───────────────────────────────────────
-              _label("Phone Number (Optional)"),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
-                  LengthLimitingTextInputFormatter(13),
-                ],
-                onChanged: (_) {
-                  if (_phoneError != null)
-                    setState(() => _phoneError = null);
-                },
-                decoration: _fieldDecoration("Phone Number").copyWith(
-                  errorText: _phoneError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Zone ───────────────────────────────────────────────
-              _label("Zone", locked: _zoneIsLocked),
-              _zoneIsLocked
-                  ? _buildReadOnlyField(
-                _lockedZoneName ??
-                    (_loadingZones ? "Loading..." : "—"),
-                locked: true,
-              )
-                  : _buildDropdown<ZoneModel>(
-                hint: _loadingZones
-                    ? "Loading zones..."
-                    : "Select Zone",
-                value: _selectedZone,
-                items: _zones
-                    .map((z) => DropdownMenuItem<ZoneModel>(
-                  value: z,
-                  child: Text(z.name),
-                ))
-                    .toList(),
-                onChanged: (zone) {
-                  setState(() {
-                    _selectedZone = zone;
-                    _selectedTown = null;
-                    _filteredTowns = [];
-                  });
-                  if (zone != null) _fetchTownsByZone(zone.id);
-                },
-              ),
-              _sectionGap(),
-
-              // ── Town ───────────────────────────────────────────────
-              _label("Town"),
-              _townIsLocked
-                  ? _buildReadOnlyField(
-                _lockedTownName ??
-                    (_loadingTowns ? "Loading..." : "—"),
-                locked: true,
-              )
-                  : _buildDropdown<TownModel>(
-                hint: _loadingTowns
-                    ? "Loading towns..."
-                    : (_selectedZone == null
-                    ? "Select Zone first"
-                    : "Select Town"),
-                value: _selectedTown,
-                items: _filteredTowns
-                    .map((t) => DropdownMenuItem<TownModel>(
-                  value: t,
-                  child: Text(t.name),
-                ))
-                    .toList(),
-                onChanged: _selectedZone == null
-                    ? null
-                    : (town) =>
-                    setState(() => _selectedTown = town),
-              ),
-              _sectionGap(),
-
-              // ── Map Location ───────────────────────────────────────
-              _label("Map Location (Address From Google)"),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: FrontendConfigs.kTextFieldColor,
-                  borderRadius: FrontendConfigs.kAppBorder,
-                ),
-                child: Row(
+              isLoading: _isLoading,
+              progressIndicator: const ProcessingWidget(),
+              color: Colors.transparent,
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _locationSet
-                          ? Icons.location_on
-                          : Icons.location_off,
-                      color: _locationSet ? Colors.green : Colors.blue,
-                      size: 20,
+                    // ── Profile Image ──────────────────────────────────────
+                    _label("Profile Image (Optional)"),
+                    _buildImagePicker(
+                      image: _profileImage,
+                      title: "Upload Profile Image",
+                      onImageChanged: (file) =>
+                          setState(() => _profileImage = file),
+                      onCrop: () => _cropImage(),
+                      onEdit: () => _editImage(),
+                      onRemove: () => setState(() => _profileImage = null),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _locationSet
-                            ? "Location set: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}"
-                            : "No Location Set",
+                    _sectionGap(),
+
+                    // ── Name ──────────────────────────────────────────────
+                    _label("Name"),
+                    TextFormField(
+                      controller: _nameController,
+                      keyboardType: TextInputType.text,
+                      onChanged: (_) {
+                        if (_nameError != null) {
+                          setState(() => _nameError = null);
+                        }
+                      },
+                      decoration: _fieldDecoration("Name").copyWith(
+                        errorText: _nameError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Phone Number ───────────────────────────────────────
+                    _label("Phone Number (Optional)"),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      onChanged: (_) {
+                        if (_phoneError != null) {
+                          setState(() => _phoneError = null);
+                        }
+                      },
+                      decoration: _fieldDecoration("Phone Number").copyWith(
+                        errorText: _phoneError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Zone ───────────────────────────────────────────────
+                    _label("Zone", locked: _zoneIsLocked),
+                    _zoneIsLocked
+                        ? _buildReadOnlyField(
+                            _lockedZoneName ??
+                                (_loadingZones ? "Loading..." : "—"),
+                            locked: true,
+                          )
+                        : _buildDropdown<ZoneModel>(
+                            hint: _loadingZones
+                                ? "Loading zones..."
+                                : "Select Zone",
+                            value: _selectedZone,
+                            items: _zones
+                                .map((z) => DropdownMenuItem<ZoneModel>(
+                                      value: z,
+                                      child: Text(z.name),
+                                    ))
+                                .toList(),
+                            onChanged: (zone) {
+                              setState(() {
+                                _selectedZone = zone;
+                                _selectedTown = null;
+                                _filteredTowns = [];
+                              });
+                              if (zone != null) _fetchTownsByZone(zone.id);
+                            },
+                          ),
+                    _sectionGap(),
+
+                    // ── Town ───────────────────────────────────────────────
+                    _label("Town"),
+                    _townIsLocked
+                        ? _buildReadOnlyField(
+                            _lockedTownName ??
+                                (_loadingTowns ? "Loading..." : "—"),
+                            locked: true,
+                          )
+                        : _buildDropdown<TownModel>(
+                            hint: _loadingTowns
+                                ? "Loading towns..."
+                                : (_selectedZone == null
+                                    ? "Select Zone first"
+                                    : "Select Town"),
+                            value: _selectedTown,
+                            items: _filteredTowns
+                                .map((t) => DropdownMenuItem<TownModel>(
+                                      value: t,
+                                      child: Text(t.name),
+                                    ))
+                                .toList(),
+                            onChanged: _selectedZone == null
+                                ? null
+                                : (town) =>
+                                    setState(() => _selectedTown = town),
+                          ),
+                    _sectionGap(),
+
+                    // ── Map Location ───────────────────────────────────────
+                    _label("Map Location (Address From Google)"),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: FrontendConfigs.kTextFieldColor,
+                        borderRadius: FrontendConfigs.kAppBorder,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _locationSet
+                                ? Icons.location_on
+                                : Icons.location_off,
+                            color: _locationSet ? Colors.green : Colors.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _locationSet
+                                  ? "Location set: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}"
+                                  : "No Location Set",
+                              style: TextStyle(
+                                color: FrontendConfigs.kAuthTextColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_locationSet) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        "Click 'Set Location' to pin the location on the map",
                         style: TextStyle(
+                          fontSize: 12,
                           color: FrontendConfigs.kAuthTextColor,
-                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+
+                    if (_locationSet) ...[
+                      SizedBox(
+                        height: 220,
+                        child: ClipRRect(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          child: GoogleMap(
+                            zoomControlsEnabled: false,
+                            markers: _markers,
+                            onTap: (_) => _showPlacePicker(),
+                            mapType: MapType.normal,
+                            mapToolbarEnabled: false,
+                            initialCameraPosition: CameraPosition(
+                              target: LatLng(_lat, _lng),
+                              zoom: 16,
+                            ),
+                            onMapCreated: (GoogleMapController ctrl) async {
+                              if (!_mapCompleter.isCompleted) {
+                                _mapCompleter.complete(ctrl);
+                              }
+                              _mapController = await _mapCompleter.future;
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _showPlacePicker,
+                        icon: const Icon(Icons.location_on),
+                        label: Text(
+                            _locationSet ? "Change Location" : "Set Location"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: FrontendConfigs.kPrimaryColor,
+                          side:
+                              BorderSide(color: FrontendConfigs.kPrimaryColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: FrontendConfigs.kAppBorder,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // ── Market Name ────────────────────────────────────────
+                    _label("Market Name"),
+                    TextFormField(
+                      controller: _marketNameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter market name",
+                        hintStyle: TextStyle(
+                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: FrontendConfigs.kTextFieldColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Bazar Name ─────────────────────────────────────────
+                    _label("Bazar Name"),
+                    TextFormField(
+                      controller: _bazarNameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter bazar name",
+                        hintStyle: TextStyle(
+                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: FrontendConfigs.kTextFieldColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Road Name ──────────────────────────────────────────
+                    _label("Road Name"),
+                    TextFormField(
+                      controller: _roadNameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter road name",
+                        hintStyle: TextStyle(
+                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: FrontendConfigs.kTextFieldColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Street Name ────────────────────────────────────────
+                    _label("Street Name"),
+                    TextFormField(
+                      controller: _streetNameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter street name",
+                        hintStyle: TextStyle(
+                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: FrontendConfigs.kTextFieldColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Submit ─────────────────────────────────────────────
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: FrontendConfigs.kPrimaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: FrontendConfigs.kAppBorder,
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          "Add Retailer",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
-              if (_locationSet) ...[
-                const SizedBox(height: 8),
-                Text(
-                  "Click 'Set Location' to pin the location on the map",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: FrontendConfigs.kAuthTextColor,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-
-              if (_locationSet) ...[
-                SizedBox(
-                  height: 220,
-                  child: ClipRRect(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    child: GoogleMap(
-                      zoomControlsEnabled: false,
-                      markers: _markers,
-                      onTap: (_) => _showPlacePicker(),
-                      mapType: MapType.normal,
-                      mapToolbarEnabled: false,
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(_lat, _lng),
-                        zoom: 16,
-                      ),
-                      onMapCreated:
-                          (GoogleMapController ctrl) async {
-                        if (!_mapCompleter.isCompleted) {
-                          _mapCompleter.complete(ctrl);
-                        }
-                        _mapController = await _mapCompleter.future;
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _showPlacePicker,
-                  icon: const Icon(Icons.location_on),
-                  label: Text(
-                      _locationSet ? "Change Location" : "Set Location"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: FrontendConfigs.kPrimaryColor,
-                    side:
-                    BorderSide(color: FrontendConfigs.kPrimaryColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: FrontendConfigs.kAppBorder,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // ── Market Name ────────────────────────────────────────
-              _label("Market Name"),
-              TextFormField(
-                controller: _marketNameController,
-                decoration: InputDecoration(
-                  hintText: "Enter market name",
-                  hintStyle: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: FrontendConfigs.kTextFieldColor,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Bazar Name ─────────────────────────────────────────
-              _label("Bazar Name"),
-              TextFormField(
-                controller: _bazarNameController,
-                decoration: InputDecoration(
-                  hintText: "Enter bazar name",
-                  hintStyle: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: FrontendConfigs.kTextFieldColor,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Road Name ──────────────────────────────────────────
-              _label("Road Name"),
-              TextFormField(
-                controller: _roadNameController,
-                decoration: InputDecoration(
-                  hintText: "Enter road name",
-                  hintStyle: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: FrontendConfigs.kTextFieldColor,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Street Name ────────────────────────────────────────
-              _label("Street Name"),
-              TextFormField(
-                controller: _streetNameController,
-                decoration: InputDecoration(
-                  hintText: "Enter street name",
-                  hintStyle: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: FrontendConfigs.kTextFieldColor,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Submit ─────────────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FrontendConfigs.kPrimaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: FrontendConfigs.kAppBorder,
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    "Add Retailer",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Widget _label(String text, {bool locked = false}) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Row(
-      children: [
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            if (locked) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+            ],
+          ],
         ),
-        if (locked) ...[
-          const SizedBox(width: 6),
-          Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
-        ],
-      ],
-    ),
-  );
+      );
 
   Widget _sectionGap() => const SizedBox(height: 16);
 
   InputDecoration _fieldDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(
-      color: FrontendConfigs.kAuthTextColor,
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-    ),
-    border: OutlineInputBorder(
-      borderRadius: FrontendConfigs.kAppBorder,
-      borderSide: BorderSide.none,
-    ),
-    fillColor: FrontendConfigs.kTextFieldColor,
-    filled: true,
-    contentPadding:
-    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-  );
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: FrontendConfigs.kAuthTextColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: FrontendConfigs.kAppBorder,
+          borderSide: BorderSide.none,
+        ),
+        fillColor: FrontendConfigs.kTextFieldColor,
+        filled: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
 
   Widget _buildReadOnlyField(String text, {bool locked = false}) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    decoration: BoxDecoration(
-      color: locked
-          ? FrontendConfigs.kTextFieldColor.withValues(alpha: 0.7)
-          : FrontendConfigs.kTextFieldColor,
-      borderRadius: FrontendConfigs.kAppBorder,
-      border: locked
-          ? Border.all(color: Colors.grey.shade300, width: 1)
-          : null,
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        color: locked ? Colors.grey.shade600 : Colors.black87,
-        fontSize: 14,
-      ),
-    ),
-  );
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: locked
+              ? FrontendConfigs.kTextFieldColor.withValues(alpha: 0.7)
+              : FrontendConfigs.kTextFieldColor,
+          borderRadius: FrontendConfigs.kAppBorder,
+          border:
+              locked ? Border.all(color: Colors.grey.shade300, width: 1) : null,
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: locked ? Colors.grey.shade600 : Colors.black87,
+            fontSize: 14,
+          ),
+        ),
+      );
 
   Widget _buildDropdown<T>({
     required String hint,
@@ -897,44 +894,44 @@ class _AddRetailerViewState extends State<AddRetailerView> {
             ),
             child: image != null
                 ? ClipRRect(
-              borderRadius: FrontendConfigs.kAppBorder,
-              child: Image.file(image, fit: BoxFit.cover),
-            )
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    child: Image.file(image, fit: BoxFit.cover),
+                  )
                 : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: FrontendConfigs.kPrimaryColor
-                        .withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: FrontendConfigs.kPrimaryColor
+                              .withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          CupertinoIcons.doc_on_clipboard,
+                          color: FrontendConfigs.kPrimaryColor,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Click to upload or drag and drop",
+                        style: TextStyle(
+                          color: FrontendConfigs.kPrimaryColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "JPG, PNG etc (max. 10MB)",
+                        style: TextStyle(
+                          color: FrontendConfigs.kAuthTextColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    CupertinoIcons.doc_on_clipboard,
-                    color: FrontendConfigs.kPrimaryColor,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Click to upload or drag and drop",
-                  style: TextStyle(
-                    color: FrontendConfigs.kPrimaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "JPG, PNG etc (max. 10MB)",
-                  style: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
           ),
           if (image != null)
             Positioned(
@@ -989,10 +986,10 @@ class _AddRetailerViewState extends State<AddRetailerView> {
   }
 
   void _showImagePickerBottomSheet(
-      BuildContext context, {
-        required String title,
-        required ValueChanged<File> onImageChanged,
-      }) {
+    BuildContext context, {
+    required String title,
+    required ValueChanged<File> onImageChanged,
+  }) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1022,22 +1019,19 @@ class _AddRetailerViewState extends State<AddRetailerView> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  color: FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(CupertinoIcons.camera,
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Camera',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Take a photo'),
               onTap: () {
                 Navigator.pop(context);
                 _pickAndEdit(
-                    source: ImageSource.camera,
-                    onImageChanged: onImageChanged);
+                    source: ImageSource.camera, onImageChanged: onImageChanged);
               },
             ),
             const SizedBox(height: 10),
@@ -1045,16 +1039,14 @@ class _AddRetailerViewState extends State<AddRetailerView> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  color: FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(CupertinoIcons.photo,
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Gallery',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Choose from gallery'),
               onTap: () {
                 Navigator.pop(context);
@@ -1075,8 +1067,7 @@ class _AddRetailerViewState extends State<AddRetailerView> {
     required ValueChanged<File> onImageChanged,
   }) async {
     final picker = ImagePicker();
-    final pickedFile =
-    await picker.pickImage(imageQuality: 60, source: source);
+    final pickedFile = await picker.pickImage(imageQuality: 60, source: source);
     if (pickedFile == null) return;
     final bytes = await File(pickedFile.path).readAsBytes();
     await _openProEditor(bytes, onImageChanged: onImageChanged);
@@ -1101,9 +1092,9 @@ class _AddRetailerViewState extends State<AddRetailerView> {
   }
 
   Future<void> _openProEditor(
-      Uint8List bytes, {
-        required ValueChanged<File> onImageChanged,
-      }) async {
+    Uint8List bytes, {
+    required ValueChanged<File> onImageChanged,
+  }) async {
     Uint8List? result;
 
     await Navigator.push(

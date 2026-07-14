@@ -1,15 +1,13 @@
-import 'dart:developer';
-
+import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
+import 'package:sm_networking/infrastructure/model/error.dart';
 import 'package:sm_networking/infrastructure/model/product.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/elements/product_card.dart';
 import 'package:sm_networking/presentation/elements/product_details_card.dart';
 import 'package:provider/provider.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
 
-import '../../../../../application/user_provider.dart';
 import '../../../../../application/retailer_provider.dart';
 import '../../../../../injection_container.dart';
 import '../../../../infrastructure/model/all_brands.dart';
@@ -32,6 +30,143 @@ class BrandCategoriesBody extends StatefulWidget {
   State<BrandCategoriesBody> createState() => BrandCategoriesBodyState();
 }
 
+/// Pages through products for one or more categories of [BrandCategoriesBody]'s
+/// brand, 10 at a time. The backend only exposes per-category pagination
+/// (product/by-brand/{brandId}/category/{categoryId}), not "every category of
+/// this brand" in one call — so the "All" chip is served by walking the
+/// category queue in order, exhausting each category's pages before moving to
+/// the next. A specific category chip is just a queue of one.
+class _ProductPager {
+  static const int pageSize = 10;
+
+  final Future<Either<GlobalErrorModel, ProductListingModel>> Function({
+    required String categoryId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+  }) fetchCategoryPage;
+  final VoidCallback onChanged;
+
+  _ProductPager({required this.fetchCategoryPage, required this.onChanged});
+
+  final List<ProductModel> items = [];
+  bool isInitialLoading = true;
+  bool isLoadingMore = false;
+  String? errorMessage;
+  String? searchTerm;
+
+  List<String> _queue = [];
+  List<String> _lastCategoryIds = [];
+  String? _currentCategoryId;
+  int _currentPage = 1;
+  int _currentTotalPages = 1;
+  bool hasMore = true;
+
+  final ScrollController scrollController = ScrollController();
+
+  void attach() => scrollController.addListener(_onScroll);
+
+  void dispose() {
+    scrollController.removeListener(_onScroll);
+    scrollController.dispose();
+  }
+
+  void _onScroll() {
+    if (isLoadingMore || isInitialLoading || !hasMore) return;
+    if (!scrollController.hasClients) return;
+    if (scrollController.position.pixels >=
+        scrollController.position.maxScrollExtent - 300) {
+      loadMore();
+    }
+  }
+
+  /// Starts (or restarts) browsing [categoryIds] in order from page 1.
+  Future<void> start(List<String> categoryIds, {String? searchTerm}) async {
+    _lastCategoryIds = categoryIds;
+    _queue = List.of(categoryIds);
+    this.searchTerm = searchTerm;
+    items.clear();
+    errorMessage = null;
+    _currentCategoryId = null;
+    _currentPage = 1;
+    _currentTotalPages = 1;
+    hasMore = _queue.isNotEmpty;
+    isInitialLoading = true;
+    onChanged();
+    await loadMore();
+  }
+
+  Future<void> refresh() => start(_lastCategoryIds, searchTerm: searchTerm);
+
+  Future<void> loadMore() async {
+    if (!hasMore) return;
+    isLoadingMore = true;
+    onChanged();
+
+    // Keep advancing through the category queue as long as a fetch comes
+    // back empty (e.g. a search term with no matches in that particular
+    // category) but there's still more queued to check — otherwise a
+    // caller expecting "one loadMore() call = visible progress" would see
+    // an empty result and stop, even though a later category has matches.
+    // No onChanged() inside the loop so the UI doesn't flicker through
+    // each empty category — just the final outcome.
+    while (true) {
+      // Advance to the next queued category once the current one is exhausted.
+      if (_currentCategoryId == null || _currentPage > _currentTotalPages) {
+        if (_queue.isEmpty) {
+          hasMore = false;
+          break;
+        }
+        _currentCategoryId = _queue.removeAt(0);
+        _currentPage = 1;
+        _currentTotalPages = 1;
+      }
+
+      final result = await fetchCategoryPage(
+        categoryId: _currentCategoryId!,
+        page: _currentPage,
+        limit: pageSize,
+        searchTerm: searchTerm,
+      );
+
+      bool gotItems = false;
+      result.fold(
+        (l) => errorMessage = l.error.toString(),
+        (r) {
+          final data = r.data ?? [];
+          items.addAll(data);
+          _currentTotalPages = r.totalPages ?? 1;
+          _currentPage++;
+          gotItems = data.isNotEmpty;
+        },
+      );
+
+      hasMore = _queue.isNotEmpty || _currentPage <= _currentTotalPages;
+      if (gotItems || !hasMore) break;
+    }
+
+    isInitialLoading = false;
+    isLoadingMore = false;
+    onChanged();
+
+    // If what we just loaded doesn't fill the viewport, no scroll event
+    // will ever fire to trigger the next page/category — without this, a
+    // short result set leaves `hasMore` true forever with the trailing
+    // "loading more" spinner spinning indefinitely for nothing (this is
+    // exactly the "loader stuck in the middle of the screen" glitch).
+    // Check once the list has actually rendered.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fillViewportIfNeeded());
+  }
+
+  void _fillViewportIfNeeded() {
+    if (isLoadingMore || isInitialLoading || !hasMore) return;
+    if (!scrollController.hasClients) return;
+    if (scrollController.position.maxScrollExtent <= 0) {
+      loadMore();
+    }
+  }
+}
+
 class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
   String? _selectedCategoryId;
   bool _isAllSelected = true;
@@ -40,42 +175,37 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
   bool _categoriesLoading = true;
   String? _categoriesError;
 
-  List<ProductModel> _productList = [];
-  bool _productsLoading = false;
-
-  final RefreshController _refreshController =
-  RefreshController(initialRefresh: false);
+  late final _ProductPager _pager;
   int _loadGeneration = 0;
   bool _disposed = false;
 
-  // ── Search ────────────────────────────────────────────────────────────────
-  // _allProducts holds the full brand product list (all categories combined).
-  // _productList is what the grid shows — either _allProducts or filtered.
-  List<ProductModel> _allProducts = [];
+  // ── Search (on-submit only — see TextField's onSubmitted below) ──────────
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-
-  List<ProductModel> get _displayList {
-    final q = _searchQuery.trim().toLowerCase();
-    final source = q.isEmpty ? _productList : _allProducts;
-    return source.where((p) {
-      // ── Hard brand filter — safety net in case API returns cross-brand products
-      final brandId = widget.brand.id ?? '';
-      if (brandId.isNotEmpty) {
-        final productBrandId = p.brand?.id ?? '';
-        if (productBrandId.isNotEmpty && productBrandId != brandId) return false;
-      }
-      // ── Search filter
-      if (q.isEmpty) return true;
-      final title = (p.englishTitle ?? p.urduTitle ?? '').toLowerCase();
-      final pid   = (p.productId ?? '').toLowerCase();
-      return title.contains(q) || pid.contains(q);
-    }).toList();
-  }
+  String? _committedSearchTerm;
 
   @override
   void initState() {
     super.initState();
+    _pager = _ProductPager(
+      onChanged: () {
+        if (!_disposed && mounted) setState(() {});
+      },
+      fetchCategoryPage: ({
+        required categoryId,
+        required page,
+        required limit,
+        searchTerm,
+      }) {
+        return sl<BrandCategoryService>().getProductsByBrandAndCategory(
+          brandId: widget.brand.id ?? '',
+          categoryID: categoryId,
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+        );
+      },
+    );
+    _pager.attach();
     _loadCategoriesThenProducts();
   }
 
@@ -84,6 +214,7 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
     _disposed = true;
     _loadGeneration++; // invalidates any in-flight async ops
     _searchController.dispose();
+    _pager.dispose();
     super.dispose();
   }
 
@@ -97,20 +228,19 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
   Future<void> _loadCategoriesThenProducts() async {
     _loadGeneration++;
     final myGen = _loadGeneration;
-    if (mounted) setState(() {
-      _categoryList = [];
-      _productList = [];
-      _allProducts = [];
-      _categoriesLoading = true;
-      _categoriesError = null;
-      _productsLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _categoryList = [];
+        _categoriesLoading = true;
+        _categoriesError = null;
+      });
+    }
     final service = sl<BrandCategoryService>();
     final result = await service.getCategoriesByBrand(widget.brand.id ?? "");
     if (_disposed || !mounted || myGen != _loadGeneration) return;
 
     result.fold(
-          (error) {
+      (error) {
         if (!_disposed && mounted && myGen == _loadGeneration) {
           setState(() {
             _categoriesError = error.error.toString();
@@ -118,7 +248,7 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
           });
         }
       },
-          (listing) async {
+      (listing) async {
         if (!_disposed && mounted && myGen == _loadGeneration) {
           final allCats = listing.data ?? [];
           final brandId = widget.brand.id ?? '';
@@ -129,104 +259,35 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
             _categoryList = filtered;
             _categoriesLoading = false;
           });
-          await _loadAllProducts(myGen);
+          await _selectCategory(null);
         }
       },
     );
   }
 
-  Future<void> _loadAllProducts([int? generation]) async {
-    final myGen = generation ?? _loadGeneration;
-    if (_categoryList.isEmpty) return;
-    if (_disposed || !mounted || myGen != _loadGeneration) return;
-
-    setState(() => _productsLoading = true);
-
-    final service = sl<BrandCategoryService>();
-    final futures = _categoryList.map(
-            (cat) => service.getProductsByBrandAndCategory(
-          brandId: widget.brand.id ?? "",
-          categoryID: cat.id ?? "",
-          page: 1,
-        ));
-    final results = await Future.wait(futures);
-    if (_disposed || !mounted || myGen != _loadGeneration) return;
-
-    final merged = <ProductModel>[];
-    for (int i = 0; i < results.length; i++) {
-      if (_disposed || !mounted || myGen != _loadGeneration) return;
-      final catId = _categoryList[i].id ?? '';
-      results[i].fold(
-            (error) => log("Error fetching products: ${error.error}"),
-            (listing) {
-          for (final product in listing.data ?? []) {
-            final productCatId = product.category?.id ?? '';
-            final catMatches = catId.isEmpty || productCatId.isEmpty || productCatId == catId;
-            if (catMatches && merged.every((p) => p.id != product.id)) {
-              merged.add(product);
-            }
-          }
-        },
-      );
-    }
-
-    if (!_disposed && mounted && myGen == _loadGeneration) {
-      setState(() {
-        _productList = List.from(merged);
-        _allProducts = List.from(merged);
-        _productsLoading = false;
-      });
-      _refreshController.loadComplete();
-    }
-  }
-
   Future<void> _selectCategory(String? categoryId) async {
     _selectedCategoryId = categoryId;
     _isAllSelected = categoryId == null;
-    // Atomic: clear list + set loading in one setState so grid never shows stale data
-    if (mounted) setState(() {
-      _productList = [];
-      _productsLoading = categoryId != null;
-    });
+    setState(() {});
 
-    if (categoryId == null) {
-      await _loadAllProducts();
-    } else {
-      final service = sl<BrandCategoryService>();
-      final result = await service.getProductsByBrandAndCategory(
-          brandId: widget.brand.id ?? "",
-          categoryID: categoryId,
-          page: 1);
-      result.fold(
-            (error) {
-          if (mounted) setState(() => _productsLoading = false);
-        },
-            (listing) {
-          if (mounted) {
-            // Filter to only products whose category matches the selected tab
-            final filtered = (listing.data ?? []).where((p) {
-              final productCatId = p.category?.id ?? '';
-              return productCatId.isEmpty || productCatId == categoryId;
-            }).toList();
-            setState(() {
-              _productList = filtered;
-              _productsLoading = false;
-            });
-            if (listing.data?.isEmpty ?? true) {
-              _refreshController.loadNoData();
-            } else {
-              _refreshController.loadComplete();
-            }
-          }
-        },
-      );
-    }
+    final categoryIds = categoryId != null
+        ? [categoryId]
+        : _categoryList.map((c) => c.id ?? '').where((id) => id.isNotEmpty).toList();
+    await _pager.start(categoryIds, searchTerm: _committedSearchTerm);
+  }
+
+  /// Fires only on keyboard-search submit, not on every keystroke.
+  void _onSearchSubmitted(String value) {
+    final trimmed = value.trim();
+    _committedSearchTerm = trimmed.isEmpty ? null : trimmed;
+    final categoryIds = _selectedCategoryId != null
+        ? [_selectedCategoryId!]
+        : _categoryList.map((c) => c.id ?? '').where((id) => id.isNotEmpty).toList();
+    _pager.start(categoryIds, searchTerm: _committedSearchTerm);
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<UserProvider>(context);
-
     // While categories are still loading, show a single centered spinner
     if (_categoriesLoading) {
       return const Center(child: ProcessingWidget());
@@ -294,24 +355,27 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
             child: TextField(
               controller: _searchController,
               autofocus: true,
-              onChanged: (v) => setState(() => _searchQuery = v),
+              textInputAction: TextInputAction.search,
+              onSubmitted: _onSearchSubmitted,
               decoration: InputDecoration(
-                hintText: 'Search products...',
+                hintText: 'Search products, press search to look up...',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade400, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
+                prefixIcon:
+                    Icon(Icons.search, color: Colors.grey.shade400, size: 20),
+                suffixIcon: _committedSearchTerm != null
                     ? IconButton(
-                  icon: Icon(Icons.close, color: Colors.grey.shade400, size: 18),
-                  onPressed: () => setState(() {
-                    _searchQuery = '';
-                    _searchController.clear();
-                  }),
-                )
+                        icon: Icon(Icons.close,
+                            color: Colors.grey.shade400, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchSubmitted('');
+                        },
+                      )
                     : null,
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 contentPadding:
-                const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none),
@@ -329,52 +393,86 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
           ),
 
         // ── Product grid ──────────────────────────────────────────────
-        Expanded(
-          child: _productsLoading
-              ? const Center(child: ProcessingWidget())
-              : SmartRefresher(
-            enablePullDown: false,
-            enablePullUp: false,
-            controller: _refreshController,
-            header: const WaterDropHeader(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: _displayList.isEmpty
-                  ? Center(
-                child: Text(
-                  _searchQuery.isNotEmpty
-                      ? 'No products match "$_searchQuery"'
-                      : 'No products found.',
-                  style: TextStyle(color: Colors.grey.shade500),
-                ),
-              )
-                  : LayoutBuilder(
-                builder: (context, constraints) {
-                  final itemWidth =
-                      (constraints.maxWidth - 15) / 2;
-                  return Wrap(
-                    spacing: 15,
-                    runSpacing: 15,
-                    children: _displayList.map((product) {
-                      return SizedBox(
-                        width: itemWidth,
-                        child: widget.showCart
-                            ? ProductCard(
-                          model: product,
-                          showCtnBox: Provider.of<RetailerProvider>(context, listen: false)
-                              .getRetailer()
-                              ?.customerType != 'distributor',
-                        )
-                            : ProductDetailsCard(model: product),
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
+        Expanded(child: _buildGrid()),
       ],
+    );
+  }
+
+  Widget _buildGrid() {
+    if (_pager.isInitialLoading && _pager.items.isEmpty) {
+      return const Center(child: ProcessingWidget());
+    }
+    if (_pager.errorMessage != null && _pager.items.isEmpty) {
+      return Center(
+        child: Text(
+          _pager.errorMessage!,
+          style: TextStyle(color: Colors.red.shade400),
+        ),
+      );
+    }
+    if (_pager.items.isEmpty) {
+      return Center(
+        child: Text(
+          _committedSearchTerm != null
+              ? 'No products match "$_committedSearchTerm"'
+              : 'No products found.',
+          style: TextStyle(color: Colors.grey.shade500),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _pager.refresh,
+      child: SingleChildScrollView(
+        controller: _pager.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Column(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = (constraints.maxWidth - 15) / 2;
+                return Wrap(
+                  spacing: 15,
+                  runSpacing: 15,
+                  children: _pager.items.map((product) {
+                    return SizedBox(
+                      width: itemWidth,
+                      child: widget.showCart
+                          ? ProductCard(
+                              model: product,
+                              showCtnBox: Provider.of<RetailerProvider>(
+                                          context,
+                                          listen: false)
+                                      .getRetailer()
+                                      ?.customerType !=
+                                  'distributor',
+                            )
+                          : ProductDetailsCard(model: product),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            // Only while an actual fetch is running — `hasMore` alone can
+            // stay true for a long stretch (e.g. more categories still
+            // queued for a search) while nothing is happening until the
+            // user scrolls further; showing the spinner for that whole
+            // idle stretch reads as a stuck/indefinite loader.
+            if (_pager.isLoadingMore)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

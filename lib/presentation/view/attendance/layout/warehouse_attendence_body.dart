@@ -17,7 +17,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../application/attendance_bloc/attendance_bloc.dart';
 import '../../../../application/checkIn_provider.dart';
-import '../../../../application/tracking_bloc/tracking_bloc.dart';
 import '../../../../application/user_provider.dart';
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/model/attendance.dart';
@@ -36,7 +35,7 @@ const String _kPrefix = 'wm_dist_';
 
 class _DistState {
   final String attendanceId;
-  final String checkInTime;   // ISO string
+  final String checkInTime; // ISO string
   final String? checkOutTime; // ISO string or null
 
   const _DistState({
@@ -50,7 +49,9 @@ class _DistState {
 
   String get formattedCheckIn => _fmt(checkInTime);
   String get formattedCheckOut =>
-      (checkOutTime == null || checkOutTime!.isEmpty) ? '--:--' : _fmt(checkOutTime!);
+      (checkOutTime == null || checkOutTime!.isEmpty)
+          ? '--:--'
+          : _fmt(checkOutTime!);
 
   String get totalHours {
     if (checkOutTime == null || checkOutTime!.isEmpty) {
@@ -79,16 +80,16 @@ class _DistState {
   }
 
   Map<String, dynamic> toJson() => {
-    'attendanceId': attendanceId,
-    'checkInTime': checkInTime,
-    'checkOutTime': checkOutTime,
-  };
+        'attendanceId': attendanceId,
+        'checkInTime': checkInTime,
+        'checkOutTime': checkOutTime,
+      };
 
   factory _DistState.fromJson(Map<String, dynamic> j) => _DistState(
-    attendanceId: j['attendanceId'] ?? '',
-    checkInTime: j['checkInTime'] ?? '',
-    checkOutTime: j['checkOutTime'],
-  );
+        attendanceId: j['attendanceId'] ?? '',
+        checkInTime: j['checkInTime'] ?? '',
+        checkOutTime: j['checkOutTime'],
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,8 +140,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       final raw = prefs.getString(_key(id));
       if (raw != null) {
         try {
-          final decoded =
-          Map<String, dynamic>.from(jsonDecode(raw) as Map);
+          final decoded = Map<String, dynamic>.from(jsonDecode(raw) as Map);
           map[id] = _DistState.fromJson(decoded);
         } catch (_) {}
       }
@@ -162,21 +162,18 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
+  bool get _anyCheckedIn => _states.values.any((s) => s.isCheckedIn);
 
-
-  bool get _anyCheckedIn =>
-      _states.values.any((s) => s.isCheckedIn);
-
-  String? get _activeDistId =>
-      _states.entries.firstWhere(
+  String? get _activeDistId => _states.entries
+          .firstWhere(
             (e) => e.value.isCheckedIn,
-        orElse: () => const MapEntry('', _DistState(
-            attendanceId: '', checkInTime: '')),
-      ).key.isEmpty
-          ? null
-          : _states.entries
-          .firstWhere((e) => e.value.isCheckedIn)
-          .key;
+            orElse: () => const MapEntry(
+                '', _DistState(attendanceId: '', checkInTime: '')),
+          )
+          .key
+          .isEmpty
+      ? null
+      : _states.entries.firstWhere((e) => e.value.isCheckedIn).key;
 
   // ── Location ──────────────────────────────────────────────────────────────────
 
@@ -217,9 +214,9 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
     final existingLat = d.shopLocation?.lat;
     final existingLng = d.shopLocation?.lng;
     final LatLng? previousLocation =
-    (existingLat != null && existingLng != null)
-        ? LatLng(existingLat, existingLng)
-        : null;
+        (existingLat != null && existingLng != null)
+            ? LatLng(existingLat, existingLng)
+            : null;
 
     final LatLng? picked = await Navigator.of(context).push<LatLng>(
       MaterialPageRoute(
@@ -235,15 +232,21 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
 
     try {
       final res = await RetailerRepositoryImp().updateDistributorLocation(
-        distributorId: distId, lat: picked.latitude, lng: picked.longitude, token: token,
+        distributorId: distId,
+        lat: picked.latitude,
+        lng: picked.longitude,
+        token: token,
       );
       if (!mounted) return;
       res.fold(
-            (l) => getFlushBar(context, title: l.error.toString()),
-            (_) {
-          userProv.patchDistributorShopLocation(distId, picked.latitude, picked.longitude);
+        (l) => getFlushBar(context, title: l.error.toString()),
+        (_) {
+          userProv.patchDistributorShopLocation(
+              distId, picked.latitude, picked.longitude);
           if (mounted) {
-            getFlushBar(context, title: 'Location updated for ${d.distributionName ?? d.name ?? "distributor"}');
+            getFlushBar(context,
+                title:
+                    'Location updated for ${d.distributionName ?? d.name ?? "distributor"}');
             setState(() {});
           }
         },
@@ -265,7 +268,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       if (mounted) {
         getFlushBar(ctx,
             title:
-            'Cannot get your location. Please enable GPS and try again.');
+                'Cannot get your location. Please enable GPS and try again.');
       }
       setState(() => _loading.remove(distId));
       return;
@@ -278,21 +281,21 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       if (mounted) {
         getFlushBar(ctx,
             title:
-            'Distributor location not set. Ask admin to pin the shop location first.');
+                'Distributor location not set. Ask admin to pin the shop location first.');
       }
       setState(() => _loading.remove(distId));
       return;
     }
 
     final dist =
-    _distance(_currentLocation!, LatLng(lat.toDouble(), lng.toDouble()));
+        _distance(_currentLocation!, LatLng(lat.toDouble(), lng.toDouble()));
     log('📍 Distance from ${d.name}: ${dist.toStringAsFixed(1)}m');
 
     if (dist > 20) {
       if (mounted) {
         getFlushBar(ctx,
             title:
-            'You must be within 20m of ${d.distributionName ?? d.name ?? "the distributor"}. '
+                'You must be within 20m of ${d.distributionName ?? d.name ?? "the distributor"}. '
                 'You are ${dist.toStringAsFixed(0)}m away.');
       }
       setState(() => _loading.remove(distId));
@@ -313,14 +316,11 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
           Navigator.pop(ctx);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            final user =
-            Provider.of<UserProvider>(ctx, listen: false);
-            final userId =
-                user.getSalesUserDetails()?.user?.id ?? '';
+            final user = Provider.of<UserProvider>(ctx, listen: false);
+            final userId = user.getSalesUserDetails()?.user?.id ?? '';
             final body = AttendanceModel(
               salesPersonId: userId,
-              date:
-              DateFormat('yyyy-MM-dd').format(DateTime.now()),
+              date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
               lat: _currentLocation?.latitude,
               lng: _currentLocation?.longitude,
               checkInTime: DateTime.now().toIso8601String(),
@@ -355,9 +355,9 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
             if (!mounted) return;
             final now = DateTime.now().toIso8601String();
             ctx.read<AttendanceBloc>().add(CheckOutEvent(
-              state.attendanceId,
-              AttendanceModel(checkOutTime: now).toJson(),
-            ));
+                  state.attendanceId,
+                  AttendanceModel(checkOutTime: now).toJson(),
+                ));
           });
         },
       ),
@@ -369,8 +369,14 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context);
-    final distributors =
-        user.getSalesUserDetails()?.distributors ?? [];
+    final distributors = user.getSalesUserDetails()?.distributors ?? [];
+
+    // Session can be cleared out from under this screen mid-build (forced
+    // logout on a 401) — the header below assumes a non-null user, so bail
+    // out to a harmless placeholder for that one frame instead of crashing.
+    if (user.getSalesUserDetails()?.user == null) {
+      return const SizedBox.shrink();
+    }
 
     return BlocListener<AttendanceBloc, AttendanceState>(
       listener: (ctx, state) async {
@@ -382,16 +388,14 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
               distId,
               _DistState(
                 attendanceId: state.model.id ?? '',
-                checkInTime: state.model.checkInTime ??
-                    DateTime.now().toIso8601String(),
+                checkInTime:
+                    state.model.checkInTime ?? DateTime.now().toIso8601String(),
               ),
             );
             // Start tracking
-            final userId =
-                user.getSalesUserDetails()?.user?.id ?? '';
+            final userId = user.getSalesUserDetails()?.user?.id ?? '';
             await BackgroundLocationService.startTracking(userId);
-            await Provider.of<CheckInProvider>(ctx, listen: false)
-                .checkIn();
+            await Provider.of<CheckInProvider>(ctx, listen: false).checkIn();
           }
           _pendingDistId = null;
           if (mounted) {
@@ -412,8 +416,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
               );
             }
             await BackgroundLocationService.stopTracking();
-            await Provider.of<CheckInProvider>(ctx, listen: false)
-                .checkOut();
+            await Provider.of<CheckInProvider>(ctx, listen: false).checkOut();
             // Clear state so card resets to Check In (user can re-visit same distributor)
             await _clearForDist(distId);
           }
@@ -452,14 +455,10 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
                       ),
                       const SizedBox(height: 2),
                       SizedBox(
-                        width: MediaQuery.of(context).size.width *
-                            0.62,
+                        width: MediaQuery.of(context).size.width * 0.62,
                         child: CustomText(
-                          text: user
-                              .getSalesUserDetails()
-                              ?.user
-                              ?.name ??
-                              'User',
+                          text:
+                              user.getSalesUserDetails()?.user?.name ?? 'User',
                           fontWeight: FontWeight.w700,
                           fontSize: 22,
                           overflow: TextOverflow.ellipsis,
@@ -468,8 +467,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
                       ),
                       const SizedBox(height: 2),
                       CustomText(
-                        text: DateFormat.yMMMMEEEEd()
-                            .format(DateTime.now()),
+                        text: DateFormat.yMMMMEEEEd().format(DateTime.now()),
                         fontSize: 13,
                         color: Colors.grey.shade600,
                       ),
@@ -478,26 +476,16 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
                   CircleAvatar(
                     radius: 26,
                     backgroundColor: Colors.grey.shade300,
-                    foregroundImage: (user
-                        .getSalesUserDetails()
-                        ?.user
-                        ?.image ??
-                        '')
-                        .isNotEmpty
-                        ? NetworkImage(user
-                        .getSalesUserDetails()!
-                        .user!
-                        .image!)
+                    foregroundImage: (user.getSalesUserDetails()?.user?.image ??
+                                '')
+                            .isNotEmpty
+                        ? NetworkImage(user.getSalesUserDetails()!.user!.image!)
                         : null,
-                    child: (user
-                        .getSalesUserDetails()
-                        ?.user
-                        ?.image ??
-                        '')
-                        .isNotEmpty
+                    child: (user.getSalesUserDetails()?.user?.image ?? '')
+                            .isNotEmpty
                         ? null
                         : const Icon(Icons.person,
-                        size: 30, color: Colors.white),
+                            size: 30, color: Colors.white),
                   ),
                 ],
               ),
@@ -519,46 +507,39 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
             // ── List ─────────────────────────────────────────────────
             Expanded(
               child: distributors.isEmpty
-                  ? const Center(
-                  child: Text('No distributors assigned.'))
+                  ? const Center(child: Text('No distributors assigned.'))
                   : StreamBuilder<void>(
-                stream: _ticker,
-                builder: (_, __) => ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  itemCount: distributors.length,
-                  separatorBuilder: (_, __) =>
-                  const SizedBox(height: 10),
-                  itemBuilder: (ctx, i) {
-                    final d = distributors[i];
-                    final dId =
-                    (d.id ?? d.salesId ?? '').trim();
-                    final ds = _states[dId];
-                    final isActive =
-                        ds != null && ds.isCheckedIn;
-                    final isDone =
-                        ds != null && ds.isCheckedOut;
-                    final isDisabled = _anyCheckedIn &&
-                        !isActive;
-                    final isLoading =
-                    _loading.contains(dId);
+                      stream: _ticker,
+                      builder: (_, __) => ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        itemCount: distributors.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (ctx, i) {
+                          final d = distributors[i];
+                          final dId = (d.id ?? d.salesId ?? '').trim();
+                          final ds = _states[dId];
+                          final isActive = ds != null && ds.isCheckedIn;
+                          final isDone = ds != null && ds.isCheckedOut;
+                          final isDisabled = _anyCheckedIn && !isActive;
+                          final isLoading = _loading.contains(dId);
 
-                    return GestureDetector(
-                      onLongPress: () => _onUpdateLocation(ctx, d),
-                      child: _DistributorCard(
-                        distributor: d,
-                        distState: ds,
-                        isActive: isActive,
-                        isDone: isDone,
-                        isDisabled: isDisabled,
-                        isLoading: isLoading,
-                        onCheckIn: () => _onCheckIn(ctx, d),
-                        onCheckOut: () => _onCheckOut(ctx, d),
+                          return GestureDetector(
+                            onLongPress: () => _onUpdateLocation(ctx, d),
+                            child: _DistributorCard(
+                              distributor: d,
+                              distState: ds,
+                              isActive: isActive,
+                              isDone: isDone,
+                              isDisabled: isDisabled,
+                              isLoading: isLoading,
+                              onCheckIn: () => _onCheckIn(ctx, d),
+                              onCheckOut: () => _onCheckOut(ctx, d),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
+                    ),
             ),
           ],
         ),
@@ -572,8 +553,8 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
 class _DistributorCard extends StatelessWidget {
   final Distributor distributor;
   final _DistState? distState;
-  final bool isActive;   // currently checked in
-  final bool isDone;     // checked out today
+  final bool isActive; // currently checked in
+  final bool isDone; // checked out today
   final bool isDisabled; // another dist is active
   final bool isLoading;
   final VoidCallback onCheckIn;
@@ -590,14 +571,13 @@ class _DistributorCard extends StatelessWidget {
     required this.onCheckOut,
   });
 
-  String get _displayName =>
-      (distributor.distributionName?.isNotEmpty == true)
-          ? distributor.distributionName!
-          : (distributor.name ?? 'Unknown');
+  String get _displayName => (distributor.distributionName?.isNotEmpty == true)
+      ? distributor.distributionName!
+      : (distributor.name ?? 'Unknown');
 
   bool get _hasLocation =>
       distributor.shopLocation?.lat != null &&
-          distributor.shopLocation?.lng != null;
+      distributor.shopLocation?.lng != null;
 
   @override
   Widget build(BuildContext context) {
@@ -620,8 +600,7 @@ class _DistributorCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -675,8 +654,7 @@ class _DistributorCard extends StatelessWidget {
                         Row(
                           children: [
                             Icon(Icons.location_off_outlined,
-                                size: 12,
-                                color: Colors.orange.shade500),
+                                size: 12, color: Colors.orange.shade500),
                             const SizedBox(width: 3),
                             Text(
                               'Location not set',
@@ -709,7 +687,7 @@ class _DistributorCard extends StatelessWidget {
                     ),
                   )
                 else if (isDone)
-                // Checked out — allow re-check-in for the same distributor
+                  // Checked out — allow re-check-in for the same distributor
                   SizedBox(
                     height: 38,
                     child: ElevatedButton(
@@ -747,15 +725,12 @@ class _DistributorCard extends StatelessWidget {
                             : FrontendConfigs.kPrimaryColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        disabledBackgroundColor:
-                        Colors.grey.shade200,
-                        disabledForegroundColor:
-                        Colors.grey.shade400,
+                        disabledBackgroundColor: Colors.grey.shade200,
+                        disabledForegroundColor: Colors.grey.shade400,
                       ),
                       child: Text(
                         isActive ? 'Check Out' : 'Check In',
@@ -775,8 +750,7 @@ class _DistributorCard extends StatelessWidget {
               Divider(color: Colors.grey.shade100, height: 1),
               const SizedBox(height: 10),
               Row(
-                mainAxisAlignment:
-                MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _statCell(
                     icon: Icons.login_rounded,
@@ -784,20 +758,14 @@ class _DistributorCard extends StatelessWidget {
                     value: distState!.formattedCheckIn,
                     label: 'Check In',
                   ),
-                  Container(
-                      width: 1,
-                      height: 36,
-                      color: Colors.grey.shade200),
+                  Container(width: 1, height: 36, color: Colors.grey.shade200),
                   _statCell(
                     icon: Icons.logout_rounded,
                     color: Colors.orange,
                     value: distState!.formattedCheckOut,
                     label: 'Check Out',
                   ),
-                  Container(
-                      width: 1,
-                      height: 36,
-                      color: Colors.grey.shade200),
+                  Container(width: 1, height: 36, color: Colors.grey.shade200),
                   _statCell(
                     icon: Icons.access_time_rounded,
                     color: Colors.blue,
@@ -849,6 +817,7 @@ class _DistributorCard extends StatelessWidget {
     );
   }
 }
+
 // ── Update Distributor Location Screen ───────────────────────────────────────
 // Shown on long-press of a distributor card. Displays the previously saved
 // shop location (if any) on a map with a marker, lets the user open Google
@@ -888,11 +857,11 @@ class _UpdateDistributorLocationScreenState
   Set<Marker> get _markers => _selected == null
       ? {}
       : {
-    Marker(
-      markerId: const MarkerId('shop_location'),
-      position: _selected!,
-    ),
-  };
+          Marker(
+            markerId: const MarkerId('shop_location'),
+            position: _selected!,
+          ),
+        };
 
   Future<void> _openPicker() async {
     final LocationResult result = await Navigator.of(context).push(
@@ -991,7 +960,8 @@ class _UpdateDistributorLocationScreenState
             initialCameraPosition: CameraPosition(
               target: _selected ??
                   widget.currentUserLocation ??
-                  const LatLng(33.6844, 73.0479), // fallback: Islamabad if GPS unavailable
+                  const LatLng(33.6844,
+                      73.0479), // fallback: Islamabad if GPS unavailable
               zoom: _selected != null
                   ? 16
                   : (widget.currentUserLocation != null ? 15 : 5),
@@ -1054,7 +1024,8 @@ class _UpdateDistributorLocationScreenState
               icon: const Icon(Icons.directions, color: Colors.white),
               label: const Text(
                 'Directions',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),
             ),
           ],

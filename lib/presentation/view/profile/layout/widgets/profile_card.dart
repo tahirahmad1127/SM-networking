@@ -1,13 +1,11 @@
-
 import 'package:flutter/material.dart';
 import '../../../../../configurations/frontend_configs.dart';
 import '../../../../elements/custom_text.dart';
 
-
 class ProfileCard extends StatelessWidget {
-  ProfileCard({Key? key, required this.lebal,this.textColor}) : super(key: key);
+  ProfileCard({super.key, required this.lebal, this.textColor});
   final String lebal;
-  Color ?textColor;
+  Color? textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -16,23 +14,22 @@ class ProfileCard extends StatelessWidget {
       width: MediaQuery.of(context).size.width,
       decoration: BoxDecoration(
           borderRadius: FrontendConfigs.kAppBorder,
-          color:FrontendConfigs.kTextFieldColor
-      ),
+          color: FrontendConfigs.kTextFieldColor),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal:12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
         child: Row(
-          mainAxisAlignment:MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             CustomText(
               text: lebal,
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color:textColor??Colors.black,
+              color: textColor ?? Colors.black,
             ),
             Icon(
               Icons.arrow_forward_ios,
               size: 18,
-              color:FrontendConfigs.kAuthTextColor,
+              color: FrontendConfigs.kAuthTextColor,
             )
           ],
         ),

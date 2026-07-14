@@ -1,14 +1,9 @@
-import 'dart:async';
-import 'dart:developer';
-import 'dart:io';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/infrastructure/model/create_order.dart';
 
 import '../../infrastructure/model/order.dart';
-import '../../infrastructure/model/user.dart';
 import '../../infrastructure/services/order.dart';
 
 part 'order_event.dart';
@@ -25,11 +20,11 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           emit(OrderLoading());
 
           final failureOrSuccess =
-          await repositoryImp.getPendingOrders(event.userID);
+              await repositoryImp.getPendingOrders(event.userID);
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(OrderLoaded(r));
-              });
+              (r) {
+            return emit(OrderLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }
@@ -38,11 +33,11 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           emit(OrderLoading());
 
           final failureOrSuccess =
-          await repositoryImp.getProcessedOrders(event.userID);
+              await repositoryImp.getProcessedOrders(event.userID);
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(OrderLoaded(r));
-              });
+              (r) {
+            return emit(OrderLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }
@@ -51,11 +46,11 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           emit(OrderLoading());
 
           final failureOrSuccess =
-          await repositoryImp.getCompletedOrders(event.userID);
+              await repositoryImp.getCompletedOrders(event.userID);
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(OrderLoaded(r));
-              });
+              (r) {
+            return emit(OrderLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }
@@ -64,12 +59,12 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           emit(OrderLoading());
 
           final failureOrSuccess =
-          await repositoryImp.getCancelledOrders(event.userID);
+              await repositoryImp.getCancelledOrders(event.userID);
 
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(OrderLoaded(r));
-              });
+              (r) {
+            return emit(OrderLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }
@@ -80,9 +75,9 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           final failureOrSuccess = await repositoryImp.createOrder(event.model);
 
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(const OrderCreated());
-              });
+              (r) {
+            return emit(const OrderCreated());
+          });
         } catch (e) {
           rethrow;
         }
@@ -91,12 +86,12 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
           emit(OrderLoading());
 
           final failureOrSuccess =
-          await repositoryImp.cancelOrder(event.orderID);
+              await repositoryImp.cancelOrder(event.orderID);
 
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(const OrderCancelled());
-              });
+              (r) {
+            return emit(const OrderCancelled());
+          });
         } catch (e) {
           rethrow;
         }
@@ -104,13 +99,12 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
         try {
           emit(OrderLoading());
 
-          final failureOrSuccess =
-          await repositoryImp.createDraft(event.model);
+          final failureOrSuccess = await repositoryImp.createDraft(event.model);
 
           failureOrSuccess.fold((l) => emit(OrderFailed(l.error.toString())),
-                  (r) {
-                return emit(const DraftCreated());
-              });
+              (r) {
+            return emit(const DraftCreated());
+          });
         } catch (e) {
           rethrow;
         }

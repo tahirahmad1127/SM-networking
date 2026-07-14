@@ -2,12 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:sm_networking/application/retailer_provider.dart';
-import 'package:sm_networking/infrastructure/model/agent.dart';
-import 'package:sm_networking/infrastructure/model/retailer.dart' hide userModelToJson;
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
-import 'package:sm_networking/presentation/view/auth/welcome/welcome_view.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../application/checkIn_provider.dart';
@@ -27,7 +23,6 @@ class SplashBody extends StatefulWidget {
 }
 
 class _SplashBodyState extends State<SplashBody> {
-
   Future<bool> getData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -71,11 +66,11 @@ class _SplashBodyState extends State<SplashBody> {
       final result = await authRepository.getUserByID(userId);
 
       result.fold(
-            (error) {
+        (error) {
           // Cached data (with distributors) is already loaded — safe to ignore.
           debugPrint("⚠️ Failed to refresh user profile: ${error.error}");
         },
-            (freshUser) async {
+        (freshUser) async {
           debugPrint("✅ Fresh user profile retrieved");
 
           // getUserByID's `distributor` field isn't confirmed to be
@@ -97,8 +92,8 @@ class _SplashBodyState extends State<SplashBody> {
             user: mergedUser,
             role: currentUserModel.role,
             distributors: currentUserModel.distributors,
-            wholesalers: currentUserModel.wholesalers,   // ← was missing
-            retailers: currentUserModel.retailers,       // ← was missing
+            wholesalers: currentUserModel.wholesalers, // ← was missing
+            retailers: currentUserModel.retailers, // ← was missing
             totalWholesalers: currentUserModel.totalWholesalers,
             totalRetailers: currentUserModel.totalRetailers,
           );
@@ -137,12 +132,19 @@ class _SplashBodyState extends State<SplashBody> {
     FirebaseAuth.instance.signInAnonymously();
     Timer(const Duration(seconds: 3), () async {
       getData().then((value) {
-        if (value == true) {
-          var userProvider = Provider.of<UserProvider>(context, listen: false);
-          if (userProvider.getSalesUserDetails()!.user!.isActive == false) {
+        if (!mounted) return;
+        var userProvider = Provider.of<UserProvider>(context, listen: false);
+        final loadedUser = userProvider.getSalesUserDetails()?.user;
+
+        // A 401 mid-load (stale cached token) can clear the session out from
+        // under this callback and already redirect to LogInView via
+        // handleSessionExpired() — treat a null user here the same as
+        // "not logged in" instead of crashing on `!`.
+        if (value == true && loadedUser != null) {
+          if (loadedUser.isActive == false) {
             getFlushBar(context,
                 title: "Sorry! Your account has been disabled by Karyana.");
-          } else if (userProvider.getSalesUserDetails()!.user!.isAdminVerified == false) {
+          } else if (loadedUser.isAdminVerified == false) {
             getFlushBar(context,
                 title: "Sorry! Your account is under approval by Karyana.");
           } else {
@@ -152,8 +154,7 @@ class _SplashBodyState extends State<SplashBody> {
                     builder: (context) => const BottomNavBarView()));
           }
         } else {
-          Navigator.pushReplacement(
-              context,
+          Navigator.pushReplacement(context,
               MaterialPageRoute(builder: (context) => const LogInView()));
         }
       });

@@ -4,7 +4,7 @@ import 'package:sm_networking/presentation/elements/custom_appbar.dart';
 import 'layout/body.dart';
 
 class TermsConditionView extends StatelessWidget {
-  const TermsConditionView({Key? key}) : super(key: key);
+  const TermsConditionView({super.key});
 
   @override
   Widget build(BuildContext context) {

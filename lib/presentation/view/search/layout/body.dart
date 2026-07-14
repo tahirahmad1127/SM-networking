@@ -2,22 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
-import 'package:sm_networking/presentation/elements/bottom_sheet/search_filter.dart';
-import 'package:sm_networking/presentation/elements/processing_widget.dart';
-import 'package:sm_networking/presentation/view/order/no_data_found_view.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../application/search_providers.dart';
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../infrastructure/model/product.dart';
-import '../../../../infrastructure/services/product.dart';
-import '../../../elements/custom_text.dart';
-import '../../../elements/loaders.dart';
-import '../../../elements/product_card.dart';
-import '../../../elements/search_card.dart';
 
 class SearchViewBody extends StatefulWidget {
-  SearchViewBody({Key? key}) : super(key: key);
+  const SearchViewBody({super.key});
 
   @override
   State<SearchViewBody> createState() => _SearchViewBodyState();

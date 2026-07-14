@@ -6,16 +6,11 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/infrastructure/model/ordered_prduct_model.dart';
-import 'package:sm_networking/infrastructure/model/product.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../../../../application/discount_helper.dart';
 import '../../../../../infrastructure/model/cart.dart';
-import '../../../../elements/flush_bar.dart';
 
 class CartCard extends StatefulWidget {
   final CartModel model;
@@ -145,7 +140,7 @@ class _CartCardState extends State<CartCard> {
                             }
                           },
                           borderRadius:
-                          const BorderRadius.all(Radius.circular(30.0)),
+                              const BorderRadius.all(Radius.circular(30.0)),
                         ),
                       ),
                     ),
@@ -166,12 +161,12 @@ class _CartCardState extends State<CartCard> {
                           ),
                           CustomText(
                             text: widget.model.productDetails.packings
-                                .toString()
-                                .length >
-                                15
+                                        .toString()
+                                        .length >
+                                    15
                                 ? "${widget.model.productDetails.packings.toString().substring(0, 15)}..."
                                 : widget.model.productDetails.packings
-                                .toString(),
+                                    .toString(),
                             color: Colors.grey,
                             fontSize: 11,
                           ),
@@ -180,7 +175,7 @@ class _CartCardState extends State<CartCard> {
                           ),
                           CustomText(
                             text:
-                            "x ${widget.model.quantity.toString()} ${widget.model.type.toString().toLowerCase() == 'piece' ? 'PCS' : widget.model.type.toString().toUpperCase()}",
+                                "x ${widget.model.quantity.toString()} ${widget.model.type.toString().toLowerCase() == 'piece' ? 'PCS' : widget.model.type.toString().toUpperCase()}",
                             fontSize: 12,
                             color: FrontendConfigs.kAuthTextColor,
                           ),
@@ -215,7 +210,8 @@ class _CartCardState extends State<CartCard> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: CustomText(
-                                    text: cart.getBulkDiscountDisplayText(widget.model),
+                                    text: cart.getBulkDiscountDisplayText(
+                                        widget.model),
                                     fontSize: 10,
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -224,7 +220,7 @@ class _CartCardState extends State<CartCard> {
                               ],
                             ),
                           ] else
-                          // Regular price (no bulk discount)
+                            // Regular price (no bulk discount)
                             CustomText(
                               text: "${finalPrice.toStringAsFixed(2)} Rs",
                               fontSize: 16,
@@ -278,8 +274,7 @@ class _CartCardState extends State<CartCard> {
                               borderRadius: FrontendConfigs.kAppBorder,
                               onTap: () async {
                                 cart.increment(
-                                    widget.model.id,
-                                    widget.model.quantity + 1);
+                                    widget.model.id, widget.model.quantity + 1);
                               },
                               child: Container(
                                 height: 30,
@@ -288,7 +283,7 @@ class _CartCardState extends State<CartCard> {
                                     borderRadius: FrontendConfigs.kAppBorder,
                                     color: Colors.black),
                                 child:
-                                const Icon(Icons.add, color: Colors.white),
+                                    const Icon(Icons.add, color: Colors.white),
                               ),
                             )
                           ],

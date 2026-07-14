@@ -4,10 +4,8 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import 'package:provider/provider.dart';
 
 import '../application/connectivity_status.dart';
 import '../configurations/back_end_configs.dart';
@@ -17,7 +15,10 @@ import 'services/session_manager.dart';
 var logger = Logger();
 
 class ApiBaseHelper {
-  Future<Either<GlobalErrorModel, dynamic>> getEither({required String endPoint, required bool isRequiredHeader, Map<String, String>? header}) async {
+  Future<Either<GlobalErrorModel, dynamic>> getEither(
+      {required String endPoint,
+      required bool isRequiredHeader,
+      Map<String, String>? header}) async {
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
@@ -42,7 +43,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -59,7 +60,12 @@ class ApiBaseHelper {
     }
   }
 
-  Future<Either<GlobalErrorModel, dynamic>> postEither({required String endPoint, required bool isRequiredHeader, required bool hasBody, dynamic body, Map<String, String>? header}) async {
+  Future<Either<GlobalErrorModel, dynamic>> postEither(
+      {required String endPoint,
+      required bool isRequiredHeader,
+      required bool hasBody,
+      dynamic body,
+      Map<String, String>? header}) async {
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
@@ -87,7 +93,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -104,7 +110,12 @@ class ApiBaseHelper {
     }
   }
 
-  Future<Either<GlobalErrorModel, dynamic>> deleteEither({required String endPoint, required bool isRequiredHeader, required bool hasBody, dynamic body, Map<String, String>? header}) async {
+  Future<Either<GlobalErrorModel, dynamic>> deleteEither(
+      {required String endPoint,
+      required bool isRequiredHeader,
+      required bool hasBody,
+      dynamic body,
+      Map<String, String>? header}) async {
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
@@ -130,7 +141,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -147,8 +158,12 @@ class ApiBaseHelper {
     }
   }
 
-
-  Future<Either<GlobalErrorModel, dynamic>> patchEither({required String endPoint, required bool isRequiredHeader, required bool hasBody, dynamic body, Map<String, String>? header}) async {
+  Future<Either<GlobalErrorModel, dynamic>> patchEither(
+      {required String endPoint,
+      required bool isRequiredHeader,
+      required bool hasBody,
+      dynamic body,
+      Map<String, String>? header}) async {
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
@@ -174,7 +189,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -193,12 +208,12 @@ class ApiBaseHelper {
 
   Future<Either<GlobalErrorModel, dynamic>> postMultiPartEither(
       {required String endPoint,
-        required bool isRequiredHeader,
-        required bool hasBody,
-        String? path,
-        required bool hasFile,
-        dynamic body,
-        Map<String, String>? header}) async {
+      required bool isRequiredHeader,
+      required bool hasBody,
+      String? path,
+      required bool hasFile,
+      dynamic body,
+      Map<String, String>? header}) async {
     log(body.toString());
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
@@ -214,7 +229,7 @@ class ApiBaseHelper {
           // Convert every value to String explicitly so addAll never silently drops fields.
           if (hasBody && body != null) {
             final Map<String, String> stringFields = (body as Map).map(
-                  (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+              (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
             );
             request.fields.addAll(stringFields);
           }
@@ -256,7 +271,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -276,12 +291,12 @@ class ApiBaseHelper {
 
   Future<Either<GlobalErrorModel, dynamic>> postMultipleImageMultiPartEither(
       {required String endPoint,
-        required bool isRequiredHeader,
-        required bool hasBody,
-        List<String>? path,
-        required bool hasFile,
-        dynamic body,
-        Map<String, String>? header}) async {
+      required bool isRequiredHeader,
+      required bool hasBody,
+      List<String>? path,
+      required bool hasFile,
+      dynamic body,
+      Map<String, String>? header}) async {
     log(body.toString());
     DateTime executionTime = DateTime.now();
     // ignore: prefer_typing_uninitialized_variables
@@ -296,7 +311,7 @@ class ApiBaseHelper {
           // FIX: same cast applied here for consistency
           if (hasBody && body != null) {
             final Map<String, String> stringFields = (body as Map).map(
-                  (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+              (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
             );
             request.fields.addAll(stringFields);
           }
@@ -329,7 +344,7 @@ class ApiBaseHelper {
       logger.e(e.message.toString());
       return Left(GlobalErrorModel(
           error:
-          "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry." +
+              "Some of our servers are undergoing maintenance. If you are currently facing difficulty in connecting, kindly wait a little and retry."
               "\nSorry for the inconvenience."));
     } on HttpException catch (e) {
       logger.i("HTTP Exception");
@@ -364,8 +379,12 @@ class ApiBaseHelper {
           if (msgs.isNotEmpty) return msgs;
         }
         if (responseJson['msg'] != null) return responseJson['msg'].toString();
-        if (responseJson['message'] != null) return responseJson['message'].toString();
-        if (responseJson['error'] != null) return responseJson['error'].toString();
+        if (responseJson['message'] != null) {
+          return responseJson['message'].toString();
+        }
+        if (responseJson['error'] != null) {
+          return responseJson['error'].toString();
+        }
       }
     } catch (_) {}
     return null;
@@ -436,7 +455,7 @@ class ApiBaseHelper {
       } else if (response.statusCode == 413) {
         return Left(GlobalErrorModel(
             error:
-            "Receipt image is too large for the server. Try a smaller photo or lower camera resolution."));
+                "Receipt image is too large for the server. Try a smaller photo or lower camera resolution."));
       } else {
         return Left(GlobalErrorModel(error: "Sorry! Some thing went wrong!."));
       }

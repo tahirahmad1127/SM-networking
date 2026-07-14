@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart' as EL;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sm_networking/application/cart_provider.dart';
@@ -62,7 +61,10 @@ void main() async {
   );
   await di.init();
   await EL.EasyLocalization.ensureInitialized();
-  await Workmanager().initialize(callbackDispatcher, isInDebugMode: true,);
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: true,
+  );
   await BackgroundLocationService.initializeService();
   log("✅ Background Location Service initialized");
 
@@ -102,11 +104,11 @@ void main() async {
         channelShowBadge: true,
         channelDescription: 'Karyana',
       ),
-
       NotificationChannel(
         channelKey: 'location_tracking',
         channelName: 'Location Tracking',
-        channelDescription: 'Notification channel for location tracking service',
+        channelDescription:
+            'Notification channel for location tracking service',
         defaultColor: Colors.teal,
         ledColor: Colors.white,
         importance: NotificationImportance.High,
@@ -138,7 +140,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WholesalerRetailerProvider()),
         ChangeNotifierProvider(create: (_) => DraftProvider()),
         ChangeNotifierProvider(create: (_) => PendingSyncProvider()),
-
       ],
       child: BlocProvider(
         create: (_) => di.sl<VisitBloc>(),
@@ -159,13 +160,14 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     AwesomeNotifications().isNotificationAllowed().then(
-          (isAllowed) {
+      (isAllowed) {
         if (!isAllowed) {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Allow Notifications'),
-              content: const Text('Our app would like to send you notifications'),
+              content:
+                  const Text('Our app would like to send you notifications'),
               actions: [
                 TextButton(
                   onPressed: () {

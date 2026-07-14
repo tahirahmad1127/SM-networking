@@ -5,9 +5,7 @@ import 'dart:developer';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -16,7 +14,6 @@ import 'package:sm_networking/infrastructure/services/tracking.dart';
 import 'package:sm_networking/infrastructure/model/tracking.dart';
 import 'package:sm_networking/infrastructure/model/location_tracking.dart';
 import 'offline_location_queue.dart';
-
 
 @pragma('vm:entry-point')
 class BackgroundLocationService {
@@ -114,7 +111,7 @@ class BackgroundLocationService {
           forceLocationManager: true,
         ),
       ).listen(
-            (position) async {
+        (position) async {
           final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
           if (!isCheckedIn) return;
 
@@ -129,7 +126,8 @@ class BackgroundLocationService {
           await _flushOfflineQueue();
 
           final ok = await _updateFirebase(
-              userId, position.latitude, position.longitude, at: now);
+              userId, position.latitude, position.longitude,
+              at: now);
 
           if (!ok) {
             await OfflineLocationQueueService.add(
@@ -240,12 +238,12 @@ class BackgroundLocationService {
   // sub-collection, so a path can be reconstructed later. Returns true on
   // success, false if the write failed (caller queues it locally instead).
   static Future<bool> _updateFirebase(
-      String userId,
-      double latitude,
-      double longitude, {
-        DateTime? at,
-        bool wasOffline = false,
-      }) async {
+    String userId,
+    double latitude,
+    double longitude, {
+    DateTime? at,
+    bool wasOffline = false,
+  }) async {
     try {
       final now = at ?? DateTime.now();
       final locationModel = LocationTrackingModel(
@@ -256,8 +254,9 @@ class BackgroundLocationService {
         updatedAt: now,
       );
 
-      final userDoc =
-      FirebaseFirestore.instance.collection("LocationCollection").doc(userId);
+      final userDoc = FirebaseFirestore.instance
+          .collection("LocationCollection")
+          .doc(userId);
 
       final batch = FirebaseFirestore.instance.batch();
       batch.set(userDoc, locationModel.toMap(), SetOptions(merge: true));
@@ -317,11 +316,7 @@ class BackgroundLocationService {
     try {
       final repo = di.sl<TrackingRepositoryImp>();
 
-      final isoDate = DateTime.now()
-          .toUtc()
-          .toIso8601String()
-          .split('.')
-          .first;
+      final isoDate = DateTime.now().toUtc().toIso8601String().split('.').first;
 
       final body = TrackingRequestModel(
         salesPersonID: userId,
@@ -335,8 +330,8 @@ class BackgroundLocationService {
       final result = await repo.sendCoordinates(body);
 
       result.fold(
-            (error) => log("❌ API tracking failed: ${error.error}"),
-            (success) => log("✅ API tracking success: ${success.msg}"),
+        (error) => log("❌ API tracking failed: ${error.error}"),
+        (success) => log("✅ API tracking success: ${success.msg}"),
       );
     } catch (e, s) {
       log("❌ Exception sending to API: $e\n$s");

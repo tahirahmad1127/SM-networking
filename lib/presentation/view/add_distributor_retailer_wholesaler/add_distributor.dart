@@ -37,10 +37,10 @@ class ZoneModel {
   ZoneModel({required this.id, required this.name, required this.locationId});
 
   factory ZoneModel.fromJson(Map<String, dynamic> json) => ZoneModel(
-    id: json['_id'] ?? '',
-    name: json['name'] ?? '',
-    locationId: json['locationId'] ?? '',
-  );
+        id: json['_id'] ?? '',
+        name: json['name'] ?? '',
+        locationId: json['locationId'] ?? '',
+      );
 }
 
 class TownModel {
@@ -51,18 +51,18 @@ class TownModel {
 
   TownModel(
       {required this.id,
-        required this.name,
-        required this.locationId,
-        required this.zoneId});
+      required this.name,
+      required this.locationId,
+      required this.zoneId});
 
   factory TownModel.fromJson(Map<String, dynamic> json) => TownModel(
-    id: json['_id'] ?? '',
-    name: json['name'] ?? '',
-    locationId: json['locationId'] ?? '',
-    zoneId: (json['zoneId'] is Map)
-        ? (json['zoneId']['_id'] ?? '')
-        : (json['zoneId'] ?? ''),
-  );
+        id: json['_id'] ?? '',
+        name: json['name'] ?? '',
+        locationId: json['locationId'] ?? '',
+        zoneId: (json['zoneId'] is Map)
+            ? (json['zoneId']['_id'] ?? '')
+            : (json['zoneId'] ?? ''),
+      );
 }
 
 // ─── View ─────────────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ class _AddDistributorViewState extends State<AddDistributorView> {
   File? _chequeImage;
 
   // ── Map ──────────────────────────────────────────────────────────────────
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   LatLng? _currentLocation;
   GoogleMapController? _mapController;
   final Completer<GoogleMapController> _mapCompleter = Completer();
@@ -140,7 +140,7 @@ class _AddDistributorViewState extends State<AddDistributorView> {
 
   void _initRoleAndLocks() {
     final userModel =
-    Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+        Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
     _role = userModel?.role ?? '';
     final user = userModel?.user;
 
@@ -158,7 +158,7 @@ class _AddDistributorViewState extends State<AddDistributorView> {
   Future<void> _initLocation() async {
     try {
       final pos = await determinePosition();
-      final latLng = LatLng(pos.latitude!, pos.longitude!);
+      final latLng = LatLng(pos.latitude, pos.longitude);
       _currentLocation = latLng;
       _lat = pos.latitude;
       _lng = pos.longitude;
@@ -182,17 +182,16 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     _locationSet = true;
 
     final address = (result.formattedAddress != null &&
-        result.formattedAddress!.trim().isNotEmpty)
+            result.formattedAddress!.trim().isNotEmpty)
         ? result.formattedAddress!
         : (result.name != null && result.name!.trim().isNotEmpty)
-        ? result.name!
-        : '${_lat.toStringAsFixed(6)}, ${_lng.toStringAsFixed(6)}';
+            ? result.name!
+            : '${_lat.toStringAsFixed(6)}, ${_lng.toStringAsFixed(6)}';
     _shopAddressController.text = address;
 
     _markers
       ..clear()
-      ..add(Marker(
-          markerId: MarkerId('picked'), position: LatLng(_lat, _lng)));
+      ..add(Marker(markerId: MarkerId('picked'), position: LatLng(_lat, _lng)));
     _mapController?.animateCamera(CameraUpdate.newCameraPosition(
         CameraPosition(target: LatLng(_lat, _lng), zoom: 16)));
     setState(() {});
@@ -204,8 +203,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     setState(() => _loadingZones = true);
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
       final result = await _api.getEither(
         endPoint: 'zone/',
@@ -216,18 +215,16 @@ class _AddDistributorViewState extends State<AddDistributorView> {
         },
       );
       result.fold(
-            (error) =>
+        (error) =>
             getFlushBar(context, title: error.error ?? 'Failed to load zones'),
-            (data) {
-          final list = (data['data'] as List)
-              .map((e) => ZoneModel.fromJson(e))
-              .toList();
+        (data) {
+          final list =
+              (data['data'] as List).map((e) => ZoneModel.fromJson(e)).toList();
           if (!mounted) return;
           setState(() => _zones = list);
 
           if (_zoneIsLocked && _lockedZoneId != null) {
-            final match =
-                list.where((z) => z.id == _lockedZoneId).firstOrNull;
+            final match = list.where((z) => z.id == _lockedZoneId).firstOrNull;
             if (match != null) {
               setState(() {
                 _selectedZone = match;
@@ -253,8 +250,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     });
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
       final result = await _api.getEither(
         endPoint: 'town/zone/$zoneId',
@@ -265,18 +262,16 @@ class _AddDistributorViewState extends State<AddDistributorView> {
         },
       );
       result.fold(
-            (error) =>
+        (error) =>
             getFlushBar(context, title: error.error ?? 'Failed to load towns'),
-            (data) {
-          final list = (data['data'] as List)
-              .map((e) => TownModel.fromJson(e))
-              .toList();
+        (data) {
+          final list =
+              (data['data'] as List).map((e) => TownModel.fromJson(e)).toList();
           if (!mounted) return;
           setState(() => _filteredTowns = list);
 
           if (_townIsLocked && _lockedTownId != null) {
-            final match =
-                list.where((t) => t.id == _lockedTownId).firstOrNull;
+            final match = list.where((t) => t.id == _lockedTownId).firstOrNull;
             if (match != null) {
               setState(() {
                 _selectedTown = match;
@@ -305,7 +300,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
       _proprietorNameError = "Fill please";
       hasError = true;
     } else if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(proprietorName)) {
-      _proprietorNameError = "Name must contain letters only (no numbers or special characters)";
+      _proprietorNameError =
+          "Name must contain letters only (no numbers or special characters)";
       hasError = true;
     } else {
       _proprietorNameError = null;
@@ -317,7 +313,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
       _distributionNameError = "Fill please";
       hasError = true;
     } else if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(distributionName)) {
-      _distributionNameError = "Name must contain letters only (no numbers or special characters)";
+      _distributionNameError =
+          "Name must contain letters only (no numbers or special characters)";
       hasError = true;
     } else {
       _distributionNameError = null;
@@ -329,7 +326,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
       _salesIdError = "Fill please";
       hasError = true;
     } else if (!RegExp(r"^[a-zA-Z0-9]+$").hasMatch(salesId)) {
-      _salesIdError = "Sales ID must contain only letters and numbers (no special characters)";
+      _salesIdError =
+          "Sales ID must contain only letters and numbers (no special characters)";
       hasError = true;
     } else {
       _salesIdError = null;
@@ -384,16 +382,14 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     setState(() {});
     if (hasError) return;
     if (_selectedZone == null) {
-      getFlushBar(
-          context,
+      getFlushBar(context,
           title: _zoneIsLocked
               ? "Zone could not be loaded. Please try again."
               : "Please select a zone.");
       return;
     }
     if (_selectedTown == null) {
-      getFlushBar(
-          context,
+      getFlushBar(context,
           title: _townIsLocked
               ? "Town could not be loaded. Please try again."
               : "Please select a town.");
@@ -401,7 +397,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     }
 
     if (!_locationSet) {
-      getFlushBar(context, title: "Please set the shop location before submitting.");
+      getFlushBar(context,
+          title: "Please set the shop location before submitting.");
       return;
     }
 
@@ -409,8 +406,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
 
     try {
       final token = Provider.of<UserProvider>(context, listen: false)
-          .getSalesUserDetails()
-          ?.token ??
+              .getSalesUserDetails()
+              ?.token ??
           '';
 
       final authHeader = {
@@ -488,13 +485,14 @@ class _AddDistributorViewState extends State<AddDistributorView> {
 
         bool registrationFailed = false;
         result.fold(
-              (error) {
+          (error) {
             registrationFailed = true;
-            if (mounted)
+            if (mounted) {
               getFlushBar(context,
                   title: error.error ?? 'Something went wrong.');
+            }
           },
-              (data) {
+          (data) {
             newUserId = data['data']?['_id'] as String? ??
                 data['data']?['id'] as String?;
           },
@@ -537,13 +535,11 @@ class _AddDistributorViewState extends State<AddDistributorView> {
             id: _selectedZone!.id,
             name: _selectedZone!.name,
           ),
-          shopLocation: _locationSet
-              ? DistributorLocation(lat: _lat, lng: _lng)
-              : null,
+          shopLocation:
+              _locationSet ? DistributorLocation(lat: _lat, lng: _lng) : null,
         );
 
-        final userProvider =
-        Provider.of<UserProvider>(context, listen: false);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
         final currentList = List<Distributor>.from(
           userProvider.getSalesUserDetails()?.distributors ?? [],
         );
@@ -570,432 +566,442 @@ class _AddDistributorViewState extends State<AddDistributorView> {
       body: _currentLocation == null
           ? const Center(child: ProcessingWidget())
           : LoadingOverlay(
-        isLoading: _isLoading,
-        progressIndicator: const ProcessingWidget(),
-        color: Colors.transparent,
-        child: SingleChildScrollView(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Profile Image ──────────────────────────────────────
-              _label("Profile Image (Optional)"),
-              _buildImagePicker(
-                image: _profileImage,
-                title: "Upload Profile Image",
-                onImageChanged: (file) =>
-                    setState(() => _profileImage = file),
-                onCrop: () => _cropImage(isProfile: true),
-                onEdit: () => _editImage(isProfile: true),
-                onRemove: () => setState(() => _profileImage = null),
-              ),
-              _sectionGap(),
-
-              // ── Security Cheque Image ──────────────────────────────
-              _label("Security Cheque Image (Optional)"),
-              _buildImagePicker(
-                image: _chequeImage,
-                title: "Upload Cheque Image",
-                onImageChanged: (file) =>
-                    setState(() => _chequeImage = file),
-                onCrop: () => _cropImage(isProfile: false),
-                onEdit: () => _editImage(isProfile: false),
-                onRemove: () => setState(() => _chequeImage = null),
-              ),
-              _sectionGap(),
-
-              // ── Proprietor Name ────────────────────────────────────
-              _label("Proprietor Name"),
-              TextFormField(
-                controller: _proprietorNameController,
-                keyboardType: TextInputType.text,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))
-                ],
-                onChanged: (_) {
-                  if (_proprietorNameError != null) setState(() => _proprietorNameError = null);
-                },
-                decoration: _fieldDecoration("Proprietor Name").copyWith(
-                  errorText: _proprietorNameError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Distribution Name ──────────────────────────────────
-              _label("Distribution Name"),
-              TextFormField(
-                controller: _distributionNameController,
-                keyboardType: TextInputType.text,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))
-                ],
-                onChanged: (_) {
-                  if (_distributionNameError != null) setState(() => _distributionNameError = null);
-                },
-                decoration: _fieldDecoration("Distribution Name").copyWith(
-                  errorText: _distributionNameError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Sales ID ───────────────────────────────────────────
-              _label("Sales ID"),
-              TextFormField(
-                controller: _salesIdController,
-                keyboardType: TextInputType.text,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]'))
-                ],
-                onChanged: (_) {
-                  if (_salesIdError != null) setState(() => _salesIdError = null);
-                },
-                decoration: _fieldDecoration("Enter unique Sales ID").copyWith(
-                  errorText: _salesIdError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Email ──────────────────────────────────────────────
-              _label("Email"),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) {
-                  if (_emailError != null) setState(() => _emailError = null);
-                },
-                decoration: _fieldDecoration("Email").copyWith(
-                  errorText: _emailError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Password ───────────────────────────────────────────
-              _label("Password"),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                onChanged: (_) {
-                  if (_passwordError != null) setState(() => _passwordError = null);
-                },
-                decoration: InputDecoration(
-                  hintText: "Password",
-                  hintStyle: TextStyle(
-                    color: FrontendConfigs.kAuthTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: FrontendConfigs.kTextFieldColor,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 16),
-                  errorText: _passwordError,
-                  errorMaxLines: 2,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: FrontendConfigs.kAuthTextColor,
-                    ),
-                    onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Phone Number ───────────────────────────────────────
-              _label("Phone Number"),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  // Allow digits and a leading '+' only
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
-                  LengthLimitingTextInputFormatter(13),
-                ],
-                onChanged: (_) {
-                  if (_phoneError != null) setState(() => _phoneError = null);
-                },
-                decoration: _fieldDecoration("Phone Number").copyWith(
-                  errorText: _phoneError,
-                  errorMaxLines: 2,
-                ),
-              ),
-              _sectionGap(),
-
-              // ── Zone ───────────────────────────────────────────────
-              _label("Zone", locked: _zoneIsLocked),
-              _zoneIsLocked
-                  ? _buildReadOnlyField(
-                _lockedZoneName ??
-                    (_loadingZones ? "Loading..." : "—"),
-                locked: true,
-              )
-                  : _buildDropdown<ZoneModel>(
-                hint: _loadingZones
-                    ? "Loading zones..."
-                    : "Select Zone",
-                value: _selectedZone,
-                items: _zones
-                    .map((z) => DropdownMenuItem<ZoneModel>(
-                  value: z,
-                  child: Text(z.name),
-                ))
-                    .toList(),
-                onChanged: (zone) {
-                  setState(() {
-                    _selectedZone = zone;
-                    _selectedTown = null;
-                    _filteredTowns = [];
-                  });
-                  if (zone != null) _fetchTownsByZone(zone.id);
-                },
-              ),
-              _sectionGap(),
-
-              // ── Town ───────────────────────────────────────────────
-              _label("Town", locked: _townIsLocked),
-              _townIsLocked
-                  ? _buildReadOnlyField(
-                _lockedTownName ??
-                    (_loadingTowns ? "Loading..." : "—"),
-                locked: true,
-              )
-                  : _buildDropdown<TownModel>(
-                hint: _loadingTowns
-                    ? "Loading towns..."
-                    : (_selectedZone == null
-                    ? "Select Zone first"
-                    : "Select Town"),
-                value: _selectedTown,
-                items: _filteredTowns
-                    .map((t) => DropdownMenuItem<TownModel>(
-                  value: t,
-                  child: Text(t.name),
-                ))
-                    .toList(),
-                onChanged: _selectedZone == null
-                    ? null
-                    : (town) =>
-                    setState(() => _selectedTown = town),
-              ),
-              _sectionGap(),
-
-              // ── Shop Location ──────────────────────────────────────
-              _label("Shop Location"),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: FrontendConfigs.kTextFieldColor,
-                  borderRadius: FrontendConfigs.kAppBorder,
-                ),
-                child: Row(
+              isLoading: _isLoading,
+              progressIndicator: const ProcessingWidget(),
+              color: Colors.transparent,
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _locationSet
-                          ? Icons.location_on
-                          : Icons.location_off,
-                      color:
-                      _locationSet ? Colors.green : Colors.blue,
-                      size: 20,
+                    // ── Profile Image ──────────────────────────────────────
+                    _label("Profile Image (Optional)"),
+                    _buildImagePicker(
+                      image: _profileImage,
+                      title: "Upload Profile Image",
+                      onImageChanged: (file) =>
+                          setState(() => _profileImage = file),
+                      onCrop: () => _cropImage(isProfile: true),
+                      onEdit: () => _editImage(isProfile: true),
+                      onRemove: () => setState(() => _profileImage = null),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _locationSet
-                            ? "Location set: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}"
-                            : "No Location Set",
-                        style: TextStyle(
+                    _sectionGap(),
+
+                    // ── Security Cheque Image ──────────────────────────────
+                    _label("Security Cheque Image (Optional)"),
+                    _buildImagePicker(
+                      image: _chequeImage,
+                      title: "Upload Cheque Image",
+                      onImageChanged: (file) =>
+                          setState(() => _chequeImage = file),
+                      onCrop: () => _cropImage(isProfile: false),
+                      onEdit: () => _editImage(isProfile: false),
+                      onRemove: () => setState(() => _chequeImage = null),
+                    ),
+                    _sectionGap(),
+
+                    // ── Proprietor Name ────────────────────────────────────
+                    _label("Proprietor Name"),
+                    TextFormField(
+                      controller: _proprietorNameController,
+                      keyboardType: TextInputType.text,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))
+                      ],
+                      onChanged: (_) {
+                        if (_proprietorNameError != null) {
+                          setState(() => _proprietorNameError = null);
+                        }
+                      },
+                      decoration: _fieldDecoration("Proprietor Name").copyWith(
+                        errorText: _proprietorNameError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Distribution Name ──────────────────────────────────
+                    _label("Distribution Name"),
+                    TextFormField(
+                      controller: _distributionNameController,
+                      keyboardType: TextInputType.text,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))
+                      ],
+                      onChanged: (_) {
+                        if (_distributionNameError != null) {
+                          setState(() => _distributionNameError = null);
+                        }
+                      },
+                      decoration:
+                          _fieldDecoration("Distribution Name").copyWith(
+                        errorText: _distributionNameError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Sales ID ───────────────────────────────────────────
+                    _label("Sales ID"),
+                    TextFormField(
+                      controller: _salesIdController,
+                      keyboardType: TextInputType.text,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9]'))
+                      ],
+                      onChanged: (_) {
+                        if (_salesIdError != null) {
+                          setState(() => _salesIdError = null);
+                        }
+                      },
+                      decoration:
+                          _fieldDecoration("Enter unique Sales ID").copyWith(
+                        errorText: _salesIdError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Email ──────────────────────────────────────────────
+                    _label("Email"),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) {
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
+                      },
+                      decoration: _fieldDecoration("Email").copyWith(
+                        errorText: _emailError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Password ───────────────────────────────────────────
+                    _label("Password"),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      onChanged: (_) {
+                        if (_passwordError != null) {
+                          setState(() => _passwordError = null);
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText: "Password",
+                        hintStyle: TextStyle(
                           color: FrontendConfigs.kAuthTextColor,
-                          fontSize: 13,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          borderSide: BorderSide.none,
+                        ),
+                        fillColor: FrontendConfigs.kTextFieldColor,
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        errorText: _passwordError,
+                        errorMaxLines: 2,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: FrontendConfigs.kAuthTextColor,
+                          ),
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
                         ),
                       ),
                     ),
+                    _sectionGap(),
+
+                    // ── Phone Number ───────────────────────────────────────
+                    _label("Phone Number"),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        // Allow digits and a leading '+' only
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      onChanged: (_) {
+                        if (_phoneError != null) {
+                          setState(() => _phoneError = null);
+                        }
+                      },
+                      decoration: _fieldDecoration("Phone Number").copyWith(
+                        errorText: _phoneError,
+                        errorMaxLines: 2,
+                      ),
+                    ),
+                    _sectionGap(),
+
+                    // ── Zone ───────────────────────────────────────────────
+                    _label("Zone", locked: _zoneIsLocked),
+                    _zoneIsLocked
+                        ? _buildReadOnlyField(
+                            _lockedZoneName ??
+                                (_loadingZones ? "Loading..." : "—"),
+                            locked: true,
+                          )
+                        : _buildDropdown<ZoneModel>(
+                            hint: _loadingZones
+                                ? "Loading zones..."
+                                : "Select Zone",
+                            value: _selectedZone,
+                            items: _zones
+                                .map((z) => DropdownMenuItem<ZoneModel>(
+                                      value: z,
+                                      child: Text(z.name),
+                                    ))
+                                .toList(),
+                            onChanged: (zone) {
+                              setState(() {
+                                _selectedZone = zone;
+                                _selectedTown = null;
+                                _filteredTowns = [];
+                              });
+                              if (zone != null) _fetchTownsByZone(zone.id);
+                            },
+                          ),
+                    _sectionGap(),
+
+                    // ── Town ───────────────────────────────────────────────
+                    _label("Town", locked: _townIsLocked),
+                    _townIsLocked
+                        ? _buildReadOnlyField(
+                            _lockedTownName ??
+                                (_loadingTowns ? "Loading..." : "—"),
+                            locked: true,
+                          )
+                        : _buildDropdown<TownModel>(
+                            hint: _loadingTowns
+                                ? "Loading towns..."
+                                : (_selectedZone == null
+                                    ? "Select Zone first"
+                                    : "Select Town"),
+                            value: _selectedTown,
+                            items: _filteredTowns
+                                .map((t) => DropdownMenuItem<TownModel>(
+                                      value: t,
+                                      child: Text(t.name),
+                                    ))
+                                .toList(),
+                            onChanged: _selectedZone == null
+                                ? null
+                                : (town) =>
+                                    setState(() => _selectedTown = town),
+                          ),
+                    _sectionGap(),
+
+                    // ── Shop Location ──────────────────────────────────────
+                    _label("Shop Location"),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: FrontendConfigs.kTextFieldColor,
+                        borderRadius: FrontendConfigs.kAppBorder,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _locationSet
+                                ? Icons.location_on
+                                : Icons.location_off,
+                            color: _locationSet ? Colors.green : Colors.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _locationSet
+                                  ? "Location set: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}"
+                                  : "No Location Set",
+                              style: TextStyle(
+                                color: FrontendConfigs.kAuthTextColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (_locationSet) ...[
+                      SizedBox(
+                        height: 220,
+                        child: ClipRRect(
+                          borderRadius: FrontendConfigs.kAppBorder,
+                          child: GoogleMap(
+                            zoomControlsEnabled: false,
+                            markers: _markers,
+                            onTap: (_) => _showPlacePicker(),
+                            mapType: MapType.normal,
+                            mapToolbarEnabled: false,
+                            initialCameraPosition: CameraPosition(
+                              target: LatLng(_lat, _lng),
+                              zoom: 16,
+                            ),
+                            onMapCreated: (GoogleMapController ctrl) async {
+                              if (!_mapCompleter.isCompleted) {
+                                _mapCompleter.complete(ctrl);
+                              }
+                              _mapController = await _mapCompleter.future;
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _showPlacePicker,
+                        icon: const Icon(Icons.location_on),
+                        label: Text(
+                            _locationSet ? "Change Location" : "Set Location"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: FrontendConfigs.kPrimaryColor,
+                          side:
+                              BorderSide(color: FrontendConfigs.kPrimaryColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: FrontendConfigs.kAppBorder,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (_locationSet) ...[
+                      _label("Shop Address"),
+                      TextFormField(
+                        controller: _shopAddressController,
+                        readOnly: false,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: "Shop Address",
+                          hintStyle: TextStyle(
+                            color: FrontendConfigs.kAuthTextColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          prefixIcon: const Icon(Icons.place_outlined,
+                              color: Colors.grey),
+                          border: OutlineInputBorder(
+                            borderRadius: FrontendConfigs.kAppBorder,
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: FrontendConfigs.kTextFieldColor,
+                          filled: true,
+                          helperText:
+                              "Auto-filled from map · you can edit if needed",
+                          helperStyle: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade500),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (!_locationSet) const SizedBox(height: 20),
+
+                    // ── Cancel / Add Distributor ───────────────────────────
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: FrontendConfigs.kAppBorder,
+                              ),
+                              side: BorderSide(
+                                  color: FrontendConfigs.kPrimaryColor),
+                            ),
+                            child: Text(
+                              "Cancel",
+                              style: TextStyle(
+                                color: FrontendConfigs.kPrimaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _submit,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50),
+                              backgroundColor: FrontendConfigs.kPrimaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: FrontendConfigs.kAppBorder,
+                              ),
+                            ),
+                            child: const Text(
+                              "Add Distributor",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-
-              if (_locationSet) ...[
-                SizedBox(
-                  height: 220,
-                  child: ClipRRect(
-                    borderRadius: FrontendConfigs.kAppBorder,
-                    child: GoogleMap(
-                      zoomControlsEnabled: false,
-                      markers: _markers,
-                      onTap: (_) => _showPlacePicker(),
-                      mapType: MapType.normal,
-                      mapToolbarEnabled: false,
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(_lat, _lng),
-                        zoom: 16,
-                      ),
-                      onMapCreated:
-                          (GoogleMapController ctrl) async {
-                        if (!_mapCompleter.isCompleted) {
-                          _mapCompleter.complete(ctrl);
-                        }
-                        _mapController = await _mapCompleter.future;
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _showPlacePicker,
-                  icon: const Icon(Icons.location_on),
-                  label: Text(
-                      _locationSet ? "Change Location" : "Set Location"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: FrontendConfigs.kPrimaryColor,
-                    side: BorderSide(
-                        color: FrontendConfigs.kPrimaryColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: FrontendConfigs.kAppBorder,
-                    ),
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              if (_locationSet) ...[
-                _label("Shop Address"),
-                TextFormField(
-                  controller: _shopAddressController,
-                  readOnly: false,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    hintText: "Shop Address",
-                    hintStyle: TextStyle(
-                      color: FrontendConfigs.kAuthTextColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    prefixIcon: const Icon(Icons.place_outlined,
-                        color: Colors.grey),
-                    border: OutlineInputBorder(
-                      borderRadius: FrontendConfigs.kAppBorder,
-                      borderSide: BorderSide.none,
-                    ),
-                    fillColor: FrontendConfigs.kTextFieldColor,
-                    filled: true,
-                    helperText:
-                    "Auto-filled from map · you can edit if needed",
-                    helperStyle: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              if (!_locationSet) const SizedBox(height: 20),
-
-              // ── Cancel / Add Distributor ───────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: FrontendConfigs.kAppBorder,
-                        ),
-                        side: BorderSide(
-                            color: FrontendConfigs.kPrimaryColor),
-                      ),
-                      child: Text(
-                        "Cancel",
-                        style: TextStyle(
-                          color: FrontendConfigs.kPrimaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                        backgroundColor:
-                        FrontendConfigs.kPrimaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: FrontendConfigs.kAppBorder,
-                        ),
-                      ),
-                      child: const Text(
-                        "Add Distributor",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
   // ── Shared Field Helpers (matching add_recovery.dart style) ───────────────
 
   InputDecoration _fieldDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(
-      color: FrontendConfigs.kAuthTextColor,
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-    ),
-    border: OutlineInputBorder(
-      borderRadius: FrontendConfigs.kAppBorder,
-      borderSide: BorderSide.none,
-    ),
-    fillColor: FrontendConfigs.kTextFieldColor,
-    filled: true,
-    contentPadding:
-    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-  );
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: FrontendConfigs.kAuthTextColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: FrontendConfigs.kAppBorder,
+          borderSide: BorderSide.none,
+        ),
+        fillColor: FrontendConfigs.kTextFieldColor,
+        filled: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
 
   Widget _sectionGap() => const SizedBox(height: 10);
 
   /// Label above each field. Locked labels render in grey.
   Widget _label(String text, {bool locked = false}) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: CustomText(
-      text: text,
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: locked ? Colors.grey.shade500 : Colors.black87,
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 4),
+        child: CustomText(
+          text: text,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: locked ? Colors.grey.shade500 : Colors.black87,
+        ),
+      );
 
   /// Grey read-only tile for locked / auto-fetched values.
   Widget _buildReadOnlyField(String value, {bool locked = false}) {
@@ -1020,8 +1026,8 @@ class _AddDistributorViewState extends State<AddDistributorView> {
               color: locked
                   ? Colors.grey.shade500
                   : (value.isNotEmpty
-                  ? Colors.black87
-                  : FrontendConfigs.kAuthTextColor),
+                      ? Colors.black87
+                      : FrontendConfigs.kAuthTextColor),
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
@@ -1100,39 +1106,39 @@ class _AddDistributorViewState extends State<AddDistributorView> {
             ),
             child: image != null
                 ? ClipRRect(
-              borderRadius: FrontendConfigs.kAppBorder,
-              child: Image.file(image, fit: BoxFit.cover),
-            )
+                    borderRadius: FrontendConfigs.kAppBorder,
+                    child: Image.file(image, fit: BoxFit.cover),
+                  )
                 : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: FrontendConfigs.kPrimaryColor
-                        .withValues(alpha: 0.1),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: FrontendConfigs.kPrimaryColor
+                              .withValues(alpha: 0.1),
+                        ),
+                        child: Icon(CupertinoIcons.arrow_up_doc,
+                            color: FrontendConfigs.kPrimaryColor, size: 28),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Click to upload or drag and drop",
+                        style: TextStyle(
+                          color: FrontendConfigs.kPrimaryColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "JPG, PNG etc (max. 10MB)",
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 11),
+                      ),
+                    ],
                   ),
-                  child: Icon(CupertinoIcons.arrow_up_doc,
-                      color: FrontendConfigs.kPrimaryColor, size: 28),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Click to upload or drag and drop",
-                  style: TextStyle(
-                    color: FrontendConfigs.kPrimaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "JPG, PNG etc (max. 10MB)",
-                  style: TextStyle(
-                      color: Colors.grey.shade500, fontSize: 11),
-                ),
-              ],
-            ),
           ),
         ),
 
@@ -1191,10 +1197,10 @@ class _AddDistributorViewState extends State<AddDistributorView> {
   // ── Bottom Sheet (Camera / Gallery) ──────────────────────────────────────
 
   void _showImagePickerBottomSheet(
-      BuildContext context, {
-        required String title,
-        required ValueChanged<File> onImageChanged,
-      }) {
+    BuildContext context, {
+    required String title,
+    required ValueChanged<File> onImageChanged,
+  }) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1232,14 +1238,12 @@ class _AddDistributorViewState extends State<AddDistributorView> {
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Camera',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Take a photo'),
               onTap: () {
                 Navigator.pop(context);
                 _pickAndEdit(
-                    source: ImageSource.camera,
-                    onImageChanged: onImageChanged);
+                    source: ImageSource.camera, onImageChanged: onImageChanged);
               },
             ),
             const SizedBox(height: 10),
@@ -1254,8 +1258,7 @@ class _AddDistributorViewState extends State<AddDistributorView> {
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Gallery',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Choose from gallery'),
               onTap: () {
                 Navigator.pop(context);
@@ -1279,8 +1282,7 @@ class _AddDistributorViewState extends State<AddDistributorView> {
     required ValueChanged<File> onImageChanged,
   }) async {
     final picker = ImagePicker();
-    final pickedFile =
-    await picker.pickImage(imageQuality: 60, source: source);
+    final pickedFile = await picker.pickImage(imageQuality: 60, source: source);
     if (pickedFile == null) return;
     final bytes = await File(pickedFile.path).readAsBytes();
     await _openProEditor(bytes, onImageChanged: onImageChanged);
@@ -1322,9 +1324,9 @@ class _AddDistributorViewState extends State<AddDistributorView> {
 
   /// Opens ProImageEditor and saves the result via [onImageChanged].
   Future<void> _openProEditor(
-      Uint8List bytes, {
-        required ValueChanged<File> onImageChanged,
-      }) async {
+    Uint8List bytes, {
+    required ValueChanged<File> onImageChanged,
+  }) async {
     Uint8List? result;
 
     await Navigator.push(

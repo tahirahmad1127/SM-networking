@@ -1,6 +1,5 @@
 // lib/infrastructure/services/workmanager_service.dart
 
-import 'dart:async';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -8,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:sm_networking/injection_container.dart' as di;
-import '../model/attendance.dart';
 import 'location.dart';
 import 'attendance.dart';
 
@@ -30,7 +28,8 @@ void callbackDispatcher() {
       }
 
       final now = DateTime.now();
-      final allowedTimeStr = prefs.getString('ALLOWED_CHECKOUT_TIME') ?? '17:00';
+      final allowedTimeStr =
+          prefs.getString('ALLOWED_CHECKOUT_TIME') ?? '17:00';
       final checkoutTime = _parseTimeToday(allowedTimeStr) ??
           DateTime(now.year, now.month, now.day, 17, 0);
 
@@ -72,7 +71,8 @@ void callbackDispatcher() {
         final hasCheckoutTime = prefs.getString('CHECK_OUT_TIME') != null;
 
         if (!isCheckedIn || hasCheckoutTime) {
-          debugPrint("Already checked out or not checked in → skipping auto-checkout");
+          debugPrint(
+              "Already checked out or not checked in → skipping auto-checkout");
           return true;
         }
 
@@ -114,13 +114,13 @@ void callbackDispatcher() {
             final result = await repo.checkOut(attendanceId, body);
 
             result.fold(
-                  (error) {
+              (error) {
                 debugPrint("❌ Failed to sync auto-checkout: ${error.error}");
                 // Save for retry later
                 prefs.setString('pending_checkout', attendanceId);
                 prefs.setString('pending_checkout_time', isoNow);
               },
-                  (success) {
+              (success) {
                 debugPrint("✅ Auto-checkout synced to server successfully");
                 // CRITICAL: Update SharedPreferences AFTER successful API call
                 prefs.setBool('isCheckedIn', false);
@@ -241,7 +241,8 @@ DateTime? _parseTimeToday(String? timeStr) {
     final parts = timeStr.split(':');
     if (parts.length < 2) return null;
     final hour = int.parse(parts[0]);
-    final minute = int.parse(parts[1].split(' ').first); // in case of "17:00 PKT"
+    final minute =
+        int.parse(parts[1].split(' ').first); // in case of "17:00 PKT"
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, hour, minute);
   } catch (e) {

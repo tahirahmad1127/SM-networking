@@ -657,6 +657,13 @@ class _AttendanceBodyState extends State<AttendanceBody>
     final user = Provider.of<UserProvider>(context);
     final checkInProvider = Provider.of<CheckInProvider>(context);
 
+    // Session can be cleared out from under this screen mid-build (forced
+    // logout on a 401) — the header below assumes a non-null user, so bail
+    // out to a harmless placeholder for that one frame instead of crashing.
+    if (user.getSalesUserDetails()?.user == null) {
+      return const SizedBox.shrink();
+    }
+
     return BlocConsumer<AttendanceBloc, AttendanceState>(
       listener: (context, state) async {
         if (state is AttendanceLoaded) {
@@ -804,12 +811,6 @@ class _AttendanceBodyState extends State<AttendanceBody>
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            CustomText(
-                              text: "Shift Duration: ${checkInProvider.formattedAllowedCheckInTime} - ${checkInProvider.formattedAllowedCheckOutTime}",
-                              fontSize: 13,
-                              color: Colors.grey.shade500,
-                            ),
                           ],
                         ),
                         CircleAvatar(

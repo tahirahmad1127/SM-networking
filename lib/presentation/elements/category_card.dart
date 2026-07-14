@@ -1,19 +1,16 @@
 import 'package:extended_image/extended_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/view/categories/categories_view.dart';
 import 'package:shimmer/shimmer.dart';
 
 class CategoryCard extends StatelessWidget {
   CategoryCard(
-      {Key? key,
+      {super.key,
       required this.image,
       required this.name,
       this.textColor,
-      this.bgColor})
-      : super(key: key);
+      this.bgColor});
   final String image;
   final String name;
   Color? textColor;
@@ -27,9 +24,7 @@ class CategoryCard extends StatelessWidget {
           height: 80,
           width: 80,
           decoration: BoxDecoration(
-            border: Border.all(
-              color: Color(0xffd2d2d5)
-            ),
+              border: Border.all(color: Color(0xffd2d2d5)),
               borderRadius: BorderRadius.all(Radius.circular(15.0)),
               color: bgColor ?? FrontendConfigs.kTextFieldColor),
           child: Padding(
@@ -72,7 +67,7 @@ class CategoryCard extends StatelessWidget {
         const SizedBox(
           height: 5,
         ),
-        Container(
+        SizedBox(
           width: 130,
           child: CustomText(
             text: name,

@@ -1,30 +1,19 @@
 import 'dart:developer';
 
-import 'package:extended_image/extended_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/model/bulk.dart';
 import 'package:sm_networking/infrastructure/model/product.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
-import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 
-import '../../../../application/discount_helper.dart';
-import '../../../../infrastructure/model/ordered_prduct_model.dart';
-import '../../../../utils/utils.dart';
 import '../../../elements/app_button.dart';
-import '../../../elements/flush_bar.dart';
 
 class ProductDetailsBody extends StatefulWidget {
   final ProductModel model;
 
-  const ProductDetailsBody({Key? key, required this.model}) : super(key: key);
+  const ProductDetailsBody({super.key, required this.model});
 
   @override
   State<ProductDetailsBody> createState() => _ProductDetailsBodyState();
@@ -51,32 +40,32 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
         bottomNavigationBar: cart.cartItems.isEmpty
             ? null
             : Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 70,
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                      top: BorderSide(
-                          color: FrontendConfigs.kAuthTextColor,
-                          width: 0.3))),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18.0, vertical: 10),
-                child: AppButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                  },
-                  btnLabel: "Confirm",
-                  width: double.infinity,
-                  btnColor: Colors.black,
-                  height: 48,
-                ),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 70,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                            top: BorderSide(
+                                color: FrontendConfigs.kAuthTextColor,
+                                width: 0.3))),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18.0, vertical: 10),
+                      child: AppButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                        },
+                        btnLabel: "Confirm",
+                        width: double.infinity,
+                        btnColor: Colors.black,
+                        height: 48,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
         // body: StreamProvider.value(
         //     value: ProductServices()
         //         .streamProductByID(widget.model.docID.toString()),
@@ -698,15 +687,15 @@ class _ProductDetailsBodyState extends State<ProductDetailsBody> {
 
     list.map((e) {
       int i = list.indexOf(e);
-      log((quantity).toString() + " Qauntity");
-      log(e.quantity.toString() + " E.Q");
+      log("$quantity Qauntity");
+      log("${e.quantity} E.Q");
       if (quantity >= e.quantity!) {
         selectedBulkIndex = list.indexOf(e);
         selectedBulkDiscount = list.indexOf(e);
         if (callSetState) {
           setState(() {});
         }
-        log(selectedBulkIndex.toString() + " Selected Bulk Index");
+        log("$selectedBulkIndex Selected Bulk Index");
       }
     }).toList();
     return Future.value(true);

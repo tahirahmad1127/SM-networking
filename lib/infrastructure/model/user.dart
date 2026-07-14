@@ -436,13 +436,21 @@ class Distributor {
         : (json["coordinator"] is String
         ? json["coordinator"] as String
         : json["coordinator"]["_id"] as String),
-    tsm: json["tsm"] == null ? null : DistributorRef.fromJson(json["tsm"]),
+    tsm: json["tsm"] == null
+        ? null
+        : (json["tsm"] is String
+        ? DistributorRef(id: json["tsm"])
+        : DistributorRef.fromJson(json["tsm"])),
     zone: json["zone"] == null
         ? null
-        : DistributorRef.fromJson(json["zone"]),
+        : (json["zone"] is String
+        ? DistributorRef(id: json["zone"])
+        : DistributorRef.fromJson(json["zone"])),
     town: json["town"] == null
         ? null
-        : DistributorRef.fromJson(json["town"]),
+        : (json["town"] is String
+        ? DistributorRef(id: json["town"])
+        : DistributorRef.fromJson(json["town"])),
     shopLocation: json["shopLocation"] == null
         ? null
         : DistributorLocation.fromJson(json["shopLocation"]),
@@ -536,6 +544,39 @@ class Distributor {
       createdAt: createdAt,
       updatedAt: updatedAt,
       v: v,
+    );
+  }
+}
+
+/// warehouse-manager/{tsmId}/distributors — paginated distributors list.
+/// Unlike the embedded `distributors` array on the login response, this is
+/// fetched on demand (page/limit/searchTerm) by the "Customers → View All"
+/// screen instead of loading everything at login.
+class DistributorsListingModel {
+  final List<Distributor> data;
+  final int total;
+  final int page;
+  final int totalPages;
+
+  DistributorsListingModel({
+    required this.data,
+    required this.total,
+    required this.page,
+    required this.totalPages,
+  });
+
+  factory DistributorsListingModel.fromJson(Map<String, dynamic> json) {
+    final rawList = json["data"];
+    return DistributorsListingModel(
+      data: rawList is List
+          ? rawList
+              .whereType<Map>()
+              .map((e) => Distributor.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : [],
+      total: (json["total"] as num?)?.toInt() ?? 0,
+      page: (json["page"] as num?)?.toInt() ?? 1,
+      totalPages: (json["totalPages"] as num?)?.toInt() ?? 1,
     );
   }
 }
@@ -648,6 +689,39 @@ class Wholesaler {
     v: v,
   );
 }
+
+/// GET wholesaler / GET retailer — paginated listing, used for both entity
+/// types (they share the same Wholesaler shape on this backend; only the
+/// endpoint and the "customerType" label differ).
+class WholesalersListingModel {
+  final List<Wholesaler> data;
+  final int total;
+  final int page;
+  final int totalPages;
+
+  WholesalersListingModel({
+    required this.data,
+    required this.total,
+    required this.page,
+    required this.totalPages,
+  });
+
+  factory WholesalersListingModel.fromJson(Map<String, dynamic> json) {
+    final rawList = json["data"];
+    return WholesalersListingModel(
+      data: rawList is List
+          ? rawList
+              .whereType<Map>()
+              .map((e) => Wholesaler.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : [],
+      total: (json["total"] as num?)?.toInt() ?? 0,
+      page: (json["page"] as num?)?.toInt() ?? 1,
+      totalPages: (json["totalPages"] as num?)?.toInt() ?? 1,
+    );
+  }
+}
+
 // ─── OrderBooker (returned only for the warehouseManager role) ──────────────
 // Each warehouseManager's login response includes the list of orderBookers
 // working under them, so this can be displayed straight from the in-memory

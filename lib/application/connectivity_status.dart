@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -16,9 +15,9 @@ class InternetConnectivityHelper extends ChangeNotifier {
             .timeout(const Duration(seconds: 50));
 //         return true;
         return response.statusCode == 200;
-      } on SocketException catch (e) {
+      } on SocketException {
         return false;
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         return false;
       }
     }
@@ -37,9 +36,9 @@ class InternetConnectivityHelper extends ChangeNotifier {
             .get(Uri.parse('https://www.google.com'))
             .timeout(const Duration(seconds: 5));
         return response.statusCode == 200;
-      } on SocketException catch (e) {
+      } on SocketException {
         return false;
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         return false;
       }
     }

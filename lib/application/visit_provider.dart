@@ -95,7 +95,8 @@ class VisitProvider extends ChangeNotifier {
 
   /// Start periodic location checking (every 5 seconds)
   /// ✅ FIXED: Now properly awaits async callback
-  void startLocationMonitoring(Future<void> Function() onLocationCheckCallback) {
+  void startLocationMonitoring(
+      Future<void> Function() onLocationCheckCallback) {
     _lastLocationCheckCallback = onLocationCheckCallback;
     // Don't start monitoring for new shops
     if (_isNewShop) {
@@ -109,7 +110,8 @@ class VisitProvider extends ChangeNotifier {
     log("🎯 Started background location monitoring in VisitProvider");
     log("📍 START Location stored: ${_visitLocation?.latitude}, ${_visitLocation?.longitude}");
 
-    _locationCheckTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+    _locationCheckTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) async {
       log("⏰ VisitProvider timer tick - checking conditions...");
 
       // CRITICAL: Check if data was cleared
@@ -142,7 +144,8 @@ class VisitProvider extends ChangeNotifier {
         return;
       }
 
-      AppLogger.debug("✅ VisitProvider timer - calling location check callback");
+      AppLogger.debug(
+          "✅ VisitProvider timer - calling location check callback");
       log("📍 Comparing against START location: ${_visitLocation?.latitude}, ${_visitLocation?.longitude}");
 
       // ✅ FIXED: Properly await the async callback
@@ -173,16 +176,19 @@ class VisitProvider extends ChangeNotifier {
     if (_startVisit == null || _visitLocation == null) return;
 
     // CRITICAL: Filter out inaccurate GPS readings
-    const double MAX_ACCEPTABLE_ACCURACY = 30.0; // meters
+    const double maxAcceptableAccuracy = 30.0; // meters
 
-    if (currentAccuracy != null && currentAccuracy > MAX_ACCEPTABLE_ACCURACY) {
-      AppLogger.debug("⚠️ Current GPS accuracy too low: ${currentAccuracy.toStringAsFixed(2)}m (max: $MAX_ACCEPTABLE_ACCURACY m)");
+    if (currentAccuracy != null && currentAccuracy > maxAcceptableAccuracy) {
+      AppLogger.debug(
+          "⚠️ Current GPS accuracy too low: ${currentAccuracy.toStringAsFixed(2)}m (max: $maxAcceptableAccuracy m)");
       log("   Skipping distance check - waiting for better GPS signal");
       return;
     }
 
-    if (_startLocationAccuracy != null && _startLocationAccuracy! > MAX_ACCEPTABLE_ACCURACY) {
-      AppLogger.debug("⚠️ Start location accuracy was too low: ${_startLocationAccuracy!.toStringAsFixed(2)}m");
+    if (_startLocationAccuracy != null &&
+        _startLocationAccuracy! > maxAcceptableAccuracy) {
+      AppLogger.debug(
+          "⚠️ Start location accuracy was too low: ${_startLocationAccuracy!.toStringAsFixed(2)}m");
       log("   Using lenient threshold");
     }
 
@@ -193,10 +199,8 @@ class VisitProvider extends ChangeNotifier {
     double effectiveThreshold = 20.0; // Default 20 meters
 
     if (currentAccuracy != null || _startLocationAccuracy != null) {
-      final maxAccuracy = math.max(
-          currentAccuracy ?? 0,
-          _startLocationAccuracy ?? 0
-      );
+      final maxAccuracy =
+          math.max(currentAccuracy ?? 0, _startLocationAccuracy ?? 0);
 
       // If GPS accuracy is poor, increase threshold
       // Formula: threshold = 20 + (accuracy * 0.5)
@@ -215,7 +219,8 @@ class VisitProvider extends ChangeNotifier {
     log("   Threshold: ${effectiveThreshold.toStringAsFixed(2)}m");
 
     if (distance > effectiveThreshold) {
-      AppLogger.debug("🚶 User moved >${effectiveThreshold.toStringAsFixed(0)}m - Auto-logging visit");
+      AppLogger.debug(
+          "🚶 User moved >${effectiveThreshold.toStringAsFixed(0)}m - Auto-logging visit");
 
       _visitAutoLogged = true;
 
@@ -232,7 +237,8 @@ class VisitProvider extends ChangeNotifier {
 
       notifyListeners();
     } else {
-      AppLogger.debug("✅ User still within threshold (${distance.toStringAsFixed(2)}m < ${effectiveThreshold.toStringAsFixed(2)}m)");
+      AppLogger.debug(
+          "✅ User still within threshold (${distance.toStringAsFixed(2)}m < ${effectiveThreshold.toStringAsFixed(2)}m)");
     }
   }
 
@@ -254,9 +260,11 @@ class VisitProvider extends ChangeNotifier {
       final wasActive = _locationCheckTimer!.isActive;
       _locationCheckTimer!.cancel();
       _locationCheckTimer = null;
-      AppLogger.debug("🛑 Stopped VisitProvider location monitoring timer (was active: $wasActive)");
+      AppLogger.debug(
+          "🛑 Stopped VisitProvider location monitoring timer (was active: $wasActive)");
     } else {
-      AppLogger.debug("🛑 stopLocationMonitoring called but timer was already null");
+      AppLogger.debug(
+          "🛑 stopLocationMonitoring called but timer was already null");
     }
   }
 
@@ -298,7 +306,8 @@ class VisitProvider extends ChangeNotifier {
       AppLogger.debug("📦 Loaded Visit Data:");
       AppLogger.debug("   Time: $_startVisit");
       AppLogger.debug("   Location: $_visitLocation");
-      AppLogger.debug("   Accuracy: ${_startLocationAccuracy?.toStringAsFixed(2) ?? 'N/A'}m");
+      AppLogger.debug(
+          "   Accuracy: ${_startLocationAccuracy?.toStringAsFixed(2) ?? 'N/A'}m");
       AppLogger.debug("   Image Path: $_visitImagePath");
       AppLogger.debug("   Is New Shop: $_isNewShop"); // NEW LOG
 
@@ -320,8 +329,10 @@ class VisitProvider extends ChangeNotifier {
 
     // Haversine formula
     double a = math.sin(deltaLat / 2) * math.sin(deltaLat / 2) +
-        math.cos(lat1Rad) * math.cos(lat2Rad) *
-            math.sin(deltaLng / 2) * math.sin(deltaLng / 2);
+        math.cos(lat1Rad) *
+            math.cos(lat2Rad) *
+            math.sin(deltaLng / 2) *
+            math.sin(deltaLng / 2);
 
     double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
 
@@ -331,7 +342,8 @@ class VisitProvider extends ChangeNotifier {
   }
 
   /// Check if user has moved beyond threshold
-  bool hasMovedBeyondThreshold(LatLng currentLocation, {double thresholdMeters = 20}) {
+  bool hasMovedBeyondThreshold(LatLng currentLocation,
+      {double thresholdMeters = 20}) {
     // Don't process if already cleared - RETURN IMMEDIATELY
     if (_isCleared) {
       AppLogger.debug("⚠️ Visit data cleared - skipping threshold check");
@@ -352,9 +364,12 @@ class VisitProvider extends ChangeNotifier {
     final distance = calculateDistance(_visitLocation!, currentLocation);
 
     AppLogger.debug("📍 Distance calculation:");
-    AppLogger.debug("   From: Lat ${_visitLocation!.latitude}, Lng ${_visitLocation!.longitude}");
-    AppLogger.debug("   To:   Lat ${currentLocation.latitude}, Lng ${currentLocation.longitude}");
-    AppLogger.debug("   Distance: ${distance.toStringAsFixed(2)} meters (Threshold: $thresholdMeters meters)");
+    AppLogger.debug(
+        "   From: Lat ${_visitLocation!.latitude}, Lng ${_visitLocation!.longitude}");
+    AppLogger.debug(
+        "   To:   Lat ${currentLocation.latitude}, Lng ${currentLocation.longitude}");
+    AppLogger.debug(
+        "   Distance: ${distance.toStringAsFixed(2)} meters (Threshold: $thresholdMeters meters)");
 
     if (distance > thresholdMeters) {
       AppLogger.debug("   ✅ Threshold EXCEEDED - User moved away!");

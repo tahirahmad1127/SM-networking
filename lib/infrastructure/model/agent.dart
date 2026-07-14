@@ -4,9 +4,8 @@
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-AgentModel agentModelFromJson(String? str) => AgentModel.fromJson(json.decode(str!));
+AgentModel agentModelFromJson(String? str) =>
+    AgentModel.fromJson(json.decode(str!));
 
 String agentModelToJson(AgentModel data) => json.encode(data.toJson());
 
@@ -40,35 +39,36 @@ class AgentModel {
   });
 
   factory AgentModel.fromJson(Map<String, dynamic> json) => AgentModel(
-    address: json["address"],
-    cnic: json["cnic"],
-    createdAt: json["createdAt"],
-    docId: json["docID"],
-    image: json["image"],
-    isActive: json["isActive"],
-    isCheckedIn: json["isCheckedIn"],
-    name: json["name"],
-    phoneNumber: json["phone"],
-    isAdminVerified: json["isAdminVerified"],
-    cityID: json["cityID"],
-    city: json["city"] == null ? null : City.fromJson(json["city"]),
-  );
+        address: json["address"],
+        cnic: json["cnic"],
+        createdAt: json["createdAt"],
+        docId: json["docID"],
+        image: json["image"],
+        isActive: json["isActive"],
+        isCheckedIn: json["isCheckedIn"],
+        name: json["name"],
+        phoneNumber: json["phone"],
+        isAdminVerified: json["isAdminVerified"],
+        cityID: json["cityID"],
+        city: json["city"] == null ? null : City.fromJson(json["city"]),
+      );
 
   Map<String, dynamic> toJson() => {
-    "address": address,
-    "cnic": cnic,
-    "createdAt": createdAt,
-    "docID": docId,
-    "image": image,
-    "isActive": isActive,
-    "isCheckedIn": isCheckedIn,
-    "name": name,
-    "phone": phoneNumber,
-    "isAdminVerified": isAdminVerified,
-    "city": city?.toJson(),
-    "cityID": cityID,
-  };
+        "address": address,
+        "cnic": cnic,
+        "createdAt": createdAt,
+        "docID": docId,
+        "image": image,
+        "isActive": isActive,
+        "isCheckedIn": isCheckedIn,
+        "name": name,
+        "phone": phoneNumber,
+        "isAdminVerified": isAdminVerified,
+        "city": city?.toJson(),
+        "cityID": cityID,
+      };
 }
+
 class City {
   String? value;
   String? label;
@@ -79,12 +79,12 @@ class City {
   });
 
   factory City.fromJson(Map<String, dynamic> json) => City(
-    value: json["value"],
-    label: json["label"],
-  );
+        value: json["value"],
+        label: json["label"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "value": value,
-    "label": label,
-  };
+        "value": value,
+        "label": label,
+      };
 }

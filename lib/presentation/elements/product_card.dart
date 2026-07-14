@@ -1,32 +1,23 @@
 import 'dart:developer';
 
 import 'package:extended_image/extended_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sm_networking/application/cart_provider.dart';
-import 'package:sm_networking/application/discount_helper.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/infrastructure/model/ordered_prduct_model.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
-import 'package:sm_networking/presentation/elements/app_button.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
-import 'package:sm_networking/presentation/view/cart/cart_view.dart';
-import 'package:sm_networking/presentation/view/product_details/product_details_view.dart';
 import 'package:provider/provider.dart';
 import '../../application/retailer_provider.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../configurations/translation_helper.dart';
-import '../../infrastructure/model/bulk.dart';
 import '../../infrastructure/model/cart.dart';
 import '../../infrastructure/model/product.dart';
 
 class ProductCard extends StatefulWidget {
   final ProductModel model;
+
   /// Show Ctn/Box toggle when the selected customer is a wholesaler or retailer.
   /// Pass true for both orderBooker AND warehouseManager when visiting a
   /// wholesaler or retailer. Pass false (default) for distributor visits.
@@ -80,7 +71,7 @@ class _ProductCardState extends State<ProductCard> {
           padding: EdgeInsets.symmetric(
               horizontal: 10.0,
               vertical: (widget.model.bulkDiscount != null &&
-                  widget.model.bulkDiscount!.isNotEmpty)
+                      widget.model.bulkDiscount!.isNotEmpty)
                   ? 4
                   : 6),
           child: Column(
@@ -115,10 +106,10 @@ class _ProductCardState extends State<ProductCard> {
                         ),
                         child: Center(
                             child: CustomText(
-                              text: "Bulk Discount",
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            )),
+                          text: "Bulk Discount",
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        )),
                       ),
                     ),
                   ),
@@ -208,7 +199,8 @@ class _ProductCardState extends State<ProductCard> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     CustomText(
-                                      text: "${_effectivePrice(context).toStringAsFixed(2)} Rs",
+                                      text:
+                                          "${_effectivePrice(context).toStringAsFixed(2)} Rs",
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       color: FrontendConfigs.kPrimaryColor,
@@ -217,12 +209,12 @@ class _ProductCardState extends State<ProductCard> {
                                     Icon(
                                       Icons.edit,
                                       size: 14,
-                                      color: FrontendConfigs.kPrimaryColor.withOpacity(0.6),
+                                      color: FrontendConfigs.kPrimaryColor
+                                          .withOpacity(0.6),
                                     ),
                                   ],
                                 ),
                               ),
-
                             ],
                           ),
                         ],
@@ -261,8 +253,8 @@ class _ProductCardState extends State<ProductCard> {
                                     ? FrontendConfigs.kPrimaryColor
                                     : Colors.grey)),
                         child: const Padding(
-                          padding:
-                          EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.0, vertical: 5),
                           child: Text("Ctn", style: TextStyle(fontSize: 13)),
                         ),
                       ),
@@ -280,7 +272,8 @@ class _ProductCardState extends State<ProductCard> {
                         decoration: BoxDecoration(
                             color: isCtnSelected == true
                                 ? Colors.transparent
-                                : FrontendConfigs.kPrimaryColor.withOpacity(0.3),
+                                : FrontendConfigs.kPrimaryColor
+                                    .withOpacity(0.3),
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(10),
                               bottomRight: Radius.circular(10),
@@ -300,8 +293,8 @@ class _ProductCardState extends State<ProductCard> {
                                       : Colors.grey),
                             )),
                         child: const Padding(
-                          padding:
-                          EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.0, vertical: 5),
                           child: Text("Box", style: TextStyle(fontSize: 13)),
                         ),
                       ),
@@ -313,24 +306,24 @@ class _ProductCardState extends State<ProductCard> {
                 width: double.infinity,
                 child: Row(
                   mainAxisAlignment:
-                  cart.getItemQuantity(widget.model.id.toString()) < 1
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.spaceBetween,
+                      cart.getItemQuantity(widget.model.id.toString()) < 1
+                          ? MainAxisAlignment.end
+                          : MainAxisAlignment.spaceBetween,
                   children: [
                     if (cart.getItemQuantity(widget.model.id.toString()) >= 1)
                       InkWell(
                         borderRadius: FrontendConfigs.kAppBorder,
                         onTap: () async {
                           if (cart.getItemQuantity(
-                              widget.model.id.toString()) <=
+                                  widget.model.id.toString()) <=
                               1) {
                             cart.removeItem(widget.model.id.toString());
                           } else {
                             cart.decrement(widget.model.id.toString());
                             cartController = TextEditingController(
                                 text: (cart.getItemQuantity(
-                                    widget.model.id.toString()) -
-                                    1)
+                                            widget.model.id.toString()) -
+                                        1)
                                     .toString());
                           }
                           setState(() {});
@@ -341,19 +334,19 @@ class _ProductCardState extends State<ProductCard> {
                           decoration: BoxDecoration(
                               borderRadius: FrontendConfigs.kAppBorder,
                               color: cart.getItemQuantity(
-                                  widget.model.id.toString()) ==
-                                  1
+                                          widget.model.id.toString()) ==
+                                      1
                                   ? FrontendConfigs.kTextFieldColor
                                   : Colors.grey),
                           child: Icon(
                               cart.getItemQuantity(
-                                  widget.model.id.toString()) <=
-                                  1
+                                          widget.model.id.toString()) <=
+                                      1
                                   ? Icons.delete
                                   : Icons.remove,
                               color: cart.getItemQuantity(
-                                  widget.model.id.toString()) <=
-                                  1
+                                          widget.model.id.toString()) <=
+                                      1
                                   ? Colors.red
                                   : Colors.white),
                         ),
@@ -361,43 +354,43 @@ class _ProductCardState extends State<ProductCard> {
                     if (cart.getItemQuantity(widget.model.id.toString()) >= 1)
                       Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                            child: TextField(
-                              textAlign: TextAlign.center,
-                              controller: cartController,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
-                              ],
-                              onChanged: (val) {
-                                if (val.isEmpty) return;
-                                final entered = int.tryParse(val) ?? 0;
-                                cart.addItem(CartModel(
-                                    name: widget.model.englishTitle.toString(),
-                                    id: widget.model.id.toString(),
-                                    price: _effectivePrice(context).toStringAsFixed(2),
-                                    image: widget.model.image.toString(),
-                                    offer: widget.model.isDiscounted ?? false,
-                                    productDetails: widget.model,
-                                    quantity: entered,
-                                    totalQuantity: 0,
-                                    type: isCtnSelected ? "ctn" : "pcs"));
-                                log(cart
-                                    .getItemQuantity(widget.model.id.toString())
-                                    .toString());
-                                setState(() {});
-                              },
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(
-                                      borderSide: BorderSide.none)),
-                            ),
-                          )),
-
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                        child: TextField(
+                          textAlign: TextAlign.center,
+                          controller: cartController,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          onChanged: (val) {
+                            if (val.isEmpty) return;
+                            final entered = int.tryParse(val) ?? 0;
+                            cart.addItem(CartModel(
+                                name: widget.model.englishTitle.toString(),
+                                id: widget.model.id.toString(),
+                                price:
+                                    _effectivePrice(context).toStringAsFixed(2),
+                                image: widget.model.image.toString(),
+                                offer: widget.model.isDiscounted ?? false,
+                                productDetails: widget.model,
+                                quantity: entered,
+                                totalQuantity: 0,
+                                type: isCtnSelected ? "ctn" : "pcs"));
+                            log(cart
+                                .getItemQuantity(widget.model.id.toString())
+                                .toString());
+                            setState(() {});
+                          },
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                              border: UnderlineInputBorder(
+                                  borderSide: BorderSide.none)),
+                        ),
+                      )),
                     InkWell(
                       borderRadius: FrontendConfigs.kAppBorder,
                       onTap: () async {
                         final currentQty =
-                        cart.getItemQuantity(widget.model.id.toString());
+                            cart.getItemQuantity(widget.model.id.toString());
                         cart.addItem(CartModel(
                             name: widget.model.englishTitle.toString(),
                             id: widget.model.id.toString(),
@@ -431,8 +424,6 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-
-
   // ── Price helper ─────────────────────────────────────────────────────────────
   // Rules:
   //   Box price = retailSaleRatePerBox  (retailer)
@@ -442,8 +433,9 @@ class _ProductCardState extends State<ProductCard> {
   num _displayPrice(BuildContext context) {
     final p = widget.model;
     final customerType = Provider.of<RetailerProvider>(context, listen: false)
-        .getRetailer()
-        ?.customerType ?? 'wholesaler';
+            .getRetailer()
+            ?.customerType ??
+        'wholesaler';
 
     final num ratePerBox = (customerType == 'retailer')
         ? (p.retailSaleRatePerBox ?? p.wholesaleRatePerBox ?? p.price ?? 0)
@@ -487,14 +479,15 @@ class _ProductCardState extends State<ProductCard> {
             children: [
               Text(
                 "This only changes the rate for this order. It does not "
-                    "change the product's actual price.",
+                "change the product's actual price.",
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
@@ -620,8 +613,7 @@ class BulkDiscountDialog extends StatelessWidget {
             // Subtitle
             Container(
               width: double.infinity,
-              padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               color: FrontendConfigs.kPrimaryColor.withOpacity(0.1),
               child: CustomText(
                 text: "Add more quantity to get higher discounts",
@@ -635,14 +627,14 @@ class BulkDiscountDialog extends StatelessWidget {
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 itemCount: product.bulkDiscount!.length,
                 itemBuilder: (context, index) {
                   final quantity = product.bulkDiscountQuantity![index];
                   final discount = product.bulkDiscount![index];
                   final type = product.bulkDiscountType != null &&
-                      index < product.bulkDiscountType!.length
+                          index < product.bulkDiscountType!.length
                       ? product.bulkDiscountType![index]
                       : "Flat";
 
@@ -656,8 +648,7 @@ class BulkDiscountDialog extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color:
-                        FrontendConfigs.kPrimaryColor.withOpacity(0.3),
+                        color: FrontendConfigs.kPrimaryColor.withOpacity(0.3),
                         width: 1.2,
                       ),
                       borderRadius: BorderRadius.circular(8),
@@ -700,12 +691,11 @@ class BulkDiscountDialog extends StatelessWidget {
                               children: [
                                 if (isPercentage) ...[
                                   Row(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.end,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       CustomText(
                                         text:
-                                        "PKR ${discountedPricePerPiece.toStringAsFixed(0)}",
+                                            "PKR ${discountedPricePerPiece.toStringAsFixed(0)}",
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
                                         color: FrontendConfigs.kPrimaryColor,
@@ -718,7 +708,7 @@ class BulkDiscountDialog extends StatelessWidget {
                                           fontWeight: FontWeight.w500,
                                           color: Colors.grey,
                                           decoration:
-                                          TextDecoration.lineThrough,
+                                              TextDecoration.lineThrough,
                                         ),
                                       ),
                                     ],
@@ -728,10 +718,8 @@ class BulkDiscountDialog extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color:
-                                      Colors.green.withOpacity(0.1),
-                                      borderRadius:
-                                      BorderRadius.circular(4),
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomText(
                                       text: "$discount% OFF per piece",
@@ -743,7 +731,7 @@ class BulkDiscountDialog extends StatelessWidget {
                                 ] else ...[
                                   CustomText(
                                     text:
-                                    "PKR ${originalPrice.toStringAsFixed(0)} per piece",
+                                        "PKR ${originalPrice.toStringAsFixed(0)} per piece",
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF2D3142),
@@ -753,10 +741,8 @@ class BulkDiscountDialog extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color:
-                                      Colors.green.withOpacity(0.1),
-                                      borderRadius:
-                                      BorderRadius.circular(4),
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: CustomText(
                                       text: "PKR $discount OFF on total",
@@ -795,7 +781,7 @@ class BulkDiscountDialog extends StatelessWidget {
                   Expanded(
                     child: CustomText(
                       text:
-                      "Each carton contains ${product.cortanSize} pieces. Percentage discounts apply per piece, flat discounts apply to total order.",
+                          "Each carton contains ${product.cortanSize} pieces. Percentage discounts apply per piece, flat discounts apply to total order.",
                       fontSize: 10,
                       color: Colors.blue.shade700,
                       maxLines: 3,

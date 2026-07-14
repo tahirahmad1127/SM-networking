@@ -5,7 +5,6 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
@@ -157,9 +156,11 @@ class _VisitBottomSheetState extends State<VisitBottomSheet> {
               ),
             ),
             subtitle: const Text('Take a photo to continue'),
-            onTap: isProcessing ? null : () async {
-              await pickImage(ImageSource.camera);
-            },
+            onTap: isProcessing
+                ? null
+                : () async {
+                    await pickImage(ImageSource.camera);
+                  },
           ),
 
           const SizedBox(height: 10),
@@ -170,7 +171,10 @@ class _VisitBottomSheetState extends State<VisitBottomSheet> {
 }
 
 // Helper function to show the bottom sheet
-Future<void> showVisitBottomSheet(BuildContext context, Function(File?) onImageSelected,) async {
+Future<void> showVisitBottomSheet(
+  BuildContext context,
+  Function(File?) onImageSelected,
+) async {
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,

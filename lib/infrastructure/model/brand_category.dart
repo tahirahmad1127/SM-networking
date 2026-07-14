@@ -1,5 +1,4 @@
 // lib/infrastructure/model/brand_category.dart
-import 'dart:convert';
 
 class BrandCategoryListingModel {
   final String? msg;
@@ -13,7 +12,7 @@ class BrandCategoryListingModel {
         data: json["data"] == null
             ? []
             : List<BrandCategoryModel>.from(
-            json["data"]!.map((x) => BrandCategoryModel.fromJson(x))),
+                json["data"]!.map((x) => BrandCategoryModel.fromJson(x))),
       );
 }
 
@@ -64,10 +63,10 @@ class BrandCategoryModel {
     if (value is List) {
       return value
           .map<String>((e) {
-        if (e is String) return e;
-        if (e is Map) return e['_id']?.toString() ?? '';
-        return '';
-      })
+            if (e is String) return e;
+            if (e is Map) return e['_id']?.toString() ?? '';
+            return '';
+          })
           .where((s) => s.isNotEmpty)
           .toList();
     }
@@ -114,7 +113,7 @@ class BrandRef {
   BrandRef({this.id, this.englishName});
 
   factory BrandRef.fromJson(Map<String, dynamic> json) => BrandRef(
-    id: json["_id"]?.toString(),
-    englishName: json["englishName"],
-  );
+        id: json["_id"]?.toString(),
+        englishName: json["englishName"],
+      );
 }

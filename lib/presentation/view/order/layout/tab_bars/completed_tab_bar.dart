@@ -28,12 +28,7 @@ class _CompletedTabBarState extends State<CompletedTabBar>
   void initState() {
     super.initState();
     _bloc = sl<OrderBloc>();
-    final userId = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()!
-        .user!
-        .id
-        .toString();
-    _bloc.add(GetCompletedOrderEvent(userId));
+    _refresh();
   }
 
   @override
@@ -44,11 +39,11 @@ class _CompletedTabBarState extends State<CompletedTabBar>
 
   void _refresh() {
     final userId = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()!
-        .user!
-        .id
-        .toString();
-    _bloc.add(GetCompletedOrderEvent(userId));
+        .getSalesUserDetails()
+        ?.user
+        ?.id
+        ?.toString();
+    if (userId != null) _bloc.add(GetCompletedOrderEvent(userId));
   }
 
   @override

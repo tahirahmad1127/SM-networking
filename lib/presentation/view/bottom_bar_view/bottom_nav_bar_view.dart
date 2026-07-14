@@ -22,7 +22,7 @@ class BottomNavBarView extends StatefulWidget {
 class _BottomNavBarViewState extends State<BottomNavBarView> {
   int pageIndex = 0;
 
-  advancedStatusCheck(NewVersionPlus newVersion) {
+  void advancedStatusCheck(NewVersionPlus newVersion) {
     newVersion.getVersionStatus().then((status) {
       if (status != null && status.canUpdate) {
         newVersion.showUpdateDialog(
@@ -32,7 +32,7 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
           allowDismissal: false,
           dialogTitle: 'Update',
           dialogText:
-          "A new version of the application is available! Download it from the stores.",
+              "A new version of the application is available! Download it from the stores.",
         );
       }
     }).catchError((e) {
@@ -66,9 +66,9 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
       onWillPop: () async {
         showNavigationDialog(context,
             message: "Do you really want to exit from app?",
-            buttonText: "Yes", navigation: () {
-              exit(0);
-            }, secondButtonText: "No", showSecondButton: true);
+            buttonText: "Yes", navigation: () async {
+          exit(0);
+        }, secondButtonText: "No", showSecondButton: true);
         return Future.value(true);
       },
       child: SafeArea(
@@ -99,60 +99,60 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               onPressed: () => setState(() => pageIndex = 0),
               icon: pageIndex == 0
                   ? Container(
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  boxShadow: [
-                    BoxShadow(
-                        offset: const Offset(0, 14),
-                        blurRadius: 17,
-                        spreadRadius: 0,
-                        color: FrontendConfigs.kPrimaryColor
-                            .withOpacity(0.2)),
-                  ],
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xffFF0000).withOpacity(0.1),
-                      const Color(0xffFF0000).withOpacity(0.9),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Image.asset(
-                      'assets/icons/bottom_navigation_icons/punching_icon.png',
-                      height: 22,
-                      color: FrontendConfigs.kPrimaryColor,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Attendance",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: FrontendConfigs.kPrimaryColor,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        boxShadow: [
+                          BoxShadow(
+                              offset: const Offset(0, 14),
+                              blurRadius: 17,
+                              spreadRadius: 0,
+                              color: FrontendConfigs.kPrimaryColor
+                                  .withOpacity(0.2)),
+                        ],
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            const Color(0xffFF0000).withOpacity(0.1),
+                            const Color(0xffFF0000).withOpacity(0.9),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              )
+                      child: Column(
+                        children: [
+                          Image.asset(
+                            'assets/icons/bottom_navigation_icons/punching_icon.png',
+                            height: 22,
+                            color: FrontendConfigs.kPrimaryColor,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Attendance",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: FrontendConfigs.kPrimaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   : Column(
-                children: [
-                  Image.asset(
-                    'assets/icons/bottom_navigation_icons/punching_icon.png',
-                    height: 22,
-                    color: FrontendConfigs.kAuthTextColor,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Attendance",
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: FrontendConfigs.kAuthTextColor,
+                      children: [
+                        Image.asset(
+                          'assets/icons/bottom_navigation_icons/punching_icon.png',
+                          height: 22,
+                          color: FrontendConfigs.kAuthTextColor,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Attendance",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: FrontendConfigs.kAuthTextColor,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
 
             IconButton(
@@ -161,13 +161,13 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               onPressed: () => setState(() => pageIndex = 1),
               icon: pageIndex == 1
                   ? activeNavItem(
-                icon: const Icon(Icons.storefront),
-                label: isOrderBooker ? "Customers" : "Customers",
-              )
+                      icon: const Icon(Icons.storefront),
+                      label: isOrderBooker ? "Customers" : "Customers",
+                    )
                   : inactiveNavItem(
-                icon: const Icon(Icons.storefront),
-                label: isOrderBooker ? "Customers" : "Customers",
-              ),
+                      icon: const Icon(Icons.storefront),
+                      label: isOrderBooker ? "Customers" : "Customers",
+                    ),
             ),
 
             // 2️⃣ Sales
@@ -177,9 +177,9 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               onPressed: () => setState(() => pageIndex = 2),
               icon: pageIndex == 2
                   ? activeNavItem(
-                  svgPath: 'assets/images/target.svg', label: "Sales")
+                      svgPath: 'assets/images/target.svg', label: "Sales")
                   : inactiveNavItem(
-                  svgPath: 'assets/images/target.svg', label: "Sales"),
+                      svgPath: 'assets/images/target.svg', label: "Sales"),
             ),
 
             // 3️⃣ Orders
@@ -189,13 +189,13 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               onPressed: () => setState(() => pageIndex = 3),
               icon: pageIndex == 3
                   ? activeNavItem(
-                  svgPath:
-                  'assets/icons/bottom_navigation_icons/order_icon.svg',
-                  label: "Orders")
+                      svgPath:
+                          'assets/icons/bottom_navigation_icons/order_icon.svg',
+                      label: "Orders")
                   : inactiveNavItem(
-                  svgPath:
-                  'assets/icons/bottom_navigation_icons/order_icon.svg',
-                  label: "Orders"),
+                      svgPath:
+                          'assets/icons/bottom_navigation_icons/order_icon.svg',
+                      label: "Orders"),
             ),
 
             // 4️⃣ More
@@ -205,9 +205,9 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
               onPressed: () => setState(() => pageIndex = 4),
               icon: pageIndex == 4
                   ? activeNavItem(
-                  svgPath: 'assets/icons/more_icon.svg', label: "More")
+                      svgPath: 'assets/icons/more_icon.svg', label: "More")
                   : inactiveNavItem(
-                  svgPath: 'assets/icons/more_icon.svg', label: "More"),
+                      svgPath: 'assets/icons/more_icon.svg', label: "More"),
             ),
           ],
         ),
@@ -242,11 +242,13 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
             SvgPicture.asset(svgPath,
                 height: 22, color: FrontendConfigs.kPrimaryColor)
           else if (icon != null)
-            IconTheme(data: IconThemeData(color: FrontendConfigs.kPrimaryColor), child: icon),
+            IconTheme(
+                data: IconThemeData(color: FrontendConfigs.kPrimaryColor),
+                child: icon),
           const SizedBox(height: 4),
           Text(label,
-              style: TextStyle(
-                  fontSize: 11, color: FrontendConfigs.kPrimaryColor),
+              style:
+                  TextStyle(fontSize: 11, color: FrontendConfigs.kPrimaryColor),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
         ],
@@ -255,18 +257,21 @@ class _BottomNavBarViewState extends State<BottomNavBarView> {
   }
 
   /// Helper widget for inactive state
-  Widget inactiveNavItem({String? svgPath, Widget? icon, required String label}) {
+  Widget inactiveNavItem(
+      {String? svgPath, Widget? icon, required String label}) {
     return Column(
       children: [
         if (svgPath != null)
           SvgPicture.asset(svgPath,
               height: 22, color: FrontendConfigs.kAuthTextColor)
         else if (icon != null)
-          IconTheme(data: IconThemeData(color: FrontendConfigs.kAuthTextColor), child: icon),
+          IconTheme(
+              data: IconThemeData(color: FrontendConfigs.kAuthTextColor),
+              child: icon),
         const SizedBox(height: 4),
         Text(label,
             style:
-            TextStyle(fontSize: 11, color: FrontendConfigs.kAuthTextColor),
+                TextStyle(fontSize: 11, color: FrontendConfigs.kAuthTextColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
       ],

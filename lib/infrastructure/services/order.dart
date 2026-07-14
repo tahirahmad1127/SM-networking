@@ -1,13 +1,8 @@
-import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:dartz/dartz.dart';
-import 'package:sm_networking/infrastructure/model/category.dart';
 import 'package:sm_networking/infrastructure/model/create_order.dart';
 import 'package:sm_networking/infrastructure/model/order.dart';
-import 'package:sm_networking/infrastructure/model/retailer.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
 
 import '../../configurations/end_points.dart';
 import '../api_helper.dart';
@@ -35,7 +30,6 @@ abstract class OrderRepository {
 }
 
 class OrderRepositoryImp extends OrderRepository {
-
   // static const String bypass = "?x-vercel-protection-bypass=karyanadevserverkaryanadevserver";
   // static const String bypassAnd = "&x-vercel-protection-bypass=karyanadevserverkaryanadevserver";
   //
@@ -137,7 +131,8 @@ class OrderRepositoryImp extends OrderRepository {
   }
 
   @override
-  Future<Either<GlobalErrorModel, dynamic>> createOrder(CreateOrderModel model) async {
+  Future<Either<GlobalErrorModel, dynamic>> createOrder(
+      CreateOrderModel model) async {
     var data = await ApiBaseHelper().postEither(
         endPoint: ApiEndPoints.kAddOrder,
         isRequiredHeader: true,
@@ -154,12 +149,11 @@ class OrderRepositoryImp extends OrderRepository {
           "couponCode": model.couponCode,
           "items": model.items!.map((e) => e.toJson()).toList()
         },
-
         header: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         });
-    log( {
+    log({
       "warehouseManager": model.retailerUser.toString(),
       "salesPerson": model.saleUser,
       "phoneNumber": model.phoneNumber,
@@ -182,14 +176,17 @@ class OrderRepositoryImp extends OrderRepository {
   }
 
   @override
-  Future<Either<GlobalErrorModel, dynamic>> createDraft(CreateOrderModel model) async {
+  Future<Either<GlobalErrorModel, dynamic>> createDraft(
+      CreateOrderModel model) async {
     var data = await ApiBaseHelper().postEither(
         endPoint: ApiEndPoints.kAddOrder,
         isRequiredHeader: true,
         hasBody: true,
         body: {
-          "warehouseManager": model.saleUser,         // TSM id — backend filters drafts by this
-          "salesPerson": model.retailerUser.toString(), // distributor/retailer id
+          "warehouseManager":
+              model.saleUser, // TSM id — backend filters drafts by this
+          "salesPerson":
+              model.retailerUser.toString(), // distributor/retailer id
           "phoneNumber": model.phoneNumber,
           "paymentType": model.paymentType,
           "shippingAddress": model.shippingAddress,
@@ -214,7 +211,8 @@ class OrderRepositoryImp extends OrderRepository {
   }
 
   @override
-  Future<Either<GlobalErrorModel, OrderListingModel>> getDrafts(String tsmId) async {
+  Future<Either<GlobalErrorModel, OrderListingModel>> getDrafts(
+      String tsmId) async {
     var data = await ApiBaseHelper().getEither(
         endPoint: "${ApiEndPoints.kGetDrafts}$tsmId/drafts",
         isRequiredHeader: true,

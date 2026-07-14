@@ -25,6 +25,8 @@ abstract class ProductRepository {
   Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByCategory({
     required String categoryID,
     required int page,
+    int limit = 10,
+    String? searchTerm,
   });
 }
 
@@ -108,14 +110,20 @@ class ProductRepositoryImp extends ProductRepository {
   Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByCategory({
     required String categoryID,
     required int page,
+    int limit = 10,
+    String? searchTerm,
   }) async {
     // "All" tab selected — no category filter, return empty so UI stays clean
     if (categoryID.isEmpty) {
       return Right(ProductListingModel(msg: "success", data: []));
     }
 
-    final String endpoint =
-        '${ApiEndPoints.kGetProductsByCategory}$categoryID?page=$page';
+    final String endpoint = ApiEndPoints.kGetProductsByCategoryPaginated(
+      categoryId: categoryID,
+      page: page,
+      limit: limit,
+      searchTerm: searchTerm,
+    );
     log('ProductRepo.getProductsByCategory → $endpoint');
 
     final token = await getAuthToken();

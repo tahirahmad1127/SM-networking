@@ -89,7 +89,7 @@ class _AddWholesalerRetailerViewState
   File? _profileImage;
 
   // ── Map ───────────────────────────────────────────────────────────────────
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   LatLng? _currentLocation;
   GoogleMapController? _mapController;
   final Completer<GoogleMapController> _mapCompleter = Completer();
@@ -164,7 +164,7 @@ class _AddWholesalerRetailerViewState
   Future<void> _initLocation() async {
     try {
       final pos = await determinePosition();
-      final latLng = LatLng(pos.latitude!, pos.longitude!);
+      final latLng = LatLng(pos.latitude, pos.longitude);
       _currentLocation = latLng;
       _lat = pos.latitude;
       _lng = pos.longitude;
@@ -450,8 +450,9 @@ class _AddWholesalerRetailerViewState
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))
                 ],
                 onChanged: (_) {
-                  if (_nameError != null)
+                  if (_nameError != null) {
                     setState(() => _nameError = null);
+                  }
                 },
                 decoration: _fieldDecoration("Full Name").copyWith(
                   errorText: _nameError,
@@ -470,8 +471,9 @@ class _AddWholesalerRetailerViewState
                   LengthLimitingTextInputFormatter(13),
                 ],
                 onChanged: (_) {
-                  if (_contactError != null)
+                  if (_contactError != null) {
                     setState(() => _contactError = null);
+                  }
                 },
                 decoration:
                 _fieldDecoration("e.g. 03001234567").copyWith(

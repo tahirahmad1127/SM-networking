@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
 import 'package:sm_networking/presentation/view/bottom_bar_view/bottom_nav_bar_view.dart';
 
@@ -18,9 +17,8 @@ class DraftSavedView extends StatelessWidget {
           onPressed: () {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                  builder: (context) => const BottomNavBarView()),
-                  (route) => false,
+              MaterialPageRoute(builder: (context) => const BottomNavBarView()),
+              (route) => false,
             );
           },
           btnLabel: 'Continue Shopping',
@@ -83,7 +81,7 @@ class DraftSavedView extends StatelessWidget {
                 width: MediaQuery.of(context).size.width * 0.7,
                 child: CustomText(
                   text:
-                  'Your order has been saved as a draft. You can find it in the Drafts tab in your Orders screen.',
+                      'Your order has been saved as a draft. You can find it in the Drafts tab in your Orders screen.',
                   textAlign: TextAlign.center,
                 ),
               ),

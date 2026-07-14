@@ -1,4 +1,3 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
 import '../../../configurations/frontend_configs.dart';

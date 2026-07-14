@@ -52,16 +52,24 @@ class _CheckOutBodyState extends State<CheckOutBody> {
   // instead of being lost outright.
   PendingSyncOrder? _lastAttemptedOrder;
 
+  // "Place Order" does real async work (reverse geocoding, visit lookup,
+  // connectivity check) before the OrderBloc ever gets CreateOrderEvent —
+  // which is the only thing that flips the bloc-driven LoadingOverlay on.
+  // Without this, that whole stretch shows zero feedback and a double-tap
+  // could fire two orders.
+  bool _isPlacingOrder = false;
+
   @override
   void initState() {
     var user = Provider.of<UserProvider>(context, listen: false);
-    RetailerRepositoryImp()
-        .getRetailers(user.getSalesUserDetails()!.user!.zone.toString())
-        .then((val) {
-      val.fold((e) {}, (r) {
-        retailersList = r.data!;
+    final zone = user.getSalesUserDetails()?.user?.zone;
+    if (zone != null) {
+      RetailerRepositoryImp().getRetailers(zone.toString()).then((val) {
+        val.fold((e) {}, (r) {
+          if (mounted) retailersList = r.data ?? [];
+        });
       });
-    });
+    }
     super.initState();
   }
 
@@ -99,7 +107,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const DraftSavedView()),
-                      (route) => false,
+                  (route) => false,
                 );
               } else if (state is OrderCreated) {
                 _lastAttemptedOrder = null;
@@ -112,11 +120,11 @@ class _CheckOutBodyState extends State<CheckOutBody> {
               } else if (state is OrderFailed) {
                 final pending = _lastAttemptedOrder;
                 final msg = state.message.toString();
-                final looksLikeNetworkFailure = msg.contains(
-                    "not connected to the internet") ||
-                    msg.contains("undergoing maintenance") ||
-                    msg.contains("unable to complete your request") ||
-                    msg.contains("unable to connect our servers");
+                final looksLikeNetworkFailure =
+                    msg.contains("not connected to the internet") ||
+                        msg.contains("undergoing maintenance") ||
+                        msg.contains("unable to complete your request") ||
+                        msg.contains("unable to connect our servers");
 
                 if (pending != null && looksLikeNetworkFailure) {
                   PendingSyncService.add(pending).then((_) {
@@ -185,7 +193,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
         child: BlocBuilder<OrderBloc, OrderState>(
           builder: (context, state) {
             return LoadingOverlay(
-              isLoading: state is OrderLoading,
+              isLoading: state is OrderLoading || _isPlacingOrder,
               progressIndicator: const ProcessingWidget(),
               color: Colors.transparent,
               child: SafeArea(
@@ -250,7 +258,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                         text: retailer.getRetailer() == null
                                             ? "Select Retailer"
                                             : _resolveShippingAddress(
-                                            retailer.getRetailer()!),
+                                                retailer.getRetailer()!),
                                         maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -484,7 +492,6 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                       */
 
                       const SizedBox(height: 16),
-
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 18.0),
                         child: Column(
@@ -502,7 +509,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -540,7 +547,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             if (cart.getTotalBulkDiscount() > 0) ...[
                               Row(
                                 mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   CustomText(
                                     text: "Subtotal (Original)",
@@ -550,7 +557,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                   ),
                                   CustomText(
                                     text:
-                                    "${cart.getSubTotalWithoutAnyDiscount().toStringAsFixed(2)} Rs",
+                                        "${cart.getSubTotalWithoutAnyDiscount().toStringAsFixed(2)} Rs",
                                     fontSize: 13,
                                     color: FrontendConfigs.kAuthTextColor,
                                     fontWeight: FontWeight.w600,
@@ -561,7 +568,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                               if (cart.getTotalBulkDiscount() > 0) ...[
                                 Row(
                                   mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -578,7 +585,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                     ),
                                     CustomText(
                                       text:
-                                      "- ${cart.getTotalBulkDiscount().toStringAsFixed(2)} Rs",
+                                          "- ${cart.getTotalBulkDiscount().toStringAsFixed(2)} Rs",
                                       fontSize: 12,
                                       color: Colors.green,
                                       fontWeight: FontWeight.w600,
@@ -624,25 +631,22 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             ],
 
                             Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 CustomText(
-                                  text:
-                                  "x ${cart.cartItems.length} Items",
+                                  text: "x ${cart.cartItems.length} Items",
                                   fontSize: 12,
                                   color: FrontendConfigs.kAuthTextColor,
                                 ),
                                 CustomText(
                                   text:
-                                  "${cart.getSubTotal().toStringAsFixed(2)} Rs",
+                                      "${cart.getSubTotal().toStringAsFixed(2)} Rs",
                                 )
                               ],
                             ),
                             const SizedBox(height: 11),
                             Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 CustomText(
                                   text: TranslationHelper.getTranslatedText(
@@ -653,7 +657,7 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 ),
                                 CustomText(
                                   text:
-                                  "${cart.getSubTotal().toStringAsFixed(2)} Rs",
+                                      "${cart.getSubTotal().toStringAsFixed(2)} Rs",
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: FrontendConfigs.kPrimaryColor,
@@ -673,63 +677,110 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                       onPressed: () async {
                                         if (retailer.getRetailer() == null) {
                                           getFlushBar(context,
-                                              title: "Kindly select retailer in order to proceed.");
+                                              title:
+                                                  "Kindly select retailer in order to proceed.");
                                           return;
                                         }
-                                        final selectedRetailer = retailer.getRetailer()!;
-                                        final userDetails = user.getSalesUserDetails()!.user!;
-                                        final shippingAddress = _resolveShippingAddress(selectedRetailer);
+                                        if (user.getSalesUserDetails()?.user == null) {
+                                          getFlushBar(context,
+                                              title:
+                                                  "Session expired. Please sign in again.");
+                                          return;
+                                        }
+                                        final selectedRetailer =
+                                            retailer.getRetailer()!;
+                                        final userDetails =
+                                            user.getSalesUserDetails()!.user!;
+                                        final shippingAddress =
+                                            _resolveShippingAddress(
+                                                selectedRetailer);
 
                                         BlocProvider.of<OrderBloc>(context).add(
                                           CreateDraftEvent(CreateOrderModel(
-                                            retailerUser: selectedRetailer.id.toString(),
+                                            retailerUser:
+                                                selectedRetailer.id.toString(),
                                             saleUser: userDetails.id.toString(),
-                                            orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
-                                            phoneNumber: (selectedRetailer.phoneNumber == null ||
-                                                selectedRetailer.phoneNumber!.isEmpty)
+                                            orderType: selectedRetailer
+                                                        .customerType
+                                                        .toLowerCase() ==
+                                                    'distributor'
+                                                ? 'company'
+                                                : 'market_booking',
+                                            phoneNumber: (selectedRetailer
+                                                            .phoneNumber ==
+                                                        null ||
+                                                    selectedRetailer
+                                                        .phoneNumber!.isEmpty)
                                                 ? "N/A"
                                                 : selectedRetailer.phoneNumber!,
                                             city: userDetails.zone.toString(),
                                             paymentType: "cod",
-                                            couponCode: couponController.text.trim(),
+                                            couponCode:
+                                                couponController.text.trim(),
                                             shippingAddress: shippingAddress,
                                             status: "Draft",
-                                            bulkDiscount: cart.getTotalBulkDiscount() > 0
-                                                ? cart.getTotalBulkDiscount().toDouble()
-                                                : null,
-                                            couponDiscount: cart.hasCouponApplied()
-                                                ? cart.getTotalCouponDiscount().toDouble()
+                                            bulkDiscount:
+                                                cart.getTotalBulkDiscount() > 0
+                                                    ? cart
+                                                        .getTotalBulkDiscount()
+                                                        .toDouble()
+                                                    : null,
+                                            couponDiscount: cart
+                                                    .hasCouponApplied()
+                                                ? cart
+                                                    .getTotalCouponDiscount()
+                                                    .toDouble()
                                                 : null,
                                             items: cart.cartItems.map((e) {
-                                              final totalFinalPrice = cart.calculateItemFinalPrice(e);
-                                              final totalOriginalPrice = cart.getItemOriginalPrice(e);
+                                              final totalFinalPrice = cart
+                                                  .calculateItemFinalPrice(e);
+                                              final totalOriginalPrice =
+                                                  cart.getItemOriginalPrice(e);
                                               num finalPiecePrice;
                                               num originalPiecePrice;
-                                              if (e.type.toLowerCase() == "ctn") {
-                                                int cartonSize = e.productDetails.cortanSize ?? 1;
-                                                int totalPieces = e.quantity * cartonSize;
-                                                finalPiecePrice = totalFinalPrice / totalPieces;
-                                                originalPiecePrice = totalOriginalPrice / totalPieces;
+                                              if (e.type.toLowerCase() ==
+                                                  "ctn") {
+                                                int cartonSize = e
+                                                        .productDetails
+                                                        .cortanSize ??
+                                                    1;
+                                                int totalPieces =
+                                                    e.quantity * cartonSize;
+                                                finalPiecePrice =
+                                                    totalFinalPrice /
+                                                        totalPieces;
+                                                originalPiecePrice =
+                                                    totalOriginalPrice /
+                                                        totalPieces;
                                               } else {
-                                                finalPiecePrice = totalFinalPrice / e.quantity;
-                                                originalPiecePrice = totalOriginalPrice / e.quantity;
+                                                finalPiecePrice =
+                                                    totalFinalPrice /
+                                                        e.quantity;
+                                                originalPiecePrice =
+                                                    totalOriginalPrice /
+                                                        e.quantity;
                                               }
                                               return OrderItem(
                                                 productId: e.productDetails.id,
                                                 quantity: e.quantity,
-                                                cartonSize: e.productDetails.cortanSize,
+                                                cartonSize:
+                                                    e.productDetails.cortanSize,
                                                 type: e.type,
                                                 price: originalPiecePrice,
-                                                discountedPrice: finalPiecePrice,
+                                                discountedPrice:
+                                                    finalPiecePrice,
                                               );
                                             }).toList(),
                                           )),
                                         );
                                       },
                                       style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: FrontendConfigs.kPrimaryColor),
+                                        side: BorderSide(
+                                            color:
+                                                FrontendConfigs.kPrimaryColor),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                       ),
                                       child: Text(
@@ -748,33 +799,46 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                 Expanded(
                                   child: AppButton(
                                     onPressed: () async {
+                                      if (_isPlacingOrder) return;
+                                      setState(() => _isPlacingOrder = true);
+                                      try {
                                       final visitProvider =
-                                      Provider.of<VisitProvider>(context,
-                                          listen: false);
+                                          Provider.of<VisitProvider>(context,
+                                              listen: false);
 
                                       if (visitProvider.isVisitAutoLogged) {
                                         getFlushBar(context,
                                             title:
-                                            "Cannot place order. You moved away from the location.");
+                                                "Cannot place order. You moved away from the location.");
                                         return;
                                       }
 
                                       if (retailer.getRetailer() == null) {
                                         getFlushBar(context,
                                             title:
-                                            "Kindly select retailer in order to proceed.");
+                                                "Kindly select retailer in order to proceed.");
+                                        return;
+                                      }
+
+                                      if (user.getSalesUserDetails()?.user == null) {
+                                        getFlushBar(context,
+                                            title:
+                                                "Session expired. Please sign in again.");
                                         return;
                                       }
 
                                       // ── reverse geocode from retailer lat/lng ──
-                                      String shippingAddress = _resolveShippingAddress(
-                                          retailer.getRetailer()!);
+                                      String shippingAddress =
+                                          _resolveShippingAddress(
+                                              retailer.getRetailer()!);
                                       final rLat = retailer.getRetailer()!.lat;
                                       final rLng = retailer.getRetailer()!.lng;
                                       if (rLat != null && rLng != null) {
                                         try {
-                                          final placemarks = await placemarkFromCoordinates(
-                                              rLat.toDouble(), rLng.toDouble());
+                                          final placemarks =
+                                              await placemarkFromCoordinates(
+                                                  rLat.toDouble(),
+                                                  rLng.toDouble());
                                           if (placemarks.isNotEmpty) {
                                             final p = placemarks.first;
                                             final parts = [
@@ -783,9 +847,14 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                               p.subLocality,
                                               p.locality,
                                               p.administrativeArea,
-                                            ].where((s) => s != null && s.isNotEmpty).toList();
+                                            ]
+                                                .where((s) =>
+                                                    s != null && s.isNotEmpty)
+                                                .toList();
                                             final geocoded = parts.join(', ');
-                                            if (geocoded.isNotEmpty) shippingAddress = geocoded;
+                                            if (geocoded.isNotEmpty) {
+                                              shippingAddress = geocoded;
+                                            }
                                             log("📍 Geocoded shipping address: $shippingAddress");
                                           }
                                         } catch (e) {
@@ -794,15 +863,15 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                       }
 
                                       final userDetails =
-                                      user.getSalesUserDetails()!.user!;
+                                          user.getSalesUserDetails()!.user!;
                                       final selectedRetailer =
-                                      retailer.getRetailer()!;
+                                          retailer.getRetailer()!;
                                       final locationProvider =
-                                      Provider.of<LocationProvider>(context,
-                                          listen: false);
+                                          Provider.of<LocationProvider>(context,
+                                              listen: false);
 
                                       final startVisit =
-                                      await visitProvider.getStartVisit();
+                                          await visitProvider.getStartVisit();
                                       final visitLocation =
                                           visitProvider.visitLocation;
 
@@ -816,12 +885,15 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                               retailerId: selectedRetailer.id
                                                   .toString(),
                                               salesPersonId:
-                                              userDetails.id.toString(),
-                                              shopName: selectedRetailer.shopName ?? '',
+                                                  userDetails.id.toString(),
+                                              shopName:
+                                                  selectedRetailer.shopName ??
+                                                      '',
                                               retailerEmail: '',
-                                              retailerImage: selectedRetailer.image ?? '',
-                                              startTime: startVisit
-                                                  ?.toIso8601String(),
+                                              retailerImage:
+                                                  selectedRetailer.image ?? '',
+                                              startTime:
+                                                  startVisit.toIso8601String(),
                                               endTime: DateTime.now()
                                                   .toIso8601String(),
                                               date: DateTime.now()
@@ -834,45 +906,50 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                               .add(AddVisitEvent(visit));
                                         } else {
                                           final currentLocation =
-                                          locationProvider.getLatLng();
+                                              locationProvider.getLatLng();
 
                                           if (currentLocation == null) {
                                             getFlushBar(context,
                                                 title:
-                                                "Current location not available");
+                                                    "Current location not available");
                                             return;
                                           }
 
                                           final hasMovedAway = visitProvider
                                               .hasMovedBeyondThreshold(
-                                              currentLocation,
-                                              thresholdMeters: 20);
+                                                  currentLocation,
+                                                  thresholdMeters: 20);
 
                                           final visit = VisitModel(
                                               retailerId: selectedRetailer.id
                                                   .toString(),
                                               salesPersonId:
-                                              userDetails.id.toString(),
-                                              shopName: selectedRetailer.shopName ?? '',
+                                                  userDetails.id.toString(),
+                                              shopName:
+                                                  selectedRetailer.shopName ??
+                                                      '',
                                               retailerEmail: '',
-                                              retailerImage: selectedRetailer.image ?? '',
-                                              startTime: startVisit
-                                                  ?.toIso8601String(),
+                                              retailerImage:
+                                                  selectedRetailer.image ?? '',
+                                              startTime:
+                                                  startVisit.toIso8601String(),
                                               endTime: DateTime.now()
                                                   .toIso8601String(),
                                               date: DateTime.now()
                                                   .toString()
                                                   .split(' ')[0],
-                                              image: visitProvider.visitImage ?? "");
+                                              image: visitProvider.visitImage ??
+                                                  "");
 
                                           if (hasMovedAway) {
                                             context
                                                 .read<VisitBloc>()
                                                 .add(AddVisitEvent(visit));
-                                            await visitProvider.clearVisitData();
+                                            await visitProvider
+                                                .clearVisitData();
                                             getFlushBar(context,
                                                 title:
-                                                "Visit logged. You moved away from the location. Order not placed.");
+                                                    "Visit logged. You moved away from the location. Order not placed.");
                                             Navigator.pop(context);
                                             return;
                                           }
@@ -883,53 +960,65 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                         }
                                       }
 
-                                      final couponCode = cart.hasCouponApplied() &&
-                                          couponController.text.trim().isNotEmpty
-                                          ? couponController.text.trim()
-                                          : "";
+                                      final couponCode =
+                                          cart.hasCouponApplied() &&
+                                                  couponController.text
+                                                      .trim()
+                                                      .isNotEmpty
+                                              ? couponController.text.trim()
+                                              : "";
 
                                       final orderModel = CreateOrderModel(
-                                        retailerUser: selectedRetailer.id.toString(),
+                                        retailerUser:
+                                            selectedRetailer.id.toString(),
                                         saleUser: userDetails.id.toString(),
-                                        orderType: selectedRetailer.customerType.toLowerCase() == 'distributor' ? 'company' : 'market_booking',
-                                        phoneNumber: (selectedRetailer.phoneNumber ==
-                                            null ||
-                                            selectedRetailer.phoneNumber!.isEmpty)
-                                            ? "N/A"
-                                            : selectedRetailer.phoneNumber!,
+                                        orderType: selectedRetailer.customerType
+                                                    .toLowerCase() ==
+                                                'distributor'
+                                            ? 'company'
+                                            : 'market_booking',
+                                        phoneNumber:
+                                            (selectedRetailer.phoneNumber ==
+                                                        null ||
+                                                    selectedRetailer
+                                                        .phoneNumber!.isEmpty)
+                                                ? "N/A"
+                                                : selectedRetailer.phoneNumber!,
                                         city: userDetails.zone.toString(),
                                         paymentType: "cod",
                                         couponCode: couponCode,
                                         shippingAddress: shippingAddress,
                                         bulkDiscount:
-                                        cart.getTotalBulkDiscount() > 0
-                                            ? cart
-                                            .getTotalBulkDiscount()
-                                            .toDouble()
-                                            : null,
+                                            cart.getTotalBulkDiscount() > 0
+                                                ? cart
+                                                    .getTotalBulkDiscount()
+                                                    .toDouble()
+                                                : null,
                                         couponDiscount: cart.hasCouponApplied()
                                             ? cart
-                                            .getTotalCouponDiscount()
-                                            .toDouble()
+                                                .getTotalCouponDiscount()
+                                                .toDouble()
                                             : null,
                                         items: cart.cartItems.map((e) {
                                           final totalFinalPrice =
-                                          cart.calculateItemFinalPrice(e);
+                                              cart.calculateItemFinalPrice(e);
                                           final totalOriginalPrice =
-                                          cart.getItemOriginalPrice(e);
+                                              cart.getItemOriginalPrice(e);
 
                                           num finalPiecePrice;
                                           num originalPiecePrice;
 
                                           if (e.type.toLowerCase() == "ctn") {
                                             int cartonSize =
-                                                e.productDetails.cortanSize ?? 1;
+                                                e.productDetails.cortanSize ??
+                                                    1;
                                             int totalPieces =
                                                 e.quantity * cartonSize;
                                             finalPiecePrice =
                                                 totalFinalPrice / totalPieces;
                                             originalPiecePrice =
-                                                totalOriginalPrice / totalPieces;
+                                                totalOriginalPrice /
+                                                    totalPieces;
                                           } else {
                                             finalPiecePrice =
                                                 totalFinalPrice / e.quantity;
@@ -941,36 +1030,36 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                             productId: e.productDetails.id,
                                             quantity: e.quantity,
                                             cartonSize:
-                                            e.productDetails.cortanSize,
+                                                e.productDetails.cortanSize,
                                             type: e.type,
                                             price: originalPiecePrice,
-                                            discountedPrice:
-                                            finalPiecePrice,
+                                            discountedPrice: finalPiecePrice,
                                           );
                                         }).toList(),
                                       );
 
                                       final itemInfo = cart.cartItems
                                           .map((e) => PendingSyncItemInfo(
-                                        productName: e.name,
-                                        productImage: e.image,
-                                      ))
+                                                productName: e.name,
+                                                productImage: e.image,
+                                              ))
                                           .toList();
 
                                       // ── Online/offline branch ──
                                       // Try a real reachability check (not just
                                       // OS-level connectivity) before deciding.
-                                      final isOnline = await InternetConnectivityHelper
-                                          .checkConnectivityFast();
+                                      final isOnline =
+                                          await InternetConnectivityHelper
+                                              .checkConnectivityFast();
 
                                       if (isOnline) {
                                         _lastAttemptedOrder = PendingSyncOrder(
                                           localId: const Uuid().v4(),
                                           model: orderModel,
-                                          customerName: selectedRetailer
-                                              .shopName ??
-                                              selectedRetailer.name ??
-                                              'Customer',
+                                          customerName:
+                                              selectedRetailer.shopName ??
+                                                  selectedRetailer.name ??
+                                                  'Customer',
                                           total: cart.getSubTotal().toDouble(),
                                           createdAt: DateTime.now(),
                                           itemInfo: itemInfo,
@@ -986,11 +1075,12 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                           PendingSyncOrder(
                                             localId: const Uuid().v4(),
                                             model: orderModel,
-                                            customerName: selectedRetailer
-                                                .shopName ??
-                                                selectedRetailer.name ??
-                                                'Customer',
-                                            total: cart.getSubTotal().toDouble(),
+                                            customerName:
+                                                selectedRetailer.shopName ??
+                                                    selectedRetailer.name ??
+                                                    'Customer',
+                                            total:
+                                                cart.getSubTotal().toDouble(),
                                             createdAt: DateTime.now(),
                                             itemInfo: itemInfo,
                                           ),
@@ -1001,14 +1091,21 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                                             context,
                                             MaterialPageRoute(
                                                 builder: (context) =>
-                                                const OrderPlacedView()),
+                                                    const OrderPlacedView()),
                                           );
                                         }
                                       }
 
                                       await visitProvider.clearVisitData();
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() => _isPlacingOrder = false);
+                                        }
+                                      }
                                     },
-                                    btnLabel: TranslationHelper.getTranslatedText('place_order'),
+                                    btnLabel:
+                                        TranslationHelper.getTranslatedText(
+                                            'place_order'),
                                     btnColor: Colors.black,
                                     height: 48,
                                   ),

@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sm_networking/infrastructure/model/category.dart';
 import 'package:sm_networking/infrastructure/model/privacy_policy.dart';
-import 'package:sm_networking/infrastructure/model/terms_condition.dart';
 
 class PrivacyPolicyServices {
   ///Stream Privacy Policy

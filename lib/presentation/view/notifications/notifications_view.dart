@@ -7,7 +7,7 @@ import '../../../infrastructure/model/notification.dart';
 class NotificationView extends StatelessWidget {
   final List<NotificationModel> list;
 
-  NotificationView({Key? key, required this.list}) : super(key: key);
+  const NotificationView({super.key, required this.list});
 
   @override
   Widget build(BuildContext context) {

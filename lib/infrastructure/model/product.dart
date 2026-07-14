@@ -13,10 +13,19 @@ String productListingModelToJson(ProductListingModel data) =>
 class ProductListingModel {
   final String? msg;
   final List<ProductModel>? data;
+  // Pagination metadata — present on the paginated browse/search endpoints
+  // (product/category/, product/by-brand/.../category/, product/search);
+  // absent (→ null) on older non-paginated call sites.
+  final int? total;
+  final int? page;
+  final int? totalPages;
 
   ProductListingModel({
     this.msg,
     this.data,
+    this.total,
+    this.page,
+    this.totalPages,
   });
 
   /// The API returns products under either "data" or "products" key depending
@@ -29,6 +38,9 @@ class ProductListingModel {
           ? []
           : List<ProductModel>.from(
           (rawList as List).map((x) => ProductModel.fromJson(x))),
+      total: (json["total"] as num?)?.toInt(),
+      page: (json["page"] as num?)?.toInt(),
+      totalPages: (json["totalPages"] as num?)?.toInt(),
     );
   }
 
@@ -37,6 +49,9 @@ class ProductListingModel {
     "data": data == null
         ? []
         : List<dynamic>.from(data!.map((x) => x.toJson())),
+    "total": total,
+    "page": page,
+    "totalPages": totalPages,
   };
 }
 

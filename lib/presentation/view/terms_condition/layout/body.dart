@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:sm_networking/application/setting_bloc/setting_bloc.dart';
-import 'package:sm_networking/infrastructure/model/terms_condition.dart';
-import 'package:sm_networking/infrastructure/services/setting.dart';
 import 'package:sm_networking/presentation/view/order/no_data_found_view.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../injection_container.dart';
 import '../../../elements/processing_widget.dart';

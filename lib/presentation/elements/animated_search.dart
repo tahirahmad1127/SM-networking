@@ -58,7 +58,11 @@ class _AnimatedSearchAppBarState extends State<AnimatedSearchAppBar> {
               filled: true),
           style: TextStyle(color: FrontendConfigs.kAuthTextColor),
           autofocus: true,
-          onChanged: widget.onSearch,
+          // Search only runs when the user submits (keyboard search key or
+          // tapping it), not on every keystroke — matches the on-submit
+          // search behavior used across the app's paginated list screens.
+          textInputAction: TextInputAction.search,
+          onSubmitted: widget.onSearch,
         ),
         crossFadeState: _isSearchVisible
             ? CrossFadeState.showSecond

@@ -4,10 +4,8 @@ import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/injection_container.dart';
 
 import '../../../application/pending_sync_provider.dart';
-import '../../../configurations/translation_helper.dart';
 import 'package:provider/provider.dart';
 import '../../../application/user_provider.dart';
-import '../../elements/custom_text.dart';
 import '../pending_sync/pending_sync_view.dart';
 import 'layout/body.dart';
 import '../../../application/attendance_bloc/attendance_bloc.dart';
@@ -51,7 +49,9 @@ class _AttendanceViewState extends State<AttendanceView> {
       child: Builder(
         builder: (context) {
           final role = Provider.of<UserProvider>(context, listen: false)
-              .getSalesUserDetails()?.role ?? '';
+                  .getSalesUserDetails()
+                  ?.role ??
+              '';
           final isWarehouseManager = role == 'warehouseManager';
 
           return Scaffold(
@@ -90,7 +90,9 @@ class _AttendanceViewState extends State<AttendanceView> {
                                 minWidth: 22, minHeight: 22),
                             child: Center(
                               child: Text(
-                                provider.count > 99 ? '99+' : '${provider.count}',
+                                provider.count > 99
+                                    ? '99+'
+                                    : '${provider.count}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,

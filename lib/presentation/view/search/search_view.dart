@@ -4,7 +4,7 @@ import 'package:sm_networking/presentation/elements/custom_appbar.dart';
 import 'layout/body.dart';
 
 class SearchView extends StatelessWidget {
-  const SearchView({Key? key}) : super(key: key);
+  const SearchView({super.key});
 
   @override
   Widget build(BuildContext context) {

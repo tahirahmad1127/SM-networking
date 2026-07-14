@@ -27,16 +27,24 @@ class BrandCategoryService {
     );
   }
 
-  /// GET product/by-brand/{brandId}/category/{categoryId}?page={page}
+  /// GET product/by-brand/{brandId}/category/{categoryId}?page=&limit=&searchTerm=
   /// Returns only products belonging to the specific brand AND category.
   Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByBrandAndCategory({
     required String brandId,
     required String categoryID,
     required int page,
+    int limit = 10,
+    String? searchTerm,
   }) async {
     final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
-      endPoint: '${ApiEndPoints.kGetProductsByBrandAndCategory}$brandId/category/$categoryID?page=$page&limit=500',
+      endPoint: ApiEndPoints.kGetProductsByBrandAndCategoryPaginated(
+        brandId: brandId,
+        categoryId: categoryID,
+        page: page,
+        limit: limit,
+        searchTerm: searchTerm,
+      ),
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
@@ -53,18 +61,20 @@ class BrandCategoryService {
   /// GET /api/product/search?searchTerm=&brand=&category=&page=&limit=
   Future<Either<GlobalErrorModel, ProductListingModel>> searchProducts({
     required String searchTerm,
-    required String brandId,
+    String? brandId,
     String? categoryId,
     int page = 1,
-    int limit = 50,
+    int limit = 10,
   }) async {
-    final params = StringBuffer('product/search?searchTerm=${Uri.encodeComponent(searchTerm)}&brand=$brandId&page=$page&limit=$limit');
-    if (categoryId != null && categoryId.isNotEmpty) {
-      params.write('&category=$categoryId');
-    }
     final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
-      endPoint: params.toString(),
+      endPoint: ApiEndPoints.kProductSearch(
+        searchTerm: searchTerm,
+        brandId: brandId,
+        categoryId: categoryId,
+        page: page,
+        limit: limit,
+      ),
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',
@@ -78,14 +88,21 @@ class BrandCategoryService {
     );
   }
 
-  /// GET product/category/{categoryId}?page={page}
+  /// GET product/category/{categoryId}?page=&limit=&searchTerm=
   Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByCategory({
     required String categoryID,
     required int page,
+    int limit = 10,
+    String? searchTerm,
   }) async {
     final token = await getAuthToken();
     final data = await ApiBaseHelper().getEither(
-      endPoint: '${ApiEndPoints.kGetProductsByCategory}$categoryID?page=$page&limit=500',
+      endPoint: ApiEndPoints.kGetProductsByCategoryPaginated(
+        categoryId: categoryID,
+        page: page,
+        limit: limit,
+        searchTerm: searchTerm,
+      ),
       isRequiredHeader: true,
       header: {
         'Accept': 'application/json',

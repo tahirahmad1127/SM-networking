@@ -171,4 +171,88 @@ class ApiEndPoints {
         .join('&');
     return "warehouse-manager/order-booker-report?$query";
   }
+
+  // ── Paginated customer / product listing (page/limit/searchTerm) ──────────
+  //
+  // All of these follow the backend's unified paginated-listing contract:
+  // { data: [...], total, page, totalPages }. Search is on-submit only
+  // (not as-you-type) — see PaginatedTabState in retailers_view.dart and
+  // the search wiring in brand_category/layout/body.dart.
+
+  static String _pagedQuery({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    Map<String, String?>? extra,
+  }) {
+    final params = <String, String>{
+      'page': '$page',
+      'limit': '$limit',
+      if (searchTerm != null && searchTerm.isNotEmpty) 'searchTerm': searchTerm,
+    };
+    extra?.forEach((key, value) {
+      if (value != null && value.isNotEmpty) params[key] = value;
+    });
+    return params.entries
+        .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+  }
+
+  /// warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm=
+  static String kGetDistributorsForTsm({
+    required String tsmId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+  }) =>
+      "warehouse-manager/$tsmId/distributors?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
+
+  /// wholesaler?page=&limit=&searchTerm=&zone=&town=
+  static String kGetWholesalersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+  }) =>
+      "wholesaler?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'zone': zone, 'town': town})}";
+
+  /// retailer?page=&limit=&searchTerm=&zone=&town=
+  static String kGetRetailersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+  }) =>
+      "retailer?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'zone': zone, 'town': town})}";
+
+  /// product/category/{categoryId}?page=&limit=&searchTerm=
+  static String kGetProductsByCategoryPaginated({
+    required String categoryId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+  }) =>
+      "$kGetProductsByCategory$categoryId?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
+
+  /// product/by-brand/{brandId}/category/{categoryId}?page=&limit=&searchTerm=
+  static String kGetProductsByBrandAndCategoryPaginated({
+    required String brandId,
+    required String categoryId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+  }) =>
+      "$kGetProductsByBrandAndCategory$brandId/category/$categoryId?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
+
+  /// product/search?searchTerm=&brand=&category=&page=&limit=
+  static String kProductSearch({
+    required String searchTerm,
+    String? brandId,
+    String? categoryId,
+    required int page,
+    required int limit,
+  }) =>
+      "product/search?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'brand': brandId, 'category': categoryId})}";
 }

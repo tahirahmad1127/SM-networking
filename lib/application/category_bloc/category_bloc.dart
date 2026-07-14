@@ -1,14 +1,9 @@
-import 'dart:async';
-import 'dart:developer';
-import 'dart:io';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/infrastructure/model/category.dart';
 
 import '../../../../infrastructure/services/Category.dart';
-import '../../infrastructure/model/user.dart';
 import '../../infrastructure/services/cache.dart';
 
 part 'category_event.dart';
@@ -26,13 +21,13 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
           CategoryListingModel? model =
               await CacheServices.instance.readCategories();
           // if (model == null) {
-            final failureOrSuccess =
-                await repositoryImp.getCategories(event.cityID.toString());
-            failureOrSuccess
-                .fold((l) => emit(CategoryFailed(l.error.toString())), (r) {
-              CacheServices.instance.writeCategories(r);
-              return emit(CategoryLoaded(r));
-            });
+          final failureOrSuccess =
+              await repositoryImp.getCategories(event.cityID.toString());
+          failureOrSuccess.fold((l) => emit(CategoryFailed(l.error.toString())),
+              (r) {
+            CacheServices.instance.writeCategories(r);
+            return emit(CategoryLoaded(r));
+          });
           // } else {
           //   emit(CategoryLoaded(model));
           // }

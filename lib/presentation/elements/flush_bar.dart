@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../view/cart/cart_view.dart';
 
-getFlushBar(BuildContext context,
-    {required String title,}) {
+Flushbar<dynamic> getFlushBar(
+  BuildContext context, {
+  required String title,
+}) {
   return Flushbar(
     message: title,
     icon: Icon(
@@ -18,11 +20,10 @@ getFlushBar(BuildContext context,
   )..show(context);
 }
 
-
-addToCartFlushBar(
-    BuildContext context, {
-      required String title,
-    }) {
+Flushbar<dynamic> addToCartFlushBar(
+  BuildContext context, {
+  required String title,
+}) {
   return Flushbar(
     message: title,
     icon: const Icon(

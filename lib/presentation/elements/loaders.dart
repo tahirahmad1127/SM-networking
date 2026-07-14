@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 class HorizontalProductLoader extends StatelessWidget {
-  const HorizontalProductLoader({Key? key}) : super(key: key);
+  const HorizontalProductLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 250,
       child: Center(
           child: Shimmer.fromColors(
@@ -36,11 +36,11 @@ class HorizontalProductLoader extends StatelessWidget {
 }
 
 class HorizontalBannerLoader extends StatelessWidget {
-  const HorizontalBannerLoader({Key? key}) : super(key: key);
+  const HorizontalBannerLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 200,
       child: Center(
           child: Shimmer.fromColors(
@@ -59,7 +59,7 @@ class HorizontalBannerLoader extends StatelessWidget {
 }
 
 class OrdersLoader extends StatelessWidget {
-  const OrdersLoader({Key? key}) : super(key: key);
+  const OrdersLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +71,8 @@ class OrdersLoader extends StatelessWidget {
                 itemCount: 4,
                 itemBuilder: (context, i) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 15.0,vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 15.0, vertical: 5),
                     child: Container(
                       height: 170,
                       width: MediaQuery.of(context).size.width,
@@ -84,8 +85,9 @@ class OrdersLoader extends StatelessWidget {
                 })));
   }
 }
+
 class NotificationLoader extends StatelessWidget {
-  const NotificationLoader({Key? key}) : super(key: key);
+  const NotificationLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +99,8 @@ class NotificationLoader extends StatelessWidget {
                 itemCount: 4,
                 itemBuilder: (context, i) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 15.0,vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 15.0, vertical: 5),
                     child: Container(
                       height: 80,
                       width: MediaQuery.of(context).size.width,
@@ -112,11 +115,11 @@ class NotificationLoader extends StatelessWidget {
 }
 
 class HorizontalCategoryLoader extends StatelessWidget {
-  const HorizontalCategoryLoader({Key? key}) : super(key: key);
+  const HorizontalCategoryLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 60,
       child: Center(
           child: Shimmer.fromColors(
@@ -151,7 +154,7 @@ class HorizontalCategoryLoader extends StatelessWidget {
 }
 
 class SavedProductsLoader extends StatelessWidget {
-  const SavedProductsLoader({Key? key}) : super(key: key);
+  const SavedProductsLoader({super.key});
 
   @override
   Widget build(BuildContext context) {

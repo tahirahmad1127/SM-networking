@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/presentation/elements/app_button.dart';
-import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
 
 import '../../../../../configurations/translation_helper.dart';
-import '../../widgets/auth_button.dart';
 import 'widgets/row_widget.dart';
 
 class WelcomeBody extends StatelessWidget {
-  const WelcomeBody({Key? key}) : super(key: key);
+  const WelcomeBody({super.key});
 
   @override
   Widget build(BuildContext context) {

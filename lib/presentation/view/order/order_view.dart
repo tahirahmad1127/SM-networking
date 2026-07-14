@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 
 import '../../../configurations/translation_helper.dart';
-import '../../elements/custom_appbar.dart';
 import 'layout/body.dart';
 
 class OrderView extends StatelessWidget {

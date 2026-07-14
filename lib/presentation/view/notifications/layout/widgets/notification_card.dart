@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
@@ -9,7 +8,7 @@ import '../../../../../infrastructure/model/notification.dart';
 class NotificationCard extends StatelessWidget {
   final NotificationModel model;
 
-  const NotificationCard({Key? key, required this.model}) : super(key: key);
+  const NotificationCard({super.key, required this.model});
 
   @override
   Widget build(BuildContext context) {

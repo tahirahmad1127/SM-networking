@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/application/order_bloc/order_bloc.dart';
 import 'package:sm_networking/infrastructure/model/order.dart';
-import 'package:sm_networking/infrastructure/services/order.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/navigation_dialog.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/order/order_details/layout/body.dart';
-import 'package:sm_networking/presentation/view/order/order_invoice/order_invoice.dart';
 import 'package:loading_overlay/loading_overlay.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../configurations/frontend_configs.dart';
 import '../../../../configurations/translation_helper.dart';
@@ -38,8 +34,8 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
       child: BlocListener<OrderBloc, OrderState>(
         listener: (context, state) {
           if (state is OrderCancelled) {
-            Navigator.pop(context,true);
-          }else if(state is OrderFailed){
+            Navigator.pop(context, true);
+          } else if (state is OrderFailed) {
             getFlushBar(context, title: state.message.toString());
           }
         },
@@ -73,8 +69,8 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                                       context,
                                       MaterialPageRoute(
                                           builder: (context) => ReceiptView(
-                                            model: widget.model,
-                                          )));
+                                                model: widget.model,
+                                              )));
                                 },
                                 btnLabel: TranslationHelper.getTranslatedText(
                                     "Share Invoice"),
@@ -87,28 +83,30 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                               const SizedBox(
                                 width: 10,
                               ),
-                            if (widget.model.status?.toUpperCase() != "COMPLETED" &&
-                                widget.model.status?.toUpperCase() != "CANCELLED")
+                            if (widget.model.status?.toUpperCase() !=
+                                    "COMPLETED" &&
+                                widget.model.status?.toUpperCase() !=
+                                    "CANCELLED")
                               Expanded(
                                 child: AppButton(
                                   onPressed: () {
                                     showNavigationDialog(context,
                                         message:
-                                        "Do you really want to cancel this order?",
+                                            "Do you really want to cancel this order?",
                                         buttonText: "Yes",
                                         navigation: () async {
-                                          Navigator.pop(context);
-                                          BlocProvider.of<OrderBloc>(context).add(
-                                              CancelOrderEvent(
-                                                  widget.model.id.toString()));
-                                        },
+                                      Navigator.pop(context);
+                                      BlocProvider.of<OrderBloc>(context).add(
+                                          CancelOrderEvent(
+                                              widget.model.id.toString()));
+                                    },
                                         secondButtonText: "No",
                                         showSecondButton: true);
                                   },
                                   btnLabel: TranslationHelper.getTranslatedText(
                                       'cancel_order'),
                                   width:
-                                  MediaQuery.of(context).size.width / 2.25,
+                                      MediaQuery.of(context).size.width / 2.25,
                                   height: 48,
                                 ),
                               )

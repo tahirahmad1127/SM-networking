@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../application/cart_provider.dart';
-import '../../../../../application/order_bloc/order_bloc.dart';
 import '../../../../../infrastructure/model/create_order.dart';
 import '../../order_placed_view.dart';
 import '../../../../../application/user_provider.dart';
@@ -14,7 +12,6 @@ import '../../../../../infrastructure/model/order.dart';
 import '../../../../../infrastructure/services/order.dart';
 import '../../../../../injection_container.dart';
 import '../../../../elements/custom_text.dart';
-import '../../../../elements/flush_bar.dart';
 import '../../../../elements/processing_widget.dart';
 
 class DraftsTabBar extends StatefulWidget {
@@ -40,28 +37,47 @@ class DraftsTabBarState extends State<DraftsTabBar> {
 
   Future<void> _loadDrafts() async {
     if (!mounted) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     final user = Provider.of<UserProvider>(context, listen: false);
     final tsmId = user.getSalesUserDetails()?.user?.id ?? '';
     if (tsmId.isEmpty) {
-      setState(() { _loading = false; _error = 'User not found.'; });
+      setState(() {
+        _loading = false;
+        _error = 'User not found.';
+      });
       return;
     }
 
     final result = await sl<OrderRepositoryImp>().getDrafts(tsmId);
     result.fold(
-          (l) {
-        if (mounted) setState(() { _loading = false; _error = l.error.toString(); });
+      (l) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _error = l.error.toString();
+          });
+        }
       },
-          (r) {
-        if (mounted) setState(() { _loading = false; _drafts = r.data ?? []; });
+      (r) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _drafts = r.data ?? [];
+          });
+        }
       },
     );
   }
 
+  bool _isDeleting = false;
+
   /// FIX 1 & 2: Actually call the API to delete, then remove from list on success
   Future<void> _deleteDraft(int index) async {
+    if (_isDeleting) return;
     final draft = _drafts[index];
     final draftId = draft.id;
     if (draftId == null || draftId.isEmpty) {
@@ -70,15 +86,31 @@ class DraftsTabBarState extends State<DraftsTabBar> {
       return;
     }
 
+    _isDeleting = true;
+    // Same blocking-spinner pattern as _placeOrderFromDraft below, so both
+    // draft actions give the same feedback while their API call is in flight.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+
     final result = await sl<OrderRepositoryImp>().deleteDraft(draftId);
+
+    if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close spinner
+    _isDeleting = false;
+
     result.fold(
-          (l) {
+      (l) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Delete failed: ${l.error}')));
         }
       },
-          (r) {
+      (r) {
         // Only remove from list AFTER API confirms deletion
         if (mounted) setState(() => _drafts.removeAt(index));
       },
@@ -90,8 +122,8 @@ class DraftsTabBarState extends State<DraftsTabBar> {
     final draft = _drafts[index];
     final items = draft.items ?? [];
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft has no items.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Draft has no items.')));
       return;
     }
 
@@ -106,8 +138,8 @@ class DraftsTabBarState extends State<DraftsTabBar> {
     );
 
     final model = CreateOrderModel(
-      retailerUser: draft.salesPerson?.id ?? '',        // distributor
-      saleUser: draft.warehouseManager?.id ?? '',       // TSM
+      retailerUser: draft.salesPerson?.id ?? '', // distributor
+      saleUser: draft.warehouseManager?.id ?? '', // TSM
       phoneNumber: draft.phoneNumber ?? 'N/A',
       city: draft.salesPerson?.id ?? '',
       paymentType: draft.paymentType ?? 'cod',
@@ -115,14 +147,16 @@ class DraftsTabBarState extends State<DraftsTabBar> {
       shippingAddress: draft.shippingAddress ?? '',
       bulkDiscount: draft.bulkDiscount?.toDouble(),
       couponDiscount: draft.couponDiscount?.toDouble(),
-      items: items.map((e) => OrderItem(
-        productId: e.productId?.id,
-        quantity: e.quantity,
-        price: e.price,
-        discountedPrice: e.discountedPrice,
-        type: e.type,
-        isDraftPrice: true,
-      )).toList(),
+      items: items
+          .map((e) => OrderItem(
+                productId: e.productId?.id,
+                quantity: e.quantity,
+                price: e.price,
+                discountedPrice: e.discountedPrice,
+                type: e.type,
+                isDraftPrice: true,
+              ))
+          .toList(),
     );
 
     final repo = sl<OrderRepositoryImp>();
@@ -132,13 +166,13 @@ class DraftsTabBarState extends State<DraftsTabBar> {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
     result.fold(
-          (l) {
+      (l) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to place order: ${l.error}')));
         }
       },
-          (r) async {
+      (r) async {
         // FIX: Delete the draft from API after placing order successfully
         final draftId = draft.id;
         if (draftId != null && draftId.isNotEmpty) {
@@ -281,7 +315,7 @@ class _DraftCard extends StatelessWidget {
                 ),
                 Container(
                   padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(6),
@@ -312,23 +346,23 @@ class _DraftCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             ...items.take(2).map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
-                children: [
-                  Icon(Icons.circle, size: 5, color: Colors.grey.shade400),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: CustomText(
-                      text:
-                      '${item.productId?.englishTitle ?? 'Product'}  ×${item.quantity} ${(item.type ?? '').toUpperCase()}',
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle, size: 5, color: Colors.grey.shade400),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: CustomText(
+                          text:
+                              '${item.productId?.englishTitle ?? 'Product'}  ×${item.quantity} ${(item.type ?? '').toUpperCase()}',
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            )),
+                )),
             if (items.length > 2)
               CustomText(
                 text: '+${items.length - 2} more',
@@ -379,7 +413,7 @@ class _DraftCard extends StatelessWidget {
                                 onPressed: () => Navigator.pop(ctx, true),
                                 child: Text('Delete',
                                     style:
-                                    TextStyle(color: Colors.red.shade600)),
+                                        TextStyle(color: Colors.red.shade600)),
                               ),
                             ],
                           ),

@@ -28,10 +28,16 @@ Future<void> handleSessionExpired() async {
   if (_isHandlingSessionExpiry) return;
   _isHandlingSessionExpiry = true;
   try {
-    if (onSessionExpired != null) {
-      await onSessionExpired!();
-    }
-
+    // Navigate away FIRST, before clearing any session state. Clearing
+    // first (the old order) called UserProvider.clearSalesData(), whose
+    // notifyListeners() marks every currently-visible screen dirty — and
+    // since onSessionExpired() awaits several SharedPreferences calls,
+    // there was a real window where a still-mounted screen (whatever was
+    // on screen at the time) could rebuild against a now-null
+    // getSalesUserDetails() before this navigation disposed it, crashing
+    // on that screen's `getSalesUserDetails()!.user!...` chain. Disposing
+    // those screens first removes them before the data underneath changes.
+    //
     // Confirmed against log_in_view.dart / body.dart (login layout) - this
     // is the actual login screen, reached directly rather than via
     // SplashView, since SplashView would just add its 3-second timer and
@@ -40,6 +46,10 @@ Future<void> handleSessionExpired() async {
       MaterialPageRoute(builder: (_) => const LogInView()),
           (route) => false,
     );
+
+    if (onSessionExpired != null) {
+      await onSessionExpired!();
+    }
   } finally {
     _isHandlingSessionExpiry = false;
   }

@@ -10,7 +10,6 @@ import 'package:sm_networking/infrastructure/services/attendance.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:sm_networking/application/user_provider.dart';
@@ -19,16 +18,11 @@ import 'package:sm_networking/configurations/end_points.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 import 'package:sm_networking/application/checkIn_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
-import 'package:sm_networking/application/retailer_provider.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
-import 'package:sm_networking/infrastructure/services/upload_file_services.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/navigation_dialog.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
-import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
-import 'package:sm_networking/presentation/view/map/map_retailers.dart';
 import 'package:sm_networking/presentation/view/profile/my_recoveries_view.dart';
 import 'package:sm_networking/presentation/view/profile/my_sales_view.dart';
 import 'package:sm_networking/presentation/view/profile/layout/widgets/profile_card.dart';
@@ -37,7 +31,6 @@ import 'package:launch_review_latest/launch_review_latest.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../configurations/frontend_configs.dart';
@@ -76,6 +69,15 @@ class _ProfileBodyState extends State<ProfileBody> {
     final role = user.getSalesUserDetails()?.role ?? '';
     final isTsm = role == 'warehouseManager' || role == 'orderBooker';
 
+    // Session can be cleared out from under this screen mid-build (forced
+    // logout on a 401, or the tail end of manual logout) — the whole rest
+    // of this build() assumes a non-null user, so bail out to a harmless
+    // placeholder for that one frame instead of crashing on a `!` below.
+    // The app is navigating away momentarily in that case anyway.
+    if (user.getSalesUserDetails()?.user == null) {
+      return const SizedBox.shrink();
+    }
+
     return LoadingOverlay(
       isLoading: isLoading,
       progressIndicator: const ProcessingWidget(),
@@ -106,60 +108,60 @@ class _ProfileBodyState extends State<ProfileBody> {
                             children: [
                               _image != null
                                   ? ClipRRect(
-                                borderRadius: BorderRadius.circular(100),
-                                child: Image.file(
-                                  _image!,
-                                  height: 55,
-                                  width: 55,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
+                                      borderRadius: BorderRadius.circular(100),
+                                      child: Image.file(
+                                        _image!,
+                                        height: 55,
+                                        width: 55,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
                                   : ClipRRect(
-                                borderRadius: BorderRadius.circular(100),
-                                child: ExtendedImage.network(
-                                  user
-                                      .getSalesUserDetails()!
-                                      .user!
-                                      .image
-                                      .toString(),
-                                  height: 55,
-                                  width: 55,
-                                  fit: BoxFit.fill,
-                                  cache: true,
-                                  loadStateChanged:
-                                      (ExtendedImageState state) {
-                                    switch (
-                                    state.extendedImageLoadState) {
-                                      case LoadState.loading:
-                                        return ClipRRect(
-                                          borderRadius:
-                                          BorderRadius.circular(100),
-                                          child: Image.asset(
-                                            "assets/images/ph.jpeg",
-                                            fit: BoxFit.fill,
-                                            height: 55,
-                                            width: 55,
-                                          ),
-                                        );
-                                      case LoadState.failed:
-                                        return ClipRRect(
-                                          borderRadius:
-                                          BorderRadius.circular(100),
-                                          child: Image.asset(
-                                            "assets/images/ph.jpeg",
-                                            fit: BoxFit.fill,
-                                            height: 55,
-                                            width: 55,
-                                          ),
-                                        );
-                                      default:
-                                        return state.completedWidget;
-                                    }
-                                  },
-                                  borderRadius: const BorderRadius.all(
-                                      Radius.circular(30.0)),
-                                ),
-                              ),
+                                      borderRadius: BorderRadius.circular(100),
+                                      child: ExtendedImage.network(
+                                        user
+                                            .getSalesUserDetails()!
+                                            .user!
+                                            .image
+                                            .toString(),
+                                        height: 55,
+                                        width: 55,
+                                        fit: BoxFit.fill,
+                                        cache: true,
+                                        loadStateChanged:
+                                            (ExtendedImageState state) {
+                                          switch (
+                                              state.extendedImageLoadState) {
+                                            case LoadState.loading:
+                                              return ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(100),
+                                                child: Image.asset(
+                                                  "assets/images/ph.jpeg",
+                                                  fit: BoxFit.fill,
+                                                  height: 55,
+                                                  width: 55,
+                                                ),
+                                              );
+                                            case LoadState.failed:
+                                              return ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(100),
+                                                child: Image.asset(
+                                                  "assets/images/ph.jpeg",
+                                                  fit: BoxFit.fill,
+                                                  height: 55,
+                                                  width: 55,
+                                                ),
+                                              );
+                                            default:
+                                              return state.completedWidget;
+                                          }
+                                        },
+                                        borderRadius: const BorderRadius.all(
+                                            Radius.circular(30.0)),
+                                      ),
+                                    ),
                               Positioned(
                                 bottom: -2,
                                 right: -2,
@@ -236,8 +238,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) =>
-                            const MyRecoveriesView()));
+                            builder: (context) => const MyRecoveriesView()));
                   },
                   child: ProfileCard(lebal: 'My Recoveries'),
                 ),
@@ -321,8 +322,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                         "https://wa.me/+923164936106?text=${Uri.parse("Welcome to SM Networking!")}");
                   },
                   child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText(
-                        "help_support"),
+                    lebal: TranslationHelper.getTranslatedText("help_support"),
                   ),
                 ),
 
@@ -335,8 +335,7 @@ class _ProfileBodyState extends State<ProfileBody> {
                     LaunchReviewLatest.launch();
                   },
                   child: ProfileCard(
-                    lebal: TranslationHelper.getTranslatedText(
-                        "rate_our_app"),
+                    lebal: TranslationHelper.getTranslatedText("rate_our_app"),
                   ),
                 ),
 
@@ -358,70 +357,63 @@ class _ProfileBodyState extends State<ProfileBody> {
                   borderRadius: FrontendConfigs.kAppBorder,
                   onTap: () async {
                     SharedPreferences prefs =
-                    await SharedPreferences.getInstance();
+                        await SharedPreferences.getInstance();
                     showNavigationDialog(context,
-                        message:
-                        "Do you really want to logout from app?",
+                        message: "Do you really want to logout from app?",
                         buttonText: "Yes", navigation: () async {
-                          final userDetails = context.mounted
-                              ? Provider.of<UserProvider>(context, listen: false)
+                      final userDetails = context.mounted
+                          ? Provider.of<UserProvider>(context, listen: false)
                               .getSalesUserDetails()
-                              : null;
-                          final userId = userDetails?.user?.id ?? '';
+                          : null;
+                      final userId = userDetails?.user?.id ?? '';
 
-                          // ── Step 1: close out today's open attendance record, if any ──
-                          try {
-                            final openAttendanceId = await _findOpenAttendanceId();
-                            if (openAttendanceId != null && openAttendanceId.isNotEmpty) {
-                              await AttendanceRepositoryImp().checkOut(
-                                openAttendanceId,
-                                {'checkOutTime': DateTime.now().toIso8601String()},
-                              );
-                            }
-                          } catch (_) {
-                            // Attendance checkout failure shouldn't block logout.
-                          }
+                      // ── Step 1: close out today's open attendance record, if any ──
+                      try {
+                        final openAttendanceId = await _findOpenAttendanceId();
+                        if (openAttendanceId != null &&
+                            openAttendanceId.isNotEmpty) {
+                          await AttendanceRepositoryImp().checkOut(
+                            openAttendanceId,
+                            {'checkOutTime': DateTime.now().toIso8601String()},
+                          );
+                        }
+                      } catch (_) {
+                        // Attendance checkout failure shouldn't block logout.
+                      }
 
-                          // ── Step 2: clear the device lock on the backend ──
-                          if (userId.isNotEmpty) {
-                            try {
-                              await AuthRepositoryImp().logout(userId: userId);
-                            } catch (_) {
-                              // Logout API failure shouldn't block local logout.
-                            }
-                          }
+                      // ── Step 2: clear the device lock on the backend ──
+                      if (userId.isNotEmpty) {
+                        try {
+                          await AuthRepositoryImp().logout(userId: userId);
+                        } catch (_) {
+                          // Logout API failure shouldn't block local logout.
+                        }
+                      }
 
-                          if (context.mounted) {
-                            await Provider.of<CartProvider>(context,
+                      if (context.mounted) {
+                        await Provider.of<CartProvider>(context, listen: false)
+                            .clearData();
+                        await Provider.of<CheckInProvider>(context,
                                 listen: false)
-                                .clearData();
-                            await Provider.of<CheckInProvider>(context,
-                                listen: false)
-                                .clearData();
-                            await Provider.of<VisitProvider>(context,
-                                listen: false)
-                                .clearVisitData();
-                            Provider.of<UserProvider>(context,
-                                listen: false)
-                                .clearData();
-                          }
-                          await FirebaseAuth.instance.signOut();
-                          prefs.clear();
-                          await RetailerCacheService.clearRetailersCache();
-                          await RetailerCacheService.clearBanksCache();
-                          Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                  const LogInView()),
-                                  (route) => false);
-                        },
-                        secondButtonText: "No",
-                        showSecondButton: true);
+                            .clearData();
+                        await Provider.of<VisitProvider>(context, listen: false)
+                            .clearVisitData();
+                        Provider.of<UserProvider>(context, listen: false)
+                            .clearData();
+                      }
+                      await FirebaseAuth.instance.signOut();
+                      prefs.clear();
+                      await RetailerCacheService.clearRetailersCache();
+                      await RetailerCacheService.clearBanksCache();
+                      Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const LogInView()),
+                          (route) => false);
+                    }, secondButtonText: "No", showSecondButton: true);
                   },
                   child: ProfileCard(
-                    lebal:
-                    TranslationHelper.getTranslatedText("logout"),
+                    lebal: TranslationHelper.getTranslatedText("logout"),
                     textColor: FrontendConfigs.kPrimaryColor,
                   ),
                 ),
@@ -472,16 +464,14 @@ class _ProfileBodyState extends State<ProfileBody> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  color: FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(CupertinoIcons.camera,
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Camera',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Take a photo'),
               onTap: () {
                 Navigator.pop(context);
@@ -493,16 +483,14 @@ class _ProfileBodyState extends State<ProfileBody> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                  FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
+                  color: FrontendConfigs.kPrimaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(CupertinoIcons.photo,
                     color: FrontendConfigs.kPrimaryColor),
               ),
               title: const Text('Gallery',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               subtitle: const Text('Choose from gallery'),
               onTap: () {
                 Navigator.pop(context);
@@ -518,8 +506,7 @@ class _ProfileBodyState extends State<ProfileBody> {
 
   Future<void> _pickAndEdit({required ImageSource source}) async {
     final picker = ImagePicker();
-    final pickedFile =
-    await picker.pickImage(imageQuality: 60, source: source);
+    final pickedFile = await picker.pickImage(imageQuality: 60, source: source);
     if (pickedFile == null) return;
     final bytes = await File(pickedFile.path).readAsBytes();
     await _openProEditor(bytes);
@@ -562,8 +549,8 @@ class _ProfileBodyState extends State<ProfileBody> {
   }
 
   Future<void> _uploadProfilePicture(File imageFile) async {
-    final userDetails = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails();
+    final userDetails =
+        Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
     final id = userDetails?.user?.id;
     final token = userDetails?.token ?? '';
     final role = userDetails?.role ?? '';
@@ -597,13 +584,13 @@ class _ProfileBodyState extends State<ProfileBody> {
     if (mounted) setState(() => isLoading = false);
 
     result.fold(
-          (l) {
+      (l) {
         if (mounted) {
           getFlushBar(context,
               title: l.error ?? 'Failed to update profile photo');
         }
       },
-          (r) {
+      (r) {
         if (mounted) {
           getFlushBar(context, title: 'Profile photo updated successfully');
         }
@@ -626,7 +613,10 @@ class _ProfileBodyState extends State<ProfileBody> {
     final isCheckedIn = prefs.getBool('isCheckedIn') ?? false;
     final hasCheckOut = prefs.getString('CHECK_OUT_TIME') != null;
     final simpleId = prefs.getString('attendanceId');
-    if (isCheckedIn && !hasCheckOut && simpleId != null && simpleId.isNotEmpty) {
+    if (isCheckedIn &&
+        !hasCheckOut &&
+        simpleId != null &&
+        simpleId.isNotEmpty) {
       return simpleId;
     }
 
@@ -640,7 +630,9 @@ class _ProfileBodyState extends State<ProfileBody> {
         final attendanceId = decoded['attendanceId'] as String? ?? '';
         final checkInTime = decoded['checkInTime'] as String? ?? '';
         final checkOutTime = decoded['checkOutTime'] as String? ?? '';
-        if (attendanceId.isNotEmpty && checkInTime.isNotEmpty && checkOutTime.isEmpty) {
+        if (attendanceId.isNotEmpty &&
+            checkInTime.isNotEmpty &&
+            checkOutTime.isEmpty) {
           return attendanceId;
         }
       } catch (_) {}

@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../application/tracking_bloc/tracking_bloc.dart';
 import '../../presentation/elements/flush_bar.dart';
@@ -100,7 +98,8 @@ class LocationService {
   static Future<void> _showPermissionDialog(BuildContext context) async {
     await showNavigationDialog(
       context,
-      message: "Location permission is permanently denied.\nPlease enable it from settings.",
+      message:
+          "Location permission is permanently denied.\nPlease enable it from settings.",
       buttonText: "Open Settings",
       navigation: () => Geolocator.openAppSettings(),
       secondButtonText: "Cancel",
@@ -136,7 +135,12 @@ class LocationService {
   }
 
   /// USER LIVE LOCATION TRACKING
-  static Future<void> startUserLiveTracking({required BuildContext context, required String userId, int distanceFilterMeters = 5, TrackingBloc? trackingBloc,}) async {
+  static Future<void> startUserLiveTracking({
+    required BuildContext context,
+    required String userId,
+    int distanceFilterMeters = 5,
+    TrackingBloc? trackingBloc,
+  }) async {
     try {
       // Permission & service checks (unchanged)
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -262,7 +266,8 @@ class LocationService {
 
         log("Started periodic API tracking (every 4 min) for user: $userId");
       } else {
-        AppLogger.debug("Warning: TrackingBloc not provided. API tracking skipped.");
+        AppLogger.debug(
+            "Warning: TrackingBloc not provided. API tracking skipped.");
       }
 
       AppLogger.debug("Started live tracking for user: $userId");

@@ -49,6 +49,29 @@ abstract class RetailerRepository {
 
   Future<Either<GlobalErrorModel, RetailersListingModel>> getAllRetailersAndWholesalers();
 
+  /// GET wholesaler?page=&limit=&searchTerm=&zone=&town= — paginated,
+  /// replaces loading the full `wholesalers` array from the login response.
+  Future<Either<GlobalErrorModel, WholesalersListingModel>> getWholesalersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+    required String token,
+  });
+
+  /// GET retailer?page=&limit=&searchTerm=&zone=&town= — paginated, replaces
+  /// both the login-embedded `retailers` array and the old
+  /// retailer/city/{id}?limit=10000 hack.
+  Future<Either<GlobalErrorModel, WholesalersListingModel>> getRetailersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+    required String token,
+  });
+
   Future<Either<GlobalErrorModel, BanksListModel>> getAllBanks();
 
   Future<Either<GlobalErrorModel, RecoveryListingModel>> getMyPayments(
@@ -115,6 +138,86 @@ class RetailerRepositoryImp extends RetailerRepository {
       );
 
       return Right(RetailersListingModel(data: combined));
+    } catch (e) {
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  /// Sends both auth header conventions used elsewhere in this app
+  /// ('x-auth-token' and 'Authorization: Bearer') so this works regardless
+  /// of which middleware guards these paginated routes — mirrors
+  /// OrderBookerActivityRepositoryImp._headers.
+  Map<String, String> _paginatedHeaders(String token) {
+    final rawToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+    return {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'x-auth-token': rawToken,
+      'Authorization': 'Bearer $rawToken',
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Get Wholesalers — paginated
+  // ─────────────────────────────────────────────────────────────────────────
+  @override
+  Future<Either<GlobalErrorModel, WholesalersListingModel>> getWholesalersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kGetWholesalersPaginated(
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+          zone: zone,
+          town: town,
+        ),
+        isRequiredHeader: true,
+        header: _paginatedHeaders(token),
+      );
+      return data.fold(
+        (l) => Left(GlobalErrorModel(error: l.error.toString())),
+        (r) => Right(WholesalersListingModel.fromJson(r)),
+      );
+    } catch (e) {
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Get Retailers — paginated
+  // ─────────────────────────────────────────────────────────────────────────
+  @override
+  Future<Either<GlobalErrorModel, WholesalersListingModel>> getRetailersPaginated({
+    required int page,
+    required int limit,
+    String? searchTerm,
+    String? zone,
+    String? town,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kGetRetailersPaginated(
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+          zone: zone,
+          town: town,
+        ),
+        isRequiredHeader: true,
+        header: _paginatedHeaders(token),
+      );
+      return data.fold(
+        (l) => Left(GlobalErrorModel(error: l.error.toString())),
+        (r) => Right(WholesalersListingModel.fromJson(r)),
+      );
     } catch (e) {
       return Left(GlobalErrorModel(error: e.toString()));
     }

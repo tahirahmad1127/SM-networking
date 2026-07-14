@@ -5,7 +5,7 @@ import 'package:sm_networking/presentation/view/favorite_items/layout/body.dart'
 import '../../elements/custom_text.dart';
 
 class FavoriteItemsView extends StatelessWidget {
-  const FavoriteItemsView({Key? key}) : super(key: key);
+  const FavoriteItemsView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +16,6 @@ class FavoriteItemsView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         title: CustomText(
           text: TranslationHelper.getTranslatedText('saved_items'),
-
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: Colors.black,

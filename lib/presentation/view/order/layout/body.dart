@@ -41,16 +41,19 @@ class _OrderBodyState extends State<OrderBody> {
 
   Future<void> _loadOrders() async {
     if (!mounted) return;
+
+    final userId = Provider.of<UserProvider>(context, listen: false)
+        .getSalesUserDetails()
+        ?.user
+        ?.id
+        ?.toString();
+    if (userId == null) return;
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
-    final userId = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()!
-        .user!
-        .id
-        .toString();
     final repo = sl<OrderRepositoryImp>();
 
     // The backend has no single "all statuses" endpoint, so pull every

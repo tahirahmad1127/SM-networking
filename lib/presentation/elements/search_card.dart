@@ -1,28 +1,14 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:sm_networking/application/discount_helper.dart';
 import 'package:sm_networking/application/user_provider.dart';
-import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/configurations/translation_helper.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
-import 'package:sm_networking/presentation/elements/app_button.dart';
-import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/view/cart/cart_view.dart';
-import 'package:sm_networking/presentation/view/product_details/product_details_view.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 
-import '../../infrastructure/model/bulk.dart';
-import '../../infrastructure/model/ordered_prduct_model.dart';
 import '../../infrastructure/model/product.dart';
-import 'flush_bar.dart';
 
 class SearchCard extends StatelessWidget {
   final ProductModel model;
 
-  SearchCard({Key? key, required this.model}) : super(key: key);
+  const SearchCard({super.key, required this.model});
 
   @override
   Widget build(BuildContext context) {

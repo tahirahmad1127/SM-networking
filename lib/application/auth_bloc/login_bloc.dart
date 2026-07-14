@@ -1,7 +1,3 @@
-import 'dart:async';
-import 'dart:developer';
-import 'dart:io';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -32,7 +28,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           failureOrSuccess.fold((l) {
             if (l.code == 'ALREADY_LOGGED_IN') {
               return emit(AuthAlreadyLoggedIn(
-                message: l.error ?? 'This account is already logged in on another device.',
+                message: l.error ??
+                    'This account is already logged in on another device.',
                 canForceLogin: l.canForceLogin,
                 identifier: event.identifier,
                 password: event.password,
@@ -40,10 +37,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               ));
             }
             return emit(AuthFailed(l.error.toString()));
-          },
-                  (r) {
-                return emit(LoginLoaded(r));
-              });
+          }, (r) {
+            return emit(LoginLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }
@@ -51,11 +47,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         try {
           emit(AuthLoading());
 
-          final failureOrSuccess = await repositoryImp.getUserByID(event.userID);
+          final failureOrSuccess =
+              await repositoryImp.getUserByID(event.userID);
           failureOrSuccess.fold((l) => emit(AuthFailed(l.error.toString())),
-                  (r) {
-                return emit(UserLoaded(r));
-              });
+              (r) {
+            return emit(UserLoaded(r));
+          });
         } catch (e) {
           rethrow;
         }

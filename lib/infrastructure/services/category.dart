@@ -1,10 +1,5 @@
-import 'dart:developer';
-import 'dart:io';
-
 import 'package:dartz/dartz.dart';
 import 'package:sm_networking/infrastructure/model/category.dart';
-import 'package:sm_networking/infrastructure/model/retailer.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
 
 import '../../configurations/end_points.dart';
 import '../api_helper.dart';
@@ -16,7 +11,6 @@ abstract class CategoryRepository {
 }
 
 class CategoryRepositoryImp extends CategoryRepository {
-
   // static const String bypass = "?x-vercel-protection-bypass=karyanadevserverkaryanadevserver";
   // static const String bypassAnd = "&x-vercel-protection-bypass=karyanadevserverkaryanadevserver";
   //
@@ -26,7 +20,7 @@ class CategoryRepositoryImp extends CategoryRepository {
   //   }
   //   return "$endpoint$bypass";
   // }
-  
+
   @override
   Future<Either<GlobalErrorModel, CategoryListingModel>> getCategories(
       String cityID) async {

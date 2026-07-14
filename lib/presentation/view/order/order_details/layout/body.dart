@@ -6,16 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/infrastructure/model/order.dart';
-import 'package:sm_networking/presentation/view/order/order_details/layout/order_card.dart';
 import 'package:sm_networking/presentation/view/order/widgets/order_details_card.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../../check_out/layout/widgets/items_card.dart';
 
 class OrderDetailsBody extends StatefulWidget {
   final OrderModel model;
 
-  const OrderDetailsBody({Key? key, required this.model}) : super(key: key);
+  const OrderDetailsBody({super.key, required this.model});
 
   @override
   State<OrderDetailsBody> createState() => _OrderDetailsBodyState();
@@ -28,28 +25,28 @@ class _OrderDetailsBodyState extends State<OrderDetailsBody> {
   initState() {
     stepperData = widget.model.statuses!
         .map((e) => StepperData(
-        title: StepperText(
-          e.status.toString(),
-          textStyle: const TextStyle(
-              color: Colors.grey,
-              fontWeight: FontWeight.w500,
-              fontSize: 12),
-        ),
-        subtitle: StepperText(
-          "${DateFormat.yMMMEd().format(e.date!)} ${DateFormat.jm().format(e.date!)}",
-          textStyle: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
-              fontSize: 14),
-        ),
-        iconWidget: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-              color: FrontendConfigs.kTextFieldColor,
-              borderRadius: FrontendConfigs.kAppBorder),
-          child:
-          Icon(Icons.check_circle, color: FrontendConfigs.kGreenColor),
-        )))
+            title: StepperText(
+              e.status.toString(),
+              textStyle: const TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12),
+            ),
+            subtitle: StepperText(
+              "${DateFormat.yMMMEd().format(e.date!)} ${DateFormat.jm().format(e.date!)}",
+              textStyle: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14),
+            ),
+            iconWidget: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: FrontendConfigs.kTextFieldColor,
+                  borderRadius: FrontendConfigs.kAppBorder),
+              child:
+                  Icon(Icons.check_circle, color: FrontendConfigs.kGreenColor),
+            )))
         .toList();
     super.initState();
   }
@@ -111,7 +108,7 @@ class _OrderDetailsBodyState extends State<OrderDetailsBody> {
                       activeIndex: getSelectedIndex(),
                       // Height that will be applied to all the stepper icons
                       iconHeight:
-                      40, // Width that will be applied to all the stepper icons
+                          40, // Width that will be applied to all the stepper icons
                     )
                   ],
                 ),

@@ -1,11 +1,7 @@
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:dartz/dartz.dart';
-import 'package:sm_networking/infrastructure/model/category.dart';
-import 'package:sm_networking/infrastructure/model/retailer.dart';
 import 'package:sm_networking/infrastructure/model/stats.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
 
 import '../../configurations/end_points.dart';
 import '../api_helper.dart';
@@ -20,7 +16,6 @@ class StatsRepositoryImp extends StatsRepository {
   @override
   Future<Either<GlobalErrorModel, StatsListingModel>> getStats(
       String userID, String role) async {
-
     // Call 1: existing sales stats
     final salesData = await ApiBaseHelper().getEither(
         endPoint: ApiEndPoints.kGetStats + userID,
@@ -56,13 +51,19 @@ class StatsRepositoryImp extends StatsRepository {
         log('✅ Targets API response: $targetJson');
 
         // Response shape: { "msg": "success", "data": [ { "target": 3100, "achieved": 0, ... } ] }
-        final List dataList = targetJson['data'] is List ? targetJson['data'] : [];
-        final Map<String, dynamic> firstTarget = dataList.isNotEmpty
-            ? Map<String, dynamic>.from(dataList[0])
-            : {};
+        final List dataList =
+            targetJson['data'] is List ? targetJson['data'] : [];
+        final Map<String, dynamic> firstTarget =
+            dataList.isNotEmpty ? Map<String, dynamic>.from(dataList[0]) : {};
 
-        final num totalTarget     = firstTarget['target']   ?? firstTarget['totalTarget']    ?? statsModel.data?.totalTarget   ?? 0;
-        final num achievedTarget  = firstTarget['achieved'] ?? firstTarget['achievedTarget'] ?? statsModel.data?.achievedTarget ?? 0;
+        final num totalTarget = firstTarget['target'] ??
+            firstTarget['totalTarget'] ??
+            statsModel.data?.totalTarget ??
+            0;
+        final num achievedTarget = firstTarget['achieved'] ??
+            firstTarget['achievedTarget'] ??
+            statsModel.data?.achievedTarget ??
+            0;
         final num remainingTarget = (totalTarget - achievedTarget) < 0
             ? 0
             : (totalTarget - achievedTarget);
@@ -70,13 +71,13 @@ class StatsRepositoryImp extends StatsRepository {
         statsModel = StatsListingModel(
           msg: statsModel.msg,
           data: StatModel(
-            orders:          statsModel.data?.orders,
-            shops:           statsModel.data?.shops,
-            sales:           statsModel.data?.sales,
-            todaySales:      statsModel.data?.todaySales,
-            monthsSales:     statsModel.data?.monthsSales,
-            totalTarget:     totalTarget,
-            achievedTarget:  achievedTarget,
+            orders: statsModel.data?.orders,
+            shops: statsModel.data?.shops,
+            sales: statsModel.data?.sales,
+            todaySales: statsModel.data?.todaySales,
+            monthsSales: statsModel.data?.monthsSales,
+            totalTarget: totalTarget,
+            achievedTarget: achievedTarget,
             remainingTarget: remainingTarget,
           ),
         );

@@ -1,6 +1,3 @@
-import 'dart:developer';
-
-import 'package:flutter/cupertino.dart';
 import 'package:get_it/get_it.dart';
 import 'package:sm_networking/application/attendance_bloc/attendance_bloc.dart';
 import 'package:sm_networking/application/brand_bloc/brand_bloc.dart';
@@ -51,7 +48,8 @@ Future<void> init() async {
   ///Services
 
   sl.registerLazySingleton(() => AuthRepositoryImp());
-  sl.registerLazySingleton<RetailerRepositoryImp>(() => RetailerRepositoryImp());
+  sl.registerLazySingleton<RetailerRepositoryImp>(
+      () => RetailerRepositoryImp());
   sl.registerLazySingleton(() => CategoryRepositoryImp());
   sl.registerLazySingleton(() => BrandRepositoryImp());
   sl.registerLazySingleton(() => BrandCategoryService());
@@ -66,5 +64,5 @@ Future<void> init() async {
 
   ///Utils
   sl.registerSingletonAsync<SharedPreferences>(
-          () => SharedPreferences.getInstance());
+      () => SharedPreferences.getInstance());
 }

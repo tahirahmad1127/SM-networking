@@ -28,12 +28,7 @@ class _InProgressTabBarState extends State<InProgressTabBar>
   void initState() {
     super.initState();
     _bloc = sl<OrderBloc>();
-    final userId = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()!
-        .user!
-        .id
-        .toString();
-    _bloc.add(GetPendingOrderEvent(userId));
+    _refresh();
   }
 
   @override
@@ -44,11 +39,11 @@ class _InProgressTabBarState extends State<InProgressTabBar>
 
   void _refresh() {
     final userId = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()!
-        .user!
-        .id
-        .toString();
-    _bloc.add(GetPendingOrderEvent(userId));
+        .getSalesUserDetails()
+        ?.user
+        ?.id
+        ?.toString();
+    if (userId != null) _bloc.add(GetPendingOrderEvent(userId));
   }
 
   @override

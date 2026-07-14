@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:sm_networking/application/user_provider.dart';
@@ -48,7 +47,7 @@ class GoogleMpaView extends StatefulWidget {
 class _GoogleMpaViewState extends State<GoogleMpaView>
     with TickerProviderStateMixin {
   final Completer<GoogleMapController> _controller =
-  Completer<GoogleMapController>();
+      Completer<GoogleMapController>();
   LatLng? currentLocation;
   Set<Marker> markerSet = {};
   BitmapDescriptor? destinationIcon;
@@ -65,7 +64,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
   bool _isUpdatingLocation = false;
 
   bool _loadingCheckIn = true;
-  bool _markersInitialized = false; // flipped to true after first successful load
+  bool _markersInitialized =
+      false; // flipped to true after first successful load
 
   /// Loads markers for whichever tab is currently active.
   /// Safe to call from didChangeDependencies and after add-screens return.
@@ -103,8 +103,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
 
   Future setSourceAndDestinationIcons() async {
     final Uint8List icon =
-    await getBytesFromAsset('assets/images/marker.png', 70);
-    destinationIcon = await BitmapDescriptor.fromBytes(icon);
+        await getBytesFromAsset('assets/images/marker.png', 70);
+    destinationIcon = BitmapDescriptor.fromBytes(icon);
     return destinationIcon;
   }
 
@@ -170,7 +170,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     _loadCheckInStatus();
 
     final location = Provider.of<LocationProvider>(context, listen: false);
-    log(location.getLatLng().toString() + " Location Provider");
+    log("${location.getLatLng()} Location Provider");
 
     if (location.getLatLng() == null) {
       log("Fetching location");
@@ -226,7 +226,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
 
   Future<void> _loadCheckInStatus() async {
     final checkInProvider =
-    Provider.of<CheckInProvider>(context, listen: false);
+        Provider.of<CheckInProvider>(context, listen: false);
     await checkInProvider.loadStatus();
     if (mounted) {
       setState(() {
@@ -273,14 +273,14 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     final showTabs = isOrderBooker || isWarehouseManager;
     final tabs = isWarehouseManager
         ? const [
-      Tab(text: "Distributors"),
-      Tab(text: "Wholesalers"),
-      Tab(text: "Retailers"),
-    ]
+            Tab(text: "Distributors"),
+            Tab(text: "Wholesalers"),
+            Tab(text: "Retailers"),
+          ]
         : const [
-      Tab(text: "Wholesalers"),
-      Tab(text: "Retailers"),
-    ];
+            Tab(text: "Wholesalers"),
+            Tab(text: "Retailers"),
+          ];
 
     return Scaffold(
       appBar: AppBar(
@@ -291,53 +291,52 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
           isOrderBooker
               ? "Wholesalers/Retailers"
               : isWarehouseManager
-              ? "Customers"
-              : "Distributors",
+                  ? "Customers"
+                  : "Distributors",
           style: FrontendConfigs.kSubHeadingStyle,
         ),
         bottom: showTabs
             ? TabBar(
-          controller: _tabController,
-          labelColor: FrontendConfigs.kPrimaryColor,
-          unselectedLabelColor: FrontendConfigs.kAuthTextColor,
-          indicatorColor: FrontendConfigs.kPrimaryColor,
-          indicatorWeight: 2.5,
-          labelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-          onTap: (index) {
-            final u = Provider.of<UserProvider>(context, listen: false);
-            if (isWarehouseManager) {
-              if (index == 0) {
-                final distributors =
-                    u.getSalesUserDetails()?.distributors ?? [];
-                _buildDistributorMarkers(distributors);
-              } else if (index == 1) {
-                final wholesalers =
-                    u.getSalesUserDetails()?.wholesalers ?? [];
-                _buildWholesalerMarkers(wholesalers);
-              } else {
-                final retailers =
-                    u.getSalesUserDetails()?.retailers ?? [];
-                _buildWholesalerMarkers(retailers);
-              }
-            } else {
-              // orderBooker: 0 = Wholesalers, 1 = Retailers
-              final wholesalers =
-                  u.getSalesUserDetails()?.wholesalers ?? [];
-              final retailers =
-                  u.getSalesUserDetails()?.retailers ?? [];
-              _buildWholesalerMarkers(
-                  index == 0 ? wholesalers : retailers);
-            }
-          },
-          tabs: tabs,
-        )
+                controller: _tabController,
+                labelColor: FrontendConfigs.kPrimaryColor,
+                unselectedLabelColor: FrontendConfigs.kAuthTextColor,
+                indicatorColor: FrontendConfigs.kPrimaryColor,
+                indicatorWeight: 2.5,
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                onTap: (index) {
+                  final u = Provider.of<UserProvider>(context, listen: false);
+                  if (isWarehouseManager) {
+                    if (index == 0) {
+                      final distributors =
+                          u.getSalesUserDetails()?.distributors ?? [];
+                      _buildDistributorMarkers(distributors);
+                    } else if (index == 1) {
+                      final wholesalers =
+                          u.getSalesUserDetails()?.wholesalers ?? [];
+                      _buildWholesalerMarkers(wholesalers);
+                    } else {
+                      final retailers =
+                          u.getSalesUserDetails()?.retailers ?? [];
+                      _buildWholesalerMarkers(retailers);
+                    }
+                  } else {
+                    // orderBooker: 0 = Wholesalers, 1 = Retailers
+                    final wholesalers =
+                        u.getSalesUserDetails()?.wholesalers ?? [];
+                    final retailers = u.getSalesUserDetails()?.retailers ?? [];
+                    _buildWholesalerMarkers(
+                        index == 0 ? wholesalers : retailers);
+                  }
+                },
+                tabs: tabs,
+              )
             : null,
         actions: [
           Consumer<CheckInProvider>(
@@ -348,13 +347,13 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                   TextButton(
                     onPressed: isCheckedIn
                         ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RetailersView(),
-                        ),
-                      );
-                    }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RetailersView(),
+                              ),
+                            );
+                          }
                         : null,
                     child: Text(
                       "View All",
@@ -370,118 +369,118 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                     IconButton(
                       onPressed: isCheckedIn
                           ? () async {
-                        final tabIndex = _tabController.index;
+                              final tabIndex = _tabController.index;
 
-                        if (isOrderBooker) {
-                          // orderBooker tabs: 0 = Wholesalers, 1 = Retailers
-                          if (tabIndex == 0) {
-                            // Wholesalers tab
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                  const AddWholesalerView()),
-                            );
-                            if (mounted) {
-                              final wholesalers =
-                                  Provider.of<UserProvider>(context,
-                                      listen: false)
-                                      .getSalesUserDetails()
-                                      ?.wholesalers ??
-                                      [];
-                              _buildWholesalerMarkers(wholesalers);
+                              if (isOrderBooker) {
+                                // orderBooker tabs: 0 = Wholesalers, 1 = Retailers
+                                if (tabIndex == 0) {
+                                  // Wholesalers tab
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AddWholesalerView()),
+                                  );
+                                  if (mounted) {
+                                    final wholesalers =
+                                        Provider.of<UserProvider>(context,
+                                                    listen: false)
+                                                .getSalesUserDetails()
+                                                ?.wholesalers ??
+                                            [];
+                                    _buildWholesalerMarkers(wholesalers);
+                                  }
+                                } else {
+                                  // Retailers tab
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AddRetailerView()),
+                                  );
+                                  if (mounted) {
+                                    final retailers = Provider.of<UserProvider>(
+                                                context,
+                                                listen: false)
+                                            .getSalesUserDetails()
+                                            ?.retailers ??
+                                        [];
+                                    _buildWholesalerMarkers(retailers);
+                                  }
+                                }
+                              } else if (isWarehouseManager) {
+                                // warehouseManager tabs: 0 = Distributors, 1 = Wholesalers, 2 = Retailers
+                                if (tabIndex == 1) {
+                                  // Wholesalers tab
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AddWholesalerView()),
+                                  );
+                                  if (mounted) {
+                                    final wholesalers =
+                                        Provider.of<UserProvider>(context,
+                                                    listen: false)
+                                                .getSalesUserDetails()
+                                                ?.wholesalers ??
+                                            [];
+                                    _buildWholesalerMarkers(wholesalers);
+                                  }
+                                } else if (tabIndex == 2) {
+                                  // Retailers tab
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AddRetailerView()),
+                                  );
+                                  if (mounted) {
+                                    final retailers = Provider.of<UserProvider>(
+                                                context,
+                                                listen: false)
+                                            .getSalesUserDetails()
+                                            ?.retailers ??
+                                        [];
+                                    _buildWholesalerMarkers(retailers);
+                                  }
+                                } else {
+                                  // Distributors tab (tab 0)
+                                  final added = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AddDistributorView()),
+                                  );
+                                  if (added == true && mounted) {
+                                    final distributors =
+                                        Provider.of<UserProvider>(context,
+                                                    listen: false)
+                                                .getSalesUserDetails()
+                                                ?.distributors ??
+                                            [];
+                                    _buildDistributorMarkers(distributors);
+                                  }
+                                }
+                              } else {
+                                // TSM — always distributor (no tabs)
+                                final added = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const AddDistributorView()),
+                                );
+                                if (added == true && mounted) {
+                                  final distributors =
+                                      Provider.of<UserProvider>(context,
+                                                  listen: false)
+                                              .getSalesUserDetails()
+                                              ?.distributors ??
+                                          [];
+                                  _buildDistributorMarkers(distributors);
+                                }
+                              }
                             }
-                          } else {
-                            // Retailers tab
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                  const AddRetailerView()),
-                            );
-                            if (mounted) {
-                              final retailers =
-                                  Provider.of<UserProvider>(context,
-                                      listen: false)
-                                      .getSalesUserDetails()
-                                      ?.retailers ??
-                                      [];
-                              _buildWholesalerMarkers(retailers);
-                            }
-                          }
-                        } else if (isWarehouseManager) {
-                          // warehouseManager tabs: 0 = Distributors, 1 = Wholesalers, 2 = Retailers
-                          if (tabIndex == 1) {
-                            // Wholesalers tab
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                  const AddWholesalerView()),
-                            );
-                            if (mounted) {
-                              final wholesalers =
-                                  Provider.of<UserProvider>(context,
-                                      listen: false)
-                                      .getSalesUserDetails()
-                                      ?.wholesalers ??
-                                      [];
-                              _buildWholesalerMarkers(wholesalers);
-                            }
-                          } else if (tabIndex == 2) {
-                            // Retailers tab
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                  const AddRetailerView()),
-                            );
-                            if (mounted) {
-                              final retailers =
-                                  Provider.of<UserProvider>(context,
-                                      listen: false)
-                                      .getSalesUserDetails()
-                                      ?.retailers ??
-                                      [];
-                              _buildWholesalerMarkers(retailers);
-                            }
-                          } else {
-                            // Distributors tab (tab 0)
-                            final added = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                  const AddDistributorView()),
-                            );
-                            if (added == true && mounted) {
-                              final distributors =
-                                  Provider.of<UserProvider>(context,
-                                      listen: false)
-                                      .getSalesUserDetails()
-                                      ?.distributors ??
-                                      [];
-                              _buildDistributorMarkers(distributors);
-                            }
-                          }
-                        } else {
-                          // TSM — always distributor (no tabs)
-                          final added = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                const AddDistributorView()),
-                          );
-                          if (added == true && mounted) {
-                            final distributors =
-                                Provider.of<UserProvider>(context,
-                                    listen: false)
-                                    .getSalesUserDetails()
-                                    ?.distributors ??
-                                    [];
-                            _buildDistributorMarkers(distributors);
-                          }
-                        }
-                      }
                           : null,
                       icon: Icon(
                         Icons.add,
@@ -497,55 +496,55 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
       body: currentLocation == null
           ? const Center(child: ProcessingWidget())
           : Consumer<CheckInProvider>(
-        builder: (context, checkInProvider, _) {
-          final isCheckedIn = checkInProvider.isCheckedIn;
+              builder: (context, checkInProvider, _) {
+                final isCheckedIn = checkInProvider.isCheckedIn;
 
-          if (!isCheckedIn) {
-            return const Center(
-              child: Text(
-                "Please Check In First To Use Retailer",
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
+                if (!isCheckedIn) {
+                  return const Center(
+                    child: Text(
+                      "Please Check In First To Use Retailer",
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
 
-          return Stack(
-            children: [
-              GoogleMap(
-                mapType: MapType.normal,
-                markers: markerSet,
-                myLocationEnabled: true,
-                zoomControlsEnabled: false,
-                initialCameraPosition: CameraPosition(
-                  target: currentLocation!,
-                  zoom: 16,
-                  tilt: 85,
-                  bearing: 20,
-                ),
-                onMapCreated: (GoogleMapController controller) {
-                  _controller.complete(controller);
-                },
-              ),
-              if (_selectedDistributor != null)
-                Positioned.fill(
-                  bottom: 10,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _buildDistributorCard(context),
-                  ),
-                ),
-              if (_selectedWholesaler != null)
-                Positioned.fill(
-                  bottom: 10,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _buildWholesalerCard(context),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
+                return Stack(
+                  children: [
+                    GoogleMap(
+                      mapType: MapType.normal,
+                      markers: markerSet,
+                      myLocationEnabled: true,
+                      zoomControlsEnabled: false,
+                      initialCameraPosition: CameraPosition(
+                        target: currentLocation!,
+                        zoom: 16,
+                        tilt: 85,
+                        bearing: 20,
+                      ),
+                      onMapCreated: (GoogleMapController controller) {
+                        _controller.complete(controller);
+                      },
+                    ),
+                    if (_selectedDistributor != null)
+                      Positioned.fill(
+                        bottom: 10,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: _buildDistributorCard(context),
+                        ),
+                      ),
+                    if (_selectedWholesaler != null)
+                      Positioned.fill(
+                        bottom: 10,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: _buildWholesalerCard(context),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
     );
   }
 
@@ -585,7 +584,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
   // ── Mark Attendance (site-visit/add) ──────────────────────────────────────
   /// Sends a site-visit attendance record for [distributor] to the backend.
   /// Uses current UTC time as checkIn and checkOut (same moment).
-  Future<void> _markAttendance(BuildContext context, Distributor distributor) async {
+  Future<void> _markAttendance(
+      BuildContext context, Distributor distributor) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.getSalesUserDetails()?.token ?? '';
     final salesPersonID = userProvider.getSalesUserDetails()?.user?.id ?? '';
@@ -675,8 +675,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     Navigator.of(context, rootNavigator: true).pop(); // dismiss loader
 
     result.fold(
-          (failure) => getFlushBar(context, title: failure.error),
-          (_) => getFlushBar(
+      (failure) => getFlushBar(context, title: failure.error),
+      (_) => getFlushBar(
         context,
         title: 'Attendance marked for ${distributor.name ?? 'distributor'}',
       ),
@@ -718,7 +718,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                     CircleAvatar(
                       radius: 36,
                       backgroundColor:
-                      FrontendConfigs.kPrimaryColor.withOpacity(0.15),
+                          FrontendConfigs.kPrimaryColor.withOpacity(0.15),
                       child: Text(
                         (d.name?.isNotEmpty == true ? d.name![0] : 'D')
                             .toUpperCase(),
@@ -779,8 +779,6 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                   ],
                                 ),
                               ),
-
-
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -849,147 +847,149 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                           }
 
                           await showVisitBottomSheet(context,
-                                  (selectedImage) async {
-                                final visitProvider = Provider.of<VisitProvider>(
-                                    context,
-                                    listen: false);
-                                final locationProvider =
+                              (selectedImage) async {
+                            final visitProvider = Provider.of<VisitProvider>(
+                                context,
+                                listen: false);
+                            final locationProvider =
                                 Provider.of<LocationProvider>(context,
                                     listen: false);
-                                // Open editor if an image was picked
-                                String? imagePath;
-                                if (selectedImage != null) {
-                                  imagePath = await _openProEditor(selectedImage.path);
+                            // Open editor if an image was picked
+                            String? imagePath;
+                            if (selectedImage != null) {
+                              imagePath =
+                                  await _openProEditor(selectedImage.path);
+                            }
+
+                            final position =
+                                await Geolocator.getCurrentPosition(
+                              desiredAccuracy: LocationAccuracy.high,
+                            );
+
+                            AppLogger.debug("📍 Initial GPS location obtained");
+
+                            await visitProvider.setStartVisit(
+                              location: currentLocation!,
+                              imagePath: imagePath,
+                              accuracy: position.accuracy,
+                              onLocationCheckCallback: () async {
+                                if (visitProvider.startVisit == null ||
+                                    visitProvider.visitLocation == null) {
+                                  AppLogger.debug(
+                                      "⚠️ Visit data cleared - skipping callback");
+                                  return;
                                 }
 
-                                final position =
-                                await Geolocator.getCurrentPosition(
-                                  desiredAccuracy: LocationAccuracy.high,
-                                );
-
-                                AppLogger.debug("📍 Initial GPS location obtained");
-
-                                await visitProvider.setStartVisit(
-                                  location: currentLocation!,
-                                  imagePath: imagePath,
-                                  accuracy: position.accuracy,
-                                  onLocationCheckCallback: () async {
-                                    if (visitProvider.startVisit == null ||
-                                        visitProvider.visitLocation == null) {
-                                      AppLogger.debug(
-                                          "⚠️ Visit data cleared - skipping callback");
-                                      return;
-                                    }
-
-                                    Position freshPosition;
-                                    try {
-                                      freshPosition =
+                                Position freshPosition;
+                                try {
+                                  freshPosition =
                                       await Geolocator.getCurrentPosition(
-                                        desiredAccuracy: LocationAccuracy.high,
-                                        timeLimit: const Duration(seconds: 5),
-                                      );
-                                    } catch (e) {
+                                    desiredAccuracy: LocationAccuracy.high,
+                                    timeLimit: const Duration(seconds: 5),
+                                  );
+                                } catch (e) {
+                                  AppLogger.debug(
+                                      "❌ Failed to get fresh GPS location: $e");
+                                  return;
+                                }
+
+                                final currentLoc = LatLng(
+                                    freshPosition.latitude,
+                                    freshPosition.longitude);
+                                locationProvider.setLatLng(currentLoc);
+
+                                await visitProvider.checkAndAutoLogVisit(
+                                  currentLocation: currentLoc,
+                                  currentAccuracy: freshPosition.accuracy,
+                                  onShowNotification: (message) {
+                                    if (context.mounted) {
+                                      getFlushBar(context, title: message);
+                                    }
+                                  },
+                                  onAutoLogVisit: () async {
+                                    if (visitProvider.startVisit == null) {
                                       AppLogger.debug(
-                                          "❌ Failed to get fresh GPS location: $e");
+                                          "⚠️ Visit cleared before auto-log");
                                       return;
                                     }
 
-                                    final currentLoc = LatLng(
-                                        freshPosition.latitude,
-                                        freshPosition.longitude);
-                                    locationProvider.setLatLng(currentLoc);
-
-                                    await visitProvider.checkAndAutoLogVisit(
-                                      currentLocation: currentLoc,
-                                      currentAccuracy: freshPosition.accuracy,
-                                      onShowNotification: (message) {
-                                        if (context.mounted) {
-                                          getFlushBar(context, title: message);
-                                        }
-                                      },
-                                      onAutoLogVisit: () async {
-                                        if (visitProvider.startVisit == null) {
-                                          AppLogger.debug(
-                                              "⚠️ Visit cleared before auto-log");
-                                          return;
-                                        }
-
-                                        final retailerProvider =
+                                    final retailerProvider =
                                         Provider.of<RetailerProvider>(context,
                                             listen: false);
-                                        final userProvider =
+                                    final userProvider =
                                         Provider.of<UserProvider>(context,
                                             listen: false);
-                                        final selectedRetailer =
+                                    final selectedRetailer =
                                         retailerProvider.getRetailer();
-                                        final userDetails =
-                                            userProvider.getSalesUserDetails()?.user;
-                                        final startVisit =
+                                    final userDetails = userProvider
+                                        .getSalesUserDetails()
+                                        ?.user;
+                                    final startVisit =
                                         await visitProvider.getStartVisit();
 
-                                        if (selectedRetailer != null &&
-                                            userDetails != null &&
-                                            startVisit != null) {
-                                          final visit = VisitModel(
-                                            retailerId:
+                                    if (selectedRetailer != null &&
+                                        userDetails != null &&
+                                        startVisit != null) {
+                                      final visit = VisitModel(
+                                        retailerId:
                                             selectedRetailer.id.toString(),
-                                            salesPersonId:
+                                        salesPersonId:
                                             userDetails.id.toString(),
-                                            startTime:
-                                            startVisit.toIso8601String(),
-                                            endTime:
+                                        startTime: startVisit.toIso8601String(),
+                                        endTime:
                                             DateTime.now().toIso8601String(),
-                                            date: DateTime.now()
-                                                .toString()
-                                                .split(' ')[0],
-                                            image: visitProvider.visitImage ?? "",
-                                          );
+                                        date: DateTime.now()
+                                            .toString()
+                                            .split(' ')[0],
+                                        image: visitProvider.visitImage ?? "",
+                                      );
 
-                                          if (context.mounted) {
-                                            context
-                                                .read<VisitBloc>()
-                                                .add(AddVisitEvent(visit));
-                                            await visitProvider.clearVisitData();
-                                            AppLogger.debug(
-                                                "✅ Visit auto-logged via background monitoring");
-                                          }
-                                        }
-                                      },
-                                    );
+                                      if (context.mounted) {
+                                        context
+                                            .read<VisitBloc>()
+                                            .add(AddVisitEvent(visit));
+                                        await visitProvider.clearVisitData();
+                                        AppLogger.debug(
+                                            "✅ Visit auto-logged via background monitoring");
+                                      }
+                                    }
                                   },
                                 );
+                              },
+                            );
 
-                                // Map Distributor → RetailerModel for downstream screens
-                                final asRetailer = RetailerModel(
-                                  id: d.id ?? d.salesId,
-                                  docId: d.id ?? d.salesId,
-                                  name: d.name,
-                                  shopName: d.distributionName ?? d.name,
-                                  shopAddress1: d.address,
-                                  phoneNumber: d.phone,
-                                  lat: d.shopLocation?.lat,
-                                  lng: d.shopLocation?.lng,
-                                  image: d.image ?? '',
-                                  isActive: d.isActive,
-                                  customerType: 'distributor',
-                                );
+                            // Map Distributor → RetailerModel for downstream screens
+                            final asRetailer = RetailerModel(
+                              id: d.id ?? d.salesId,
+                              docId: d.id ?? d.salesId,
+                              name: d.name,
+                              shopName: d.distributionName ?? d.name,
+                              shopAddress1: d.address,
+                              phoneNumber: d.phone,
+                              lat: d.shopLocation?.lat,
+                              lng: d.shopLocation?.lng,
+                              image: d.image ?? '',
+                              isActive: d.isActive,
+                              customerType: 'distributor',
+                            );
 
-                                Provider.of<RetailerProvider>(context, listen: false)
-                                    .saveRetailer(asRetailer);
+                            Provider.of<RetailerProvider>(context,
+                                    listen: false)
+                                .saveRetailer(asRetailer);
 
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
                                     const CategoryListingView(showCart: true),
-                                  ),
-                                );
+                              ),
+                            );
 
-                                if (mounted) {
-                                  getFlushBar(context,
-                                      title: "Visit Started Successfully");
-                                }
-                              });
+                            if (mounted) {
+                              getFlushBar(context,
+                                  title: "Visit Started Successfully");
+                            }
+                          });
                         },
                         child: const Text(
                           "Company Order",
@@ -999,7 +999,6 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                     ),
                   ],
                 ),
-
               ],
             ),
           ),
@@ -1016,8 +1015,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     final address = w.address ?? '';
     final townName = w.town?.name ?? '';
     final role = Provider.of<UserProvider>(context, listen: false)
-        .getSalesUserDetails()
-        ?.role ??
+            .getSalesUserDetails()
+            ?.role ??
         '';
     final isWarehouseManager = role == 'warehouseManager';
 
@@ -1047,7 +1046,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                     CircleAvatar(
                       radius: 36,
                       backgroundColor:
-                      FrontendConfigs.kPrimaryColor.withOpacity(0.15),
+                          FrontendConfigs.kPrimaryColor.withOpacity(0.15),
                       child: Text(
                         (w.name?.isNotEmpty == true ? w.name![0] : 'W')
                             .toUpperCase(),
@@ -1112,100 +1111,141 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                 children: [
                                   // Update location to current position
                                   InkWell(
-                                    onTap: _isUpdatingLocation ? null : () async {
-                                      final whol = _selectedWholesaler!;
-                                      final id = (whol.id ?? '').trim();
-                                      if (id.isEmpty) {
-                                        getFlushBar(context,
-                                            title: 'Missing wholesaler/retailer id');
-                                        return;
-                                      }
-                                      final userProv = context.read<UserProvider>();
-                                      final token =
-                                          userProv.getSalesUserDetails()?.token ?? '';
-                                      if (token.isEmpty) {
-                                        getFlushBar(context,
-                                            title: 'Session expired. Please log in again.');
-                                        return;
-                                      }
-                                      final locProv = context.read<LocationProvider>();
-                                      setState(() => _isUpdatingLocation = true);
-                                      try {
-                                        final pos = await Geolocator.getCurrentPosition(
-                                          desiredAccuracy: LocationAccuracy.high,
-                                        );
-                                        if (!mounted) return;
-                                        final lat = pos.latitude;
-                                        final lng = pos.longitude;
-                                        locProv.setLatLng(LatLng(lat, lng));
-                                        setState(() {
-                                          currentLocation = LatLng(lat, lng);
-                                        });
-                                        // Correct tab detection:
-                                        // warehouseManager: 0=Dist, 1=Wholesale, 2=Retail
-                                        // orderBooker:      0=Wholesale, 1=Retail
-                                        final isRetailerTab = isWarehouseManager
-                                            ? _tabController.index == 2
-                                            : _tabController.index == 1;
-
-                                        final result = isRetailerTab
-                                            ? await RetailerRepositoryImp()
-                                            .updateRetailerLocation(
-                                          retailerId: id,
-                                          lat: lat,
-                                          lng: lng,
-                                          token: token,
-                                        )
-                                            : await RetailerRepositoryImp()
-                                            .updateWholesalerLocation(
-                                          wholesalerId: id,
-                                          lat: lat,
-                                          lng: lng,
-                                          token: token,
-                                        );
-                                        if (!mounted) return;
-                                        result.fold(
-                                              (l) => getFlushBar(context,
-                                              title: l.error.toString()),
-                                              (updated) {
-                                            if (isRetailerTab) {
-                                              userProv.patchRetailerShopLocation(
-                                                  id, lat, lng,
-                                                  address: (updated as dynamic).shopAddress1?.toString());
-                                            } else {
-                                              userProv.patchWholesalerShopLocation(
-                                                  id, lat, lng,
-                                                  address: (updated as dynamic).address?.toString());
+                                    onTap: _isUpdatingLocation
+                                        ? null
+                                        : () async {
+                                            final whol = _selectedWholesaler!;
+                                            final id = (whol.id ?? '').trim();
+                                            if (id.isEmpty) {
+                                              getFlushBar(context,
+                                                  title:
+                                                      'Missing wholesaler/retailer id');
+                                              return;
                                             }
-                                            final updatedList = isRetailerTab
-                                                ? (userProv.getSalesUserDetails()?.retailers ?? [])
-                                                : (userProv.getSalesUserDetails()?.wholesalers ?? []);
-                                            _buildWholesalerMarkers(updatedList);
-                                            Wholesaler? refreshed;
-                                            for (final x in updatedList) {
-                                              if (x.id == id) {
-                                                refreshed = x;
-                                                break;
+                                            final userProv =
+                                                context.read<UserProvider>();
+                                            final token = userProv
+                                                    .getSalesUserDetails()
+                                                    ?.token ??
+                                                '';
+                                            if (token.isEmpty) {
+                                              getFlushBar(context,
+                                                  title:
+                                                      'Session expired. Please log in again.');
+                                              return;
+                                            }
+                                            final locProv = context
+                                                .read<LocationProvider>();
+                                            setState(() =>
+                                                _isUpdatingLocation = true);
+                                            try {
+                                              final pos = await Geolocator
+                                                  .getCurrentPosition(
+                                                desiredAccuracy:
+                                                    LocationAccuracy.high,
+                                              );
+                                              if (!mounted) return;
+                                              final lat = pos.latitude;
+                                              final lng = pos.longitude;
+                                              locProv
+                                                  .setLatLng(LatLng(lat, lng));
+                                              setState(() {
+                                                currentLocation =
+                                                    LatLng(lat, lng);
+                                              });
+                                              // Correct tab detection:
+                                              // warehouseManager: 0=Dist, 1=Wholesale, 2=Retail
+                                              // orderBooker:      0=Wholesale, 1=Retail
+                                              final isRetailerTab =
+                                                  isWarehouseManager
+                                                      ? _tabController.index ==
+                                                          2
+                                                      : _tabController.index ==
+                                                          1;
+
+                                              final result = isRetailerTab
+                                                  ? await RetailerRepositoryImp()
+                                                      .updateRetailerLocation(
+                                                      retailerId: id,
+                                                      lat: lat,
+                                                      lng: lng,
+                                                      token: token,
+                                                    )
+                                                  : await RetailerRepositoryImp()
+                                                      .updateWholesalerLocation(
+                                                      wholesalerId: id,
+                                                      lat: lat,
+                                                      lng: lng,
+                                                      token: token,
+                                                    );
+                                              if (!mounted) return;
+                                              result.fold(
+                                                (l) => getFlushBar(context,
+                                                    title: l.error.toString()),
+                                                (updated) {
+                                                  if (isRetailerTab) {
+                                                    userProv
+                                                        .patchRetailerShopLocation(
+                                                            id,
+                                                            lat,
+                                                            lng,
+                                                            address: (updated
+                                                                    as dynamic)
+                                                                .shopAddress1
+                                                                ?.toString());
+                                                  } else {
+                                                    userProv
+                                                        .patchWholesalerShopLocation(
+                                                            id,
+                                                            lat,
+                                                            lng,
+                                                            address: (updated
+                                                                    as dynamic)
+                                                                .address
+                                                                ?.toString());
+                                                  }
+                                                  final updatedList = isRetailerTab
+                                                      ? (userProv
+                                                              .getSalesUserDetails()
+                                                              ?.retailers ??
+                                                          [])
+                                                      : (userProv
+                                                              .getSalesUserDetails()
+                                                              ?.wholesalers ??
+                                                          []);
+                                                  _buildWholesalerMarkers(
+                                                      updatedList);
+                                                  Wholesaler? refreshed;
+                                                  for (final x in updatedList) {
+                                                    if (x.id == id) {
+                                                      refreshed = x;
+                                                      break;
+                                                    }
+                                                  }
+                                                  if (refreshed != null) {
+                                                    setState(() {
+                                                      _selectedWholesaler =
+                                                          refreshed;
+                                                    });
+                                                  }
+                                                  getFlushBar(context,
+                                                      title:
+                                                          'Location updated for ${whol.name ?? 'customer'}');
+                                                },
+                                              );
+                                            } catch (e) {
+                                              if (mounted) {
+                                                getFlushBar(context,
+                                                    title: e.toString());
+                                              }
+                                            } finally {
+                                              if (mounted) {
+                                                setState(() =>
+                                                    _isUpdatingLocation =
+                                                        false);
                                               }
                                             }
-                                            if (refreshed != null) {
-                                              setState(() {
-                                                _selectedWholesaler = refreshed;
-                                              });
-                                            }
-                                            getFlushBar(context,
-                                                title:
-                                                'Location updated for ${whol.name ?? 'customer'}');
                                           },
-                                        );
-                                      } catch (e) {
-                                        if (mounted) {
-                                          getFlushBar(context, title: e.toString());
-                                        }
-                                      } finally {
-                                        if (mounted) setState(() => _isUpdatingLocation = false);
-                                      }
-                                    },
                                     child: Container(
                                       height: 36,
                                       width: 36,
@@ -1216,21 +1256,22 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                       ),
                                       child: _isUpdatingLocation
                                           ? const SizedBox(
-                                          width: 18, height: 18,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white))
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white))
                                           : const Icon(
-                                          CupertinoIcons.location_solid,
-                                          color: Colors.white,
-                                          size: 18),
+                                              CupertinoIcons.location_solid,
+                                              color: Colors.white,
+                                              size: 18),
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   // Dismiss card button
                                   InkWell(
-                                    onTap: () =>
-                                        setState(() => _selectedWholesaler = null),
+                                    onTap: () => setState(
+                                        () => _selectedWholesaler = null),
                                     child: Container(
                                       height: 36,
                                       width: 36,
@@ -1240,7 +1281,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         color: Colors.grey.shade200,
                                       ),
                                       child: Icon(Icons.close,
-                                          color: Colors.grey.shade700, size: 18),
+                                          color: Colors.grey.shade700,
+                                          size: 18),
                                     ),
                                   ),
                                 ],
@@ -1287,7 +1329,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                 distributorId: w.id ?? '',
                                 paymentType: 'market_recovery',
                                 customerType:
-                                isRetailerTab ? 'retailer' : 'wholesaler',
+                                    isRetailerTab ? 'retailer' : 'wholesaler',
                               ),
                             ),
                           );
@@ -1320,54 +1362,54 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                         return;
                       }
                       await showVisitBottomSheet(context,
-                              (selectedImage) async {
-                            String? imagePath;
-                            if (selectedImage != null) {
-                              imagePath =
-                              await _openProEditor(selectedImage.path);
-                            }
-                            final position =
-                            await Geolocator.getCurrentPosition(
-                              desiredAccuracy: LocationAccuracy.high,
-                            );
-                            final visitProvider =
+                          (selectedImage) async {
+                        String? imagePath;
+                        if (selectedImage != null) {
+                          imagePath = await _openProEditor(selectedImage.path);
+                        }
+                        final position = await Geolocator.getCurrentPosition(
+                          desiredAccuracy: LocationAccuracy.high,
+                        );
+                        final visitProvider =
                             Provider.of<VisitProvider>(context, listen: false);
-                            await visitProvider.setStartVisit(
-                              location: currentLocation!,
-                              imagePath: imagePath,
-                              accuracy: position.accuracy,
-                              onLocationCheckCallback: () async {},
-                            );
+                        await visitProvider.setStartVisit(
+                          location: currentLocation!,
+                          imagePath: imagePath,
+                          accuracy: position.accuracy,
+                          onLocationCheckCallback: () async {},
+                        );
 
-                            // Map Wholesaler → RetailerModel for downstream screens
-                            final asRetailer = RetailerModel(
-                              id: w.id,
-                              docId: w.id,
-                              name: w.name,
-                              shopName: w.name,
-                              shopAddress1: w.address,
-                              phoneNumber: w.contacts,
-                              lat: w.shopLocation?.lat ?? w.addressFromGoogle?.lat,
-                              lng: w.shopLocation?.lng ?? w.addressFromGoogle?.lng,
-                              image: w.pic ?? '',
-                              isActive: w.isActive,
-                              customerType: (_tabController.index == (isWarehouseManager ? 2 : 1))
-                                  ? 'retailer' : 'wholesaler',
-                            );
-                            Provider.of<RetailerProvider>(context, listen: false)
-                                .saveRetailer(asRetailer);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
+                        // Map Wholesaler → RetailerModel for downstream screens
+                        final asRetailer = RetailerModel(
+                          id: w.id,
+                          docId: w.id,
+                          name: w.name,
+                          shopName: w.name,
+                          shopAddress1: w.address,
+                          phoneNumber: w.contacts,
+                          lat: w.shopLocation?.lat ?? w.addressFromGoogle?.lat,
+                          lng: w.shopLocation?.lng ?? w.addressFromGoogle?.lng,
+                          image: w.pic ?? '',
+                          isActive: w.isActive,
+                          customerType: (_tabController.index ==
+                                  (isWarehouseManager ? 2 : 1))
+                              ? 'retailer'
+                              : 'wholesaler',
+                        );
+                        Provider.of<RetailerProvider>(context, listen: false)
+                            .saveRetailer(asRetailer);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
                                 const CategoryListingView(showCart: true),
-                              ),
-                            );
-                            if (mounted) {
-                              getFlushBar(context,
-                                  title: "Visit Started Successfully");
-                            }
-                          });
+                          ),
+                        );
+                        if (mounted) {
+                          getFlushBar(context,
+                              title: "Visit Started Successfully");
+                        }
+                      });
                     },
                     child: const Text(
                       "Start Market Booking",

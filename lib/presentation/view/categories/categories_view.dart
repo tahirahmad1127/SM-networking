@@ -1,9 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:sm_networking/application/cart_provider.dart';
-import 'package:sm_networking/application/visit_provider.dart';
-import 'package:sm_networking/presentation/elements/custom_appbar.dart';
-import 'package:sm_networking/presentation/elements/my_logger.dart';
 import 'package:sm_networking/presentation/view/categories/layout/body.dart';
 import 'package:provider/provider.dart';
 
@@ -14,7 +11,8 @@ import '../cart/cart_view.dart';
 class CategoriesView extends StatelessWidget {
   final bool showCart;
 
-  const CategoriesView({super.key, required this.model, required this.showCart});
+  const CategoriesView(
+      {super.key, required this.model, required this.showCart});
   final CategoryModel model;
 
   @override
@@ -47,20 +45,24 @@ class CategoriesView extends StatelessWidget {
           //       color: Colors.black,
           //     )),
           Badge(
-            isLabelVisible:cart.cartItems.isNotEmpty,
+            isLabelVisible: cart.cartItems.isNotEmpty,
             alignment: const AlignmentDirectional(0.5, -0.5),
             label: Text(cart.cartItems.length.toString()),
             child: IconButton(
                 onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => const CartView()));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const CartView()));
                 },
                 icon: const Icon(
                   CupertinoIcons.cart,
                   color: Colors.black,
                 )),
           ),
-          SizedBox(width: 10,)
+          SizedBox(
+            width: 10,
+          )
         ],
         backgroundColor: Colors.transparent,
         elevation: 0,

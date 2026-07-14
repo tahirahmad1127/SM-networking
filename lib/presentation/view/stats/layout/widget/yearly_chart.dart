@@ -1,16 +1,12 @@
-import 'dart:developer';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:sm_networking/infrastructure/model/stats.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
-import '../../../../../infrastructure/model/transaction.dart';
-
 class MonthDashboardChart extends StatefulWidget {
   final List<MonthsSale> list;
 
-  MonthDashboardChart(this.list);
+  const MonthDashboardChart(this.list, {super.key});
 
   @override
   State<MonthDashboardChart> createState() => _MonthDashboardChartState();
@@ -66,7 +62,7 @@ class _MonthDashboardChartState extends State<MonthDashboardChart> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
         height: 160,
         child: SfCartesianChart(
             primaryYAxis: NumericAxis(

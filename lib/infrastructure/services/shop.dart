@@ -1,11 +1,5 @@
-import 'dart:developer';
-import 'dart:io';
-
 import 'package:dartz/dartz.dart';
-import 'package:sm_networking/infrastructure/model/category.dart';
 import 'package:sm_networking/infrastructure/model/order.dart';
-import 'package:sm_networking/infrastructure/model/retailer.dart';
-import 'package:sm_networking/infrastructure/model/user.dart';
 
 import '../../configurations/end_points.dart';
 import '../api_helper.dart';

@@ -1,28 +1,19 @@
 import 'package:extended_image/extended_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sm_networking/application/discount_helper.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
-import 'package:sm_networking/infrastructure/model/ordered_prduct_model.dart';
-import 'package:sm_networking/infrastructure/services/product.dart';
-import 'package:sm_networking/presentation/elements/app_button.dart';
 import 'package:sm_networking/presentation/elements/custom_text.dart';
-import 'package:sm_networking/presentation/elements/flush_bar.dart';
-import 'package:sm_networking/presentation/view/cart/cart_view.dart';
-import 'package:sm_networking/presentation/view/product_details/product_details_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../configurations/translation_helper.dart';
-import '../../infrastructure/model/bulk.dart';
 import '../../infrastructure/model/product.dart';
 
 class ProductDetailsCard extends StatefulWidget {
   final ProductModel model;
 
-  ProductDetailsCard({Key? key, required this.model}) : super(key: key);
+  const ProductDetailsCard({super.key, required this.model});
 
   @override
   State<ProductDetailsCard> createState() => _ProductDetailsCardState();
@@ -72,10 +63,10 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                     ),
                     child: Center(
                         child: CustomText(
-                          text: TranslationHelper.getTranslatedText('bulk_order'),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        )),
+                      text: TranslationHelper.getTranslatedText('bulk_order'),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    )),
                   ),
                 ),
               ),
@@ -146,17 +137,19 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                           Padding(
                             padding: const EdgeInsets.only(left: 12.0),
                             child: CustomText(
-                              text: widget.model.englishTitle.toString().length >
-                                  15
+                              text: widget.model.englishTitle
+                                          .toString()
+                                          .length >
+                                      15
                                   ? "${widget.model.englishTitle.toString().substring(0, 15)}..."
                                   : widget.model.englishTitle.toString(),
                               fontWeight: FontWeight.w500,
                             ),
-                          ),   Padding(
+                          ),
+                          Padding(
                             padding: const EdgeInsets.only(left: 12.0),
                             child: CustomText(
-                              text: widget.model.packings.toString().length >
-                                  15
+                              text: widget.model.packings.toString().length > 15
                                   ? "${widget.model.packings.toString().substring(0, 15)}..."
                                   : widget.model.packings.toString(),
                               fontWeight: FontWeight.w500,
@@ -168,7 +161,9 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4,),
+                  const SizedBox(
+                    height: 4,
+                  ),
                   Divider(
                     color: FrontendConfigs.kTextFieldColor,
                     thickness: 1,
@@ -189,7 +184,7 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                                 children: [
                                   CustomText(
                                     text:
-                                    "${getDiscountPrice(regularPrice: widget.model.price!, discount: widget.model.discount!)} Rs",
+                                        "${getDiscountPrice(regularPrice: widget.model.price!, discount: widget.model.discount!)} Rs",
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: FrontendConfigs.kPrimaryColor,
@@ -203,8 +198,7 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                                         color: FrontendConfigs.kAuthTextColor,
                                         fontWeight: FontWeight.w500,
                                         fontSize: 12,
-                                        decoration:
-                                        TextDecoration.lineThrough),
+                                        decoration: TextDecoration.lineThrough),
                                   )
                                 ],
                               )
@@ -215,7 +209,6 @@ class _ProductDetailsCardState extends State<ProductDetailsCard> {
                                 fontWeight: FontWeight.w600,
                                 color: FrontendConfigs.kPrimaryColor,
                               ),
-
                           ],
                         ),
                       ],

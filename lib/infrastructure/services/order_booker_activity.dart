@@ -42,6 +42,17 @@ abstract class OrderBookerActivityRepository {
     required String token,
   });
 
+  /// GET warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm= —
+  /// paginated, replaces loading the full `distributors` array embedded in
+  /// the login response.
+  Future<Either<GlobalErrorModel, DistributorsListingModel>> getDistributorsForTsm({
+    required String tsmId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+    required String token,
+  });
+
   Future<Either<GlobalErrorModel, dynamic>> getOrderBookerReport({
     required String tsmId,
     required String orderBookerId,
@@ -182,6 +193,35 @@ class OrderBookerActivityRepositoryImp
       );
     } catch (e) {
       log("getOrderBookersForTsm error: $e");
+      return Left(GlobalErrorModel(error: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<GlobalErrorModel, DistributorsListingModel>> getDistributorsForTsm({
+    required String tsmId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+    required String token,
+  }) async {
+    try {
+      final data = await ApiBaseHelper().getEither(
+        endPoint: ApiEndPoints.kGetDistributorsForTsm(
+          tsmId: tsmId,
+          page: page,
+          limit: limit,
+          searchTerm: searchTerm,
+        ),
+        isRequiredHeader: true,
+        header: _headers(token),
+      );
+      return data.fold(
+        (l) => Left(GlobalErrorModel(error: l.error.toString())),
+        (r) => Right(DistributorsListingModel.fromJson(r)),
+      );
+    } catch (e) {
+      log("getDistributorsForTsm error: $e");
       return Left(GlobalErrorModel(error: e.toString()));
     }
   }

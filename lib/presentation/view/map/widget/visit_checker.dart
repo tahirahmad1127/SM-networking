@@ -10,7 +10,6 @@ import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/retailer_provider.dart';
 import 'package:sm_networking/infrastructure/model/visit.dart';
 import 'package:sm_networking/application/visit_bloc/visit_bloc.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/presentation/elements/my_logger.dart';
 
 import '../../../elements/flush_bar.dart';
@@ -25,7 +24,8 @@ class VisitChecker extends StatefulWidget {
   State<VisitChecker> createState() => _VisitCheckerState();
 }
 
-class _VisitCheckerState extends State<VisitChecker> with WidgetsBindingObserver {
+class _VisitCheckerState extends State<VisitChecker>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -40,16 +40,19 @@ class _VisitCheckerState extends State<VisitChecker> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       _checkAndLogVisit();
     }
   }
 
   Future<void> _checkAndLogVisit() async {
     final visitProvider = Provider.of<VisitProvider>(context, listen: false);
-    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    final locationProvider =
+        Provider.of<LocationProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final retailerProvider = Provider.of<RetailerProvider>(context, listen: false);
+    final retailerProvider =
+        Provider.of<RetailerProvider>(context, listen: false);
 
     // Check if there's an active visit
     final startVisit = await visitProvider.getStartVisit();
@@ -149,7 +152,8 @@ extension VisitCheckNavigation on BuildContext {
         final accuracy = position.accuracy;
 
         AppLogger.debug("📍 Navigation Check - Fresh GPS location obtained");
-        AppLogger.debug("   Location: ${position.latitude}, ${position.longitude}");
+        AppLogger.debug(
+            "   Location: ${position.latitude}, ${position.longitude}");
         AppLogger.debug("   Accuracy: ${accuracy.toStringAsFixed(2)} m");
 
         // Update LocationProvider with fresh location

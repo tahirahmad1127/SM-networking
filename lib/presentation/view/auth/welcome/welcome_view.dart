@@ -1,13 +1,11 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import '../../../../configurations/translation_helper.dart';
-import '../../../elements/app_button.dart';
 import '../log_in/log_in_view.dart';
 import '../widgets/auth_button.dart';
 import 'layout/body.dart';
 
 class WelcomeView extends StatefulWidget {
-  const WelcomeView({Key? key}) : super(key: key);
+  const WelcomeView({super.key});
 
   @override
   State<WelcomeView> createState() => _WelcomeViewState();

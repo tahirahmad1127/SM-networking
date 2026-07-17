@@ -3,9 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/injection_container.dart';
 
+import '../../../application/checkIn_provider.dart';
+import '../../../application/offline_mode_provider.dart';
 import '../../../application/pending_sync_provider.dart';
 import 'package:provider/provider.dart';
 import '../../../application/user_provider.dart';
+import '../../elements/flush_bar.dart';
 import '../pending_sync/pending_sync_view.dart';
 import 'layout/body.dart';
 import '../../../application/attendance_bloc/attendance_bloc.dart';
@@ -39,6 +42,96 @@ class _AttendanceViewState extends State<AttendanceView> {
     }
   }
 
+  Future<void> _toggleOfflineMode(BuildContext context) async {
+    final offlineMode = Provider.of<OfflineModeProvider>(context, listen: false);
+
+    if (offlineMode.isOffline) {
+      final pendingCount =
+          Provider.of<PendingSyncProvider>(context, listen: false).count;
+      if (pendingCount > 0) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Turn off Offline Mode?"),
+            content: Text(
+                "You have $pendingCount order${pendingCount == 1 ? '' : 's'} waiting to sync. "
+                "They'll stay queued and sync when you tap Sync."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Turn Off"),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+      await offlineMode.disableOfflineMode();
+      if (mounted) {
+        getFlushBar(context, title: "Offline Mode turned off.");
+      }
+      return;
+    }
+
+    final isCheckedIn =
+        Provider.of<CheckInProvider>(context, listen: false).isCheckedIn;
+    if (!isCheckedIn) {
+      getFlushBar(context,
+          title: "You must be checked in to enable Offline Mode.");
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Enable Offline Mode?"),
+        content: const Text(
+            "This will download retailers, wholesalers, distributors, and products "
+            "for offline use. Make sure you have a good internet connection."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Enable"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final userDetails =
+        Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
+    if (userDetails == null) {
+      if (mounted) {
+        getFlushBar(context, title: "Could not load your session details.");
+      }
+      return;
+    }
+
+    final success = await offlineMode.enableOfflineMode(userDetails);
+    if (!mounted) return;
+    if (success) {
+      getFlushBar(
+        context,
+        title: offlineMode.cacheError != null
+            ? "Offline Mode enabled. ${offlineMode.cacheError}"
+            : "Offline Mode enabled — data cached for offline use.",
+      );
+    } else {
+      getFlushBar(
+        context,
+        title: offlineMode.cacheError ?? "Could not enable Offline Mode.",
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -56,9 +149,52 @@ class _AttendanceViewState extends State<AttendanceView> {
 
           return Scaffold(
             backgroundColor: const Color(0xFFF5F7FA),
-            body: isWarehouseManager
-                ? const WarehouseAttendanceBody()
-                : const AttendanceBody(),
+            body: Stack(
+              children: [
+                isWarehouseManager
+                    ? const WarehouseAttendanceBody()
+                    : const AttendanceBody(),
+                Positioned(
+                  left: 16,
+                  bottom: isWarehouseManager ? 16 : 126,
+                  child: Consumer<OfflineModeProvider>(
+                    builder: (context, offlineMode, _) {
+                      return FloatingActionButton.extended(
+                        heroTag: 'offlineModeFab',
+                        onPressed: offlineMode.isCaching
+                            ? null
+                            : () => _toggleOfflineMode(context),
+                        backgroundColor: offlineMode.isOffline
+                            ? Colors.green.shade600
+                            : Colors.grey.shade700,
+                        icon: offlineMode.isCaching
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : Icon(
+                                offlineMode.isOffline
+                                    ? Icons.cloud_done
+                                    : Icons.cloud_off,
+                                color: Colors.white,
+                              ),
+                        label: Text(
+                          offlineMode.isCaching
+                              ? "Preparing..."
+                              : offlineMode.isOffline
+                                  ? "Offline: ON"
+                                  : "Offline Mode",
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
             floatingActionButton: Padding(
               padding: EdgeInsets.only(bottom: isWarehouseManager ? 0 : 110),
               child: Consumer<PendingSyncProvider>(

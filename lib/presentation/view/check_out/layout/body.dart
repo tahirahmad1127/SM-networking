@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sm_networking/application/cart_provider.dart';
 // import 'package:sm_networking/application/coupon_bloc/coupon_bloc.dart';
+import 'package:sm_networking/application/offline_mode_provider.dart';
 import 'package:sm_networking/application/retailer_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
@@ -85,6 +86,280 @@ class _CheckOutBodyState extends State<CheckOutBody> {
     if (shop.isNotEmpty && shop != 'null') return shop;
 
     return r.name?.trim().isNotEmpty == true ? r.name! : 'N/A';
+  }
+
+  // ─── Place Order (and, when offline, the sole "Add to Drafts" action) ──
+  // [forceOfflineQueue] is true only when Offline Mode's "Add to Drafts"
+  // button calls this — it always queues locally regardless of the live
+  // connectivity check, so a whole offline session doesn't end up with some
+  // orders going straight to the server and others queued. When false
+  // (online-mode "Place Order"), behavior is byte-for-byte what it always
+  // was: try the API, fall back to the local queue only if that fails.
+  Future<void> _placeOrder({required bool forceOfflineQueue}) async {
+    if (_isPlacingOrder) return;
+    setState(() => _isPlacingOrder = true);
+    try {
+      final user = Provider.of<UserProvider>(context, listen: false);
+      final retailer = Provider.of<RetailerProvider>(context, listen: false);
+      final cart = Provider.of<CartProvider>(context, listen: false);
+      final offlineMode =
+          Provider.of<OfflineModeProvider>(context, listen: false);
+      final visitProvider =
+          Provider.of<VisitProvider>(context, listen: false);
+
+      if (visitProvider.isVisitAutoLogged) {
+        getFlushBar(context,
+            title: "Cannot place order. You moved away from the location.");
+        return;
+      }
+
+      if (retailer.getRetailer() == null) {
+        getFlushBar(context, title: "Kindly select retailer in order to proceed.");
+        return;
+      }
+
+      if (user.getSalesUserDetails()?.user == null) {
+        getFlushBar(context, title: "Session expired. Please sign in again.");
+        return;
+      }
+
+      // ── reverse geocode from retailer lat/lng ──
+      String shippingAddress = _resolveShippingAddress(retailer.getRetailer()!);
+      final rLat = retailer.getRetailer()!.lat;
+      final rLng = retailer.getRetailer()!.lng;
+      if (rLat != null && rLng != null) {
+        try {
+          final placemarks =
+              await placemarkFromCoordinates(rLat.toDouble(), rLng.toDouble());
+          if (placemarks.isNotEmpty) {
+            final p = placemarks.first;
+            final parts = [
+              p.name,
+              p.street,
+              p.subLocality,
+              p.locality,
+              p.administrativeArea,
+            ].where((s) => s != null && s.isNotEmpty).toList();
+            final geocoded = parts.join(', ');
+            if (geocoded.isNotEmpty) {
+              shippingAddress = geocoded;
+            }
+            log("📍 Geocoded shipping address: $shippingAddress");
+          }
+        } catch (e) {
+          log("⚠️ Geocoding failed, using fallback: $e");
+        }
+      }
+
+      final userDetails = user.getSalesUserDetails()!.user!;
+      final selectedRetailer = retailer.getRetailer()!;
+      final locationProvider =
+          Provider.of<LocationProvider>(context, listen: false);
+
+      final startVisit = await visitProvider.getStartVisit();
+      final visitLocation = visitProvider.visitLocation;
+
+      // Captured instead of dispatched immediately when offline, so it can
+      // ride along with the queued order and sync (image upload included)
+      // once the user taps Sync — see PendingSyncProvider.syncOne.
+      PendingVisitInfo? capturedVisitInfo;
+
+      if (startVisit != null && visitLocation != null) {
+        if (visitProvider.isNewShop) {
+          AppLogger.debug("🏪 New shop - logging visit without distance check");
+
+          final visit = VisitModel(
+              retailerId: selectedRetailer.id.toString(),
+              salesPersonId: userDetails.id.toString(),
+              shopName: selectedRetailer.shopName ?? '',
+              retailerEmail: '',
+              retailerImage: selectedRetailer.image ?? '',
+              startTime: startVisit.toIso8601String(),
+              endTime: DateTime.now().toIso8601String(),
+              date: DateTime.now().toString().split(' ')[0],
+              image: "");
+
+          if (offlineMode.isOffline) {
+            capturedVisitInfo = PendingVisitInfo(
+              retailerId: visit.retailerId ?? '',
+              salesPersonId: visit.salesPersonId ?? '',
+              shopName: visit.shopName ?? '',
+              startTime: visit.startTime ?? '',
+              endTime: visit.endTime ?? '',
+              date: visit.date ?? '',
+              localImagePath: null,
+            );
+          } else {
+            context.read<VisitBloc>().add(AddVisitEvent(visit));
+          }
+        } else {
+          final currentLocation = locationProvider.getLatLng();
+
+          if (currentLocation == null) {
+            getFlushBar(context, title: "Current location not available");
+            return;
+          }
+
+          final hasMovedAway = visitProvider.hasMovedBeyondThreshold(
+              currentLocation,
+              thresholdMeters: 20);
+
+          final visit = VisitModel(
+              retailerId: selectedRetailer.id.toString(),
+              salesPersonId: userDetails.id.toString(),
+              shopName: selectedRetailer.shopName ?? '',
+              retailerEmail: '',
+              retailerImage: selectedRetailer.image ?? '',
+              startTime: startVisit.toIso8601String(),
+              endTime: DateTime.now().toIso8601String(),
+              date: DateTime.now().toString().split(' ')[0],
+              image: visitProvider.visitImage ?? "");
+
+          if (hasMovedAway) {
+            // No order gets placed on this path either way — only bother
+            // logging the visit itself when actually online; there's no
+            // order to piggyback a queued visit-only record on offline.
+            if (!offlineMode.isOffline) {
+              context.read<VisitBloc>().add(AddVisitEvent(visit));
+            }
+            await visitProvider.clearVisitData();
+            getFlushBar(context,
+                title:
+                    "Visit logged. You moved away from the location. Order not placed.");
+            Navigator.pop(context);
+            return;
+          }
+
+          if (offlineMode.isOffline) {
+            capturedVisitInfo = PendingVisitInfo(
+              retailerId: visit.retailerId ?? '',
+              salesPersonId: visit.salesPersonId ?? '',
+              shopName: visit.shopName ?? '',
+              startTime: visit.startTime ?? '',
+              endTime: visit.endTime ?? '',
+              date: visit.date ?? '',
+              localImagePath:
+                  visitProvider.visitImage != null && visitProvider.visitImage!.isNotEmpty
+                      ? visitProvider.visitImage
+                      : null,
+            );
+          } else {
+            context.read<VisitBloc>().add(AddVisitEvent(visit));
+          }
+        }
+      }
+
+      final couponCode = cart.hasCouponApplied() &&
+              couponController.text.trim().isNotEmpty
+          ? couponController.text.trim()
+          : "";
+
+      final orderModel = CreateOrderModel(
+        retailerUser: selectedRetailer.id.toString(),
+        saleUser: userDetails.id.toString(),
+        orderType: selectedRetailer.customerType.toLowerCase() == 'distributor'
+            ? 'company'
+            : 'market_booking',
+        phoneNumber: (selectedRetailer.phoneNumber == null ||
+                selectedRetailer.phoneNumber!.isEmpty)
+            ? "N/A"
+            : selectedRetailer.phoneNumber!,
+        city: userDetails.zone.toString(),
+        paymentType: "cod",
+        couponCode: couponCode,
+        shippingAddress: shippingAddress,
+        bulkDiscount: cart.getTotalBulkDiscount() > 0
+            ? cart.getTotalBulkDiscount().toDouble()
+            : null,
+        couponDiscount: cart.hasCouponApplied()
+            ? cart.getTotalCouponDiscount().toDouble()
+            : null,
+        items: cart.cartItems.map((e) {
+          final totalFinalPrice = cart.calculateItemFinalPrice(e);
+          final totalOriginalPrice = cart.getItemOriginalPrice(e);
+
+          num finalPiecePrice;
+          num originalPiecePrice;
+
+          if (e.type.toLowerCase() == "ctn") {
+            int cartonSize = e.productDetails.cortanSize ?? 1;
+            int totalPieces = e.quantity * cartonSize;
+            finalPiecePrice = totalFinalPrice / totalPieces;
+            originalPiecePrice = totalOriginalPrice / totalPieces;
+          } else {
+            finalPiecePrice = totalFinalPrice / e.quantity;
+            originalPiecePrice = totalOriginalPrice / e.quantity;
+          }
+
+          return OrderItem(
+            productId: e.productDetails.id,
+            quantity: e.quantity,
+            cartonSize: e.productDetails.cortanSize,
+            type: e.type,
+            price: originalPiecePrice,
+            discountedPrice: finalPiecePrice,
+          );
+        }).toList(),
+      );
+
+      final itemInfo = cart.cartItems
+          .map((e) => PendingSyncItemInfo(
+                productName: e.name,
+                productImage: e.image,
+              ))
+          .toList();
+
+      // ── Online/offline branch ──
+      // Try a real reachability check (not just OS-level connectivity)
+      // before deciding — unless forceOfflineQueue is set (Offline Mode's
+      // Add to Drafts), which always queues regardless of what a live
+      // connectivity probe says.
+      final isOnline = forceOfflineQueue
+          ? false
+          : await InternetConnectivityHelper.checkConnectivityFast();
+
+      if (isOnline) {
+        _lastAttemptedOrder = PendingSyncOrder(
+          localId: const Uuid().v4(),
+          model: orderModel,
+          customerName:
+              selectedRetailer.shopName ?? selectedRetailer.name ?? 'Customer',
+          total: cart.getSubTotal().toDouble(),
+          createdAt: DateTime.now(),
+          itemInfo: itemInfo,
+        );
+        BlocProvider.of<OrderBloc>(context).add(CreateOrderEvent(orderModel));
+      } else {
+        // No internet (or Offline Mode is on) — queue locally instead of
+        // calling the API. The order still "punches" from the
+        // salesperson's point of view; it just isn't on the server yet.
+        await PendingSyncService.add(
+          PendingSyncOrder(
+            localId: const Uuid().v4(),
+            model: orderModel,
+            customerName:
+                selectedRetailer.shopName ?? selectedRetailer.name ?? 'Customer',
+            total: cart.getSubTotal().toDouble(),
+            createdAt: DateTime.now(),
+            itemInfo: itemInfo,
+            visitInfo: capturedVisitInfo,
+          ),
+        );
+        if (context.mounted) {
+          cart.emptyCart();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const OrderPlacedView()),
+          );
+        }
+      }
+
+      await visitProvider.clearVisitData();
+    } finally {
+      if (mounted) {
+        setState(() => _isPlacingOrder = false);
+      }
+    }
   }
 
   @override
@@ -666,8 +941,37 @@ class _CheckOutBodyState extends State<CheckOutBody> {
                             ),
                             const SizedBox(height: 45),
 
-                            // ── Two action buttons: Add to Drafts + Place Order ──
-                            Row(
+                            // ── Two action buttons: Add to Drafts + Place
+                            // Order — offline mode shows only a full-width
+                            // "Add to Drafts" that queues via _placeOrder
+                            // instead of the online CreateDraftEvent path.
+                            Provider.of<OfflineModeProvider>(context).isOffline
+                                ? SizedBox(
+                                    width: double.infinity,
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      onPressed: _isPlacingOrder
+                                          ? null
+                                          : () => _placeOrder(
+                                              forceOfflineQueue: true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "Add to Drafts",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Row(
                               children: [
                                 // Add to Drafts
                                 Expanded(

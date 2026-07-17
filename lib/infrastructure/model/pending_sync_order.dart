@@ -29,6 +29,54 @@ class PendingSyncItemInfo {
   }
 }
 
+/// Visit metadata captured when an order is queued while Offline Mode is
+/// on — the visit-add API call (VisitRepositoryImp.addVisit) is deferred
+/// the same way the order itself is, and replayed at sync time alongside
+/// it. [localImagePath] points at a file in a persistent app directory
+/// (not a temp/cache path) so it survives until sync — see
+/// offline_visit_image_store.dart.
+class PendingVisitInfo {
+  final String retailerId;
+  final String salesPersonId;
+  final String shopName;
+  final String startTime;
+  final String endTime;
+  final String date;
+  final String? localImagePath;
+
+  PendingVisitInfo({
+    required this.retailerId,
+    required this.salesPersonId,
+    required this.shopName,
+    required this.startTime,
+    required this.endTime,
+    required this.date,
+    this.localImagePath,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'retailerId': retailerId,
+    'salesPersonId': salesPersonId,
+    'shopName': shopName,
+    'startTime': startTime,
+    'endTime': endTime,
+    'date': date,
+    'localImagePath': localImagePath,
+  };
+
+  factory PendingVisitInfo.fromJson(Map<String, dynamic> j) {
+    return PendingVisitInfo(
+      retailerId: j['retailerId'] ?? '',
+      salesPersonId: j['salesPersonId'] ?? '',
+      shopName: j['shopName'] ?? '',
+      startTime: j['startTime'] ?? '',
+      endTime: j['endTime'] ?? '',
+      date: j['date'] ?? '',
+      localImagePath: j['localImagePath'],
+    );
+  }
+}
+
 /// An order that was punched while offline (or while the API was
 /// unreachable) and is waiting to be pushed to the backend.
 ///
@@ -47,6 +95,15 @@ class PendingSyncOrder {
   /// Kept separate from the API payload (see PendingSyncItemInfo).
   final List<PendingSyncItemInfo> itemInfo;
 
+  /// Set only when this order was queued from Offline Mode's checkout flow
+  /// and a visit was started — null for the pre-existing "connectivity
+  /// dropped mid-order" queue path, which never captured a visit here.
+  final PendingVisitInfo? visitInfo;
+
+  /// Whether [visitInfo]'s image/visit record has already been uploaded —
+  /// lets a retried sync skip re-uploading an image that already succeeded.
+  final bool visitSynced;
+
   PendingSyncOrder({
     required this.localId,
     required this.model,
@@ -54,7 +111,20 @@ class PendingSyncOrder {
     required this.total,
     required this.createdAt,
     this.itemInfo = const [],
+    this.visitInfo,
+    this.visitSynced = false,
   });
+
+  PendingSyncOrder copyWith({bool? visitSynced}) => PendingSyncOrder(
+    localId: localId,
+    model: model,
+    customerName: customerName,
+    total: total,
+    createdAt: createdAt,
+    itemInfo: itemInfo,
+    visitInfo: visitInfo,
+    visitSynced: visitSynced ?? this.visitSynced,
+  );
 
   Map<String, dynamic> toJson() => {
     'localId': localId,
@@ -63,6 +133,8 @@ class PendingSyncOrder {
     'total': total,
     'createdAt': createdAt.toIso8601String(),
     'itemInfo': itemInfo.map((e) => e.toJson()).toList(),
+    'visitInfo': visitInfo?.toJson(),
+    'visitSynced': visitSynced,
   };
 
   factory PendingSyncOrder.fromJson(Map<String, dynamic> j) {
@@ -78,6 +150,13 @@ class PendingSyncOrder {
           .map((e) =>
           PendingSyncItemInfo.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      // Both absent on any order queued before this field existed —
+      // treated as "no visit to sync", which is correct for that path.
+      visitInfo: j['visitInfo'] == null
+          ? null
+          : PendingVisitInfo.fromJson(
+          Map<String, dynamic>.from(j['visitInfo'])),
+      visitSynced: j['visitSynced'] ?? false,
     );
   }
 

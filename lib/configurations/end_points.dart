@@ -285,4 +285,16 @@ class ApiEndPoints {
     required int limit,
   }) =>
       "product/search?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'brandId': brandId, 'categoryId': categoryId})}";
+
+  /// offline/sync — bulk product list for Offline Mode. Flat response shape
+  /// ({success, products}), not the app's usual {msg, data, total, page,
+  /// totalPages} envelope — see OfflineSyncService.
+  static const String kOfflineSync = "offline/sync";
+
+  /// offline/distributors, offline/retailers, offline/wholesalers — bulk
+  /// customer lists for Offline Mode. Same flat shape as kOfflineSync
+  /// ({success, count, data}) — see OfflineCustomersService.
+  static const String kOfflineDistributors = "offline/distributors";
+  static const String kOfflineRetailers = "offline/retailers";
+  static const String kOfflineWholesalers = "offline/wholesalers";
 }

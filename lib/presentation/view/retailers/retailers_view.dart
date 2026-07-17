@@ -11,6 +11,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sm_networking/application/locaition_helper.dart';
+import 'package:sm_networking/application/offline_mode_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/model/error.dart';
@@ -19,6 +20,7 @@ import 'package:sm_networking/infrastructure/model/user.dart';
 import 'package:sm_networking/infrastructure/services/order_booker_activity.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
 import 'package:sm_networking/presentation/view/category_listing/category_listing_view.dart';
+import 'package:sm_networking/presentation/view/offline_products/offline_products_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -29,6 +31,8 @@ import '../../../application/search_providers.dart';
 import '../../../application/visit_bloc/visit_bloc.dart';
 import '../../../application/visit_provider.dart';
 import '../../../infrastructure/model/visit.dart';
+import '../../../infrastructure/services/offline_cache_service.dart';
+import '../../../infrastructure/services/offline_visit_image_store.dart';
 import '../../../infrastructure/services/retailer.dart';
 import '../../../injection_container.dart';
 import '../../elements/animated_search.dart';
@@ -283,6 +287,25 @@ class _RetailersViewState extends State<RetailersView>
         if (mounted) setState(() {});
       },
       fetchPage: ({required page, required limit, searchTerm}) async {
+        if (Provider.of<OfflineModeProvider>(context, listen: false).isOffline) {
+          final all = await OfflineCacheService.getCachedDistributors();
+          final filtered = searchTerm == null || searchTerm.isEmpty
+              ? all
+              : all
+                  .where((d) =>
+                      (d.distributionName ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (d.name ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (d.phone ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()))
+                  .toList();
+          return Right(_Page(
+              data: filtered, page: 1, totalPages: 1, total: filtered.length));
+        }
         final details =
             Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
         final tsmId = details?.user?.id ?? '';
@@ -304,6 +327,25 @@ class _RetailersViewState extends State<RetailersView>
         if (mounted) setState(() {});
       },
       fetchPage: ({required page, required limit, searchTerm}) async {
+        if (Provider.of<OfflineModeProvider>(context, listen: false).isOffline) {
+          final all = await OfflineCacheService.getCachedWholesalers();
+          final filtered = searchTerm == null || searchTerm.isEmpty
+              ? all
+              : all
+                  .where((w) =>
+                      (w.name ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (w.contacts ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (w.address ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()))
+                  .toList();
+          return Right(_Page(
+              data: filtered, page: 1, totalPages: 1, total: filtered.length));
+        }
         final details =
             Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
         final token = details?.token ?? '';
@@ -327,6 +369,25 @@ class _RetailersViewState extends State<RetailersView>
         if (mounted) setState(() {});
       },
       fetchPage: ({required page, required limit, searchTerm}) async {
+        if (Provider.of<OfflineModeProvider>(context, listen: false).isOffline) {
+          final all = await OfflineCacheService.getCachedRetailers();
+          final filtered = searchTerm == null || searchTerm.isEmpty
+              ? all
+              : all
+                  .where((w) =>
+                      (w.name ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (w.contacts ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()) ||
+                      (w.address ?? '')
+                          .toLowerCase()
+                          .contains(searchTerm.toLowerCase()))
+                  .toList();
+          return Right(_Page(
+              data: filtered, page: 1, totalPages: 1, total: filtered.length));
+        }
         final details =
             Provider.of<UserProvider>(context, listen: false).getSalesUserDetails();
         final token = details?.token ?? '';
@@ -1001,7 +1062,15 @@ class _RetailersViewState extends State<RetailersView>
     final visitProvider = Provider.of<VisitProvider>(context, listen: false);
     final locationProvider =
         Provider.of<LocationProvider>(context, listen: false);
-    final imagePath = selectedImage?.path;
+    var imagePath = selectedImage?.path;
+
+    // Offline Mode: copy the picked image into a persistent app directory
+    // so it survives until the user syncs (the picker's default path is an
+    // OS-purgeable cache dir, risky for a file that might sit for hours).
+    if (imagePath != null &&
+        Provider.of<OfflineModeProvider>(context, listen: false).isOffline) {
+      imagePath = await persistVisitImageIfOffline(imagePath);
+    }
 
     final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
@@ -1090,10 +1159,14 @@ class _RetailersViewState extends State<RetailersView>
     Provider.of<RetailerProvider>(context, listen: false)
         .saveRetailer(asRetailer);
 
+    final isOffline =
+        Provider.of<OfflineModeProvider>(context, listen: false).isOffline;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const CategoryListingView(showCart: true),
+        builder: (context) => isOffline
+            ? const OfflineProductsView()
+            : const CategoryListingView(showCart: true),
       ),
     );
 
@@ -1403,6 +1476,14 @@ class _RetailersViewState extends State<RetailersView>
                     // Add Recovery
                     InkWell(
                       onTap: () {
+                        if (Provider.of<OfflineModeProvider>(context,
+                                listen: false)
+                            .isOffline) {
+                          getFlushBar(context,
+                              title:
+                                  "Add Recovery requires an internet connection.");
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -1563,6 +1644,14 @@ class _RetailersViewState extends State<RetailersView>
                     // Add Recovery
                     InkWell(
                       onTap: () {
+                        if (Provider.of<OfflineModeProvider>(context,
+                                listen: false)
+                            .isOffline) {
+                          getFlushBar(context,
+                              title:
+                                  "Add Recovery requires an internet connection.");
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -1718,6 +1807,14 @@ class _RetailersViewState extends State<RetailersView>
                               const SizedBox(height: 8),
                               InkWell(
                                 onTap: () {
+                                  if (Provider.of<OfflineModeProvider>(context,
+                                          listen: false)
+                                      .isOffline) {
+                                    getFlushBar(context,
+                                        title:
+                                            "Add Recovery requires an internet connection.");
+                                    return;
+                                  }
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(

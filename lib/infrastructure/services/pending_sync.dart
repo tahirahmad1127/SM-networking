@@ -44,6 +44,18 @@ class PendingSyncService {
     await _saveAll(all);
   }
 
+  /// Overwrites a single queued order in place (matched by localId) — used
+  /// to persist visitSynced=true after a partial sync, so a retry doesn't
+  /// re-upload an image that already succeeded.
+  static Future<void> update(PendingSyncOrder updated) async {
+    final all = await getAll();
+    final i = all.indexWhere((o) => o.localId == updated.localId);
+    if (i != -1) {
+      all[i] = updated;
+      await _saveAll(all);
+    }
+  }
+
   /// Clears the entire queue (e.g. after a full successful sync-all).
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();

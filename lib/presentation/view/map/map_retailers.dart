@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:sm_networking/application/offline_mode_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
@@ -110,6 +111,9 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     int? tabIndexOverride,
   }) async {
     if (_isLoadingMarkers || _isLoadingMoreMarkers) return;
+    if (Provider.of<OfflineModeProvider>(context, listen: false).isOffline) {
+      return;
+    }
 
     final u = Provider.of<UserProvider>(context, listen: false);
     final details = u.getSalesUserDetails();
@@ -564,7 +568,18 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
           ),
         ],
       ),
-      body: currentLocation == null
+      body: Provider.of<OfflineModeProvider>(context).isOffline
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  "Connect to the Internet to see Maps.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+              ),
+            )
+          : currentLocation == null
           ? const Center(child: ProcessingWidget())
           : Consumer<CheckInProvider>(
               builder: (context, checkInProvider, _) {

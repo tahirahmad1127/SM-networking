@@ -1,9 +1,13 @@
 // lib/application/pending_sync_provider.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../infrastructure/model/pending_sync_order.dart';
+import '../infrastructure/model/visit.dart';
 import '../infrastructure/services/order.dart';
 import '../infrastructure/services/pending_sync.dart';
+import '../infrastructure/services/visit.dart';
 import '../injection_container.dart';
 
 /// Simple result holder for [PendingSyncProvider.syncAll]. A plain class is
@@ -35,8 +39,16 @@ class PendingSyncProvider extends ChangeNotifier {
   }
 
   /// Syncs a single order. Returns true on success.
+  ///
+  /// If the order carries [PendingSyncOrder.visitInfo] (queued from Offline
+  /// Mode's checkout flow), the visit — including its image upload — is
+  /// synced FIRST, as one atomic retry unit with the order: if the visit
+  /// upload fails, the whole order stays queued for retry rather than
+  /// syncing the order with its visit lost. This trades off "a flaky image
+  /// upload blocks the order too" for guaranteeing no orphaned local image
+  /// files and no synced-order-without-its-visit state.
   Future<bool> syncOne(String localId) async {
-    final order = _orders.firstWhere(
+    var order = _orders.firstWhere(
           (o) => o.localId == localId,
       orElse: () => throw StateError('Order not found: $localId'),
     );
@@ -46,6 +58,29 @@ class PendingSyncProvider extends ChangeNotifier {
 
     bool success = false;
     try {
+      if (order.visitInfo != null && !order.visitSynced) {
+        final visitInfo = order.visitInfo!;
+        final visitResult = await VisitRepositoryImp().addVisit(VisitModel(
+          retailerId: visitInfo.retailerId,
+          salesPersonId: visitInfo.salesPersonId,
+          shopName: visitInfo.shopName,
+          retailerEmail: '',
+          retailerImage: '',
+          startTime: visitInfo.startTime,
+          endTime: visitInfo.endTime,
+          date: visitInfo.date,
+          image: visitInfo.localImagePath ?? '',
+        ));
+        final visitOk = visitResult.fold((_) => false, (_) => true);
+        if (!visitOk) {
+          return false; // whole order retried later, local image kept
+        }
+        order = order.copyWith(visitSynced: true);
+        await PendingSyncService.update(order);
+        final idx = _orders.indexWhere((o) => o.localId == localId);
+        if (idx != -1) _orders[idx] = order;
+      }
+
       final result = await sl<OrderRepositoryImp>().createOrder(order.model);
       result.fold(
             (_) {
@@ -57,6 +92,14 @@ class PendingSyncProvider extends ChangeNotifier {
       );
 
       if (success) {
+        if (order.visitInfo?.localImagePath != null) {
+          try {
+            await File(order.visitInfo!.localImagePath!).delete();
+          } catch (_) {
+            // Best-effort cleanup — a leftover file here doesn't block
+            // anything, so a failed delete isn't worth surfacing.
+          }
+        }
         await PendingSyncService.remove(localId);
         _orders.removeWhere((o) => o.localId == localId);
       }

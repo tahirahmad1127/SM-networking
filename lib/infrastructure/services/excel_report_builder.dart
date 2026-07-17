@@ -27,20 +27,25 @@ class ExcelReportBuilder {
     }
   }
 
-  /// Order Summary — one row per order.
+  /// Order Summary — one row per order. Columns mirror the backend portal's
+  /// own Order Summary table exactly (see OrderSummaryTableView).
   static Uint8List buildOrdersSheet(List<OrderModel> orders) {
     final workbook = Excel.createExcel();
     final sheet = workbook[workbook.getDefaultSheet()!];
-    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+    final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
+    final timeFormat = DateFormat('HH:mm:ss');
 
     _writeHeaderRow(sheet, const [
-      'S.No',
+      'Sr.',
       'Date',
+      'TSM/Orderbooker',
       'Distributor',
+      'Town',
+      'Shop Name',
+      'Type',
+      'Time',
+      'Amount',
       'Items',
-      'Total (PKR)',
-      'Payment Type',
-      'Status',
     ]);
 
     for (var i = 0; i < orders.length; i++) {
@@ -49,11 +54,15 @@ class ExcelReportBuilder {
         IntCellValue(i + 1),
         TextCellValue(
             o.createdAt != null ? dateFormat.format(o.createdAt!) : '-'),
+        TextCellValue(o.salesPerson?.name ?? '-'),
+        TextCellValue(o.distributorName ?? '-'),
+        TextCellValue(o.townName ?? '-'),
         TextCellValue(o.warehouseManager?.name ?? '-'),
-        IntCellValue(o.items?.length ?? 0),
+        TextCellValue(o.warehouseManager?.customerType ?? '-'),
+        TextCellValue(
+            o.createdAt != null ? timeFormat.format(o.createdAt!) : '-'),
         DoubleCellValue((o.total ?? 0).toDouble()),
-        TextCellValue(o.paymentType ?? '-'),
-        TextCellValue(o.status ?? '-'),
+        IntCellValue(o.items?.length ?? 0),
       ]);
     }
 

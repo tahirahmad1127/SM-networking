@@ -29,6 +29,7 @@ import 'application/wholesaler_retailer_provider.dart';
 import 'infrastructure/services/background_location.dart';
 import 'infrastructure/services/session_manager.dart';
 import 'infrastructure/services/work_manager.dart';
+import 'presentation/view/maintenance/maintenance_gate.dart';
 import 'presentation/view/splash_screen/splash_view.dart';
 import 'firebase_options.dart';
 
@@ -227,7 +228,7 @@ class _MyAppState extends State<MyApp> {
           fontFamily: "Raleway",
           scaffoldBackgroundColor: Colors.white,
         ),
-        home: const SplashView(),
+        home: const MaintenanceGate(child: SplashView()),
       ),
     );
   }

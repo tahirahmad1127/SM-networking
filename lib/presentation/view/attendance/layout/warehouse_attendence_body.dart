@@ -314,6 +314,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
       builder: (_) => SlideToCheckInSheet(
         onComplete: () async {
           Navigator.pop(ctx);
+          if (mounted) setState(() => _loading.add(distId));
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             final user = Provider.of<UserProvider>(ctx, listen: false);
@@ -397,6 +398,7 @@ class _WarehouseAttendanceBodyState extends State<WarehouseAttendanceBody> {
             await BackgroundLocationService.startTracking(userId);
             await Provider.of<CheckInProvider>(ctx, listen: false).checkIn();
           }
+          if (mounted) setState(() => _loading.remove(distId));
           _pendingDistId = null;
           if (mounted) {
             getFlushBar(ctx, title: 'Checked in successfully!');

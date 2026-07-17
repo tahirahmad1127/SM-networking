@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -238,20 +239,35 @@ class _SalesViewState extends State<SalesView> {
     final token = details?.token ?? '';
     final userType = _mapUserTypeForReports(details?.role ?? '');
 
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
+
+    final uri = Uri.parse('${BackendConfigs.apiUrl}order/by-salesperson-date');
+    final body = {
+      'salePerson': salePersonId,
+      'userType': userType,
+      'startDate': DateFormat('yyyy-MM-dd').format(start),
+      'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
+      ..._filterField(filterType, entityId),
+    };
+    final executionTime = DateTime.now();
+    log("Generate order summary -> POST $uri | body: ${jsonEncode(body)}");
+
     try {
-      final uri =
-      Uri.parse('${BackendConfigs.apiUrl}order/by-salesperson-date');
       final response = await http.post(
         uri,
         headers: _reportHeaders(token),
-        body: jsonEncode({
-          'salePerson': salePersonId,
-          'userType': userType,
-          'startDate': DateFormat('yyyy-MM-dd').format(start),
-          'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
-          ..._filterField(filterType, entityId),
-        }),
+        body: jsonEncode(body),
       );
+      log("Generate order summary <- status: ${response.statusCode} | "
+          "${DateTime.now().difference(executionTime).inMilliseconds}ms | "
+          "body: ${response.body}");
 
       if (response.statusCode != 200) {
         if (mounted) {
@@ -285,6 +301,7 @@ class _SalesViewState extends State<SalesView> {
         ),
       );
     } catch (e) {
+      log("Generate order summary threw: $e");
       if (mounted) {
         getFlushBar(context, title: 'Something went wrong. Please try again.');
       }
@@ -303,19 +320,35 @@ class _SalesViewState extends State<SalesView> {
     final token = details?.token ?? '';
     final userType = _mapUserTypeForReports(details?.role ?? '');
 
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
+
+    final uri = Uri.parse('${BackendConfigs.apiUrl}order/load-form');
+    final body = {
+      'salePerson': salePersonId,
+      'userType': userType,
+      'startDate': DateFormat('yyyy-MM-dd').format(start),
+      'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
+      ..._filterField(filterType, entityId),
+    };
+    final executionTime = DateTime.now();
+    log("Generate order form -> POST $uri | body: ${jsonEncode(body)}");
+
     try {
-      final uri = Uri.parse('${BackendConfigs.apiUrl}order/load-form');
       final response = await http.post(
         uri,
         headers: _reportHeaders(token),
-        body: jsonEncode({
-          'salePerson': salePersonId,
-          'userType': userType,
-          'startDate': DateFormat('yyyy-MM-dd').format(start),
-          'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
-          ..._filterField(filterType, entityId),
-        }),
+        body: jsonEncode(body),
       );
+      log("Generate order form <- status: ${response.statusCode} | "
+          "${DateTime.now().difference(executionTime).inMilliseconds}ms | "
+          "body: ${response.body}");
 
       if (response.statusCode != 200) {
         if (mounted) {
@@ -337,6 +370,7 @@ class _SalesViewState extends State<SalesView> {
         getFlushBar(context, title: 'No orders found for the selected dates.');
       }
     } catch (e) {
+      log("Generate order form threw: $e");
       if (mounted) {
         getFlushBar(context, title: 'Something went wrong. Please try again.');
       }
@@ -356,18 +390,34 @@ class _SalesViewState extends State<SalesView> {
     final salePersonId = details?.user?.id ?? '';
     final token = details?.token ?? '';
 
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
+
+    final uri = Uri.parse('${BackendConfigs.apiUrl}order/report');
+    final body = {
+      'salePerson': salePersonId,
+      'startDate': DateFormat('yyyy-MM-dd').format(start),
+      'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
+      ..._filterField(filterType, entityId),
+    };
+    final executionTime = DateTime.now();
+    log("Generate invoices -> POST $uri | body: ${jsonEncode(body)}");
+
     try {
-      final uri = Uri.parse('${BackendConfigs.apiUrl}order/report');
       final response = await http.post(
         uri,
         headers: _reportHeaders(token),
-        body: jsonEncode({
-          'salePerson': salePersonId,
-          'startDate': DateFormat('yyyy-MM-dd').format(start),
-          'endDate': DateFormat('yyyy-MM-dd').format(end ?? start),
-          ..._filterField(filterType, entityId),
-        }),
+        body: jsonEncode(body),
       );
+      log("Generate invoices <- status: ${response.statusCode} | "
+          "${DateTime.now().difference(executionTime).inMilliseconds}ms | "
+          "body: ${response.body}");
 
       if (response.statusCode != 200) {
         if (mounted) {
@@ -398,6 +448,7 @@ class _SalesViewState extends State<SalesView> {
         await _showInvoiceLinksSheet(allUrls);
       }
     } catch (e) {
+      log("Generate invoices threw: $e");
       if (mounted) {
         getFlushBar(context, title: 'Something went wrong. Please try again.');
       }

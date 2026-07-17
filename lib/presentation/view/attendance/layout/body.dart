@@ -94,6 +94,14 @@ class _AttendanceBodyState extends State<AttendanceBody>
 
   bool _wasCheckedIn = false;
 
+  // Covers the gap between the slide-to-check-in/out sheet closing and the
+  // AttendanceBloc actually emitting AttendanceLoading — GPS fetch (and, for
+  // check-in, the location-permission/distance work) happens in between
+  // with no bloc state change to hang a loader off, which is exactly the
+  // "no feedback while the app is clearly doing something" gap that made
+  // this feel stuck.
+  bool _isProcessingPunch = false;
+
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late final AttendanceBloc _attendanceBloc;
@@ -355,6 +363,7 @@ class _AttendanceBodyState extends State<AttendanceBody>
           Navigator.pop(context);
 
           if (!mounted) return;
+          setState(() => _isProcessingPunch = true);
 
           await _fetchCurrentLocation();
           if (!mounted) return;
@@ -363,6 +372,7 @@ class _AttendanceBodyState extends State<AttendanceBody>
           final userId = user.getSalesUserDetails()?.user?.id;
           if (userId == null) {
             debugPrint("❌ No userId found");
+            setState(() => _isProcessingPunch = false);
             return;
           }
 
@@ -499,9 +509,13 @@ class _AttendanceBodyState extends State<AttendanceBody>
       builder: (_) => SlideToCheckOutSheet(
         onComplete: () {
           Navigator.pop(context);
+          if (mounted) setState(() => _isProcessingPunch = true);
 
           WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (!mounted || _lastAttendanceId == null) return;
+            if (!mounted || _lastAttendanceId == null) {
+              if (mounted) setState(() => _isProcessingPunch = false);
+              return;
+            }
 
             final now = DateTime.now();
 
@@ -705,6 +719,7 @@ class _AttendanceBodyState extends State<AttendanceBody>
             await _showPunchNotification('Checked Out', 'You checked out at $timeNow');
             await Workmanager().cancelAll();
           }
+          if (mounted) setState(() => _isProcessingPunch = false);
         } else if (state is AttendanceFailed) {
           // ❌ CHECK-IN/OUT FAILED - Show error, DON'T start tracking
           log("❌ Attendance operation failed: ${state.message}");
@@ -715,10 +730,11 @@ class _AttendanceBodyState extends State<AttendanceBody>
             final provider = Provider.of<CheckInProvider>(context, listen: false);
             await provider.forceReload();
           }
+          if (mounted) setState(() => _isProcessingPunch = false);
         }
       },
       builder: (context, state) {
-        if (state is AttendanceLoading) {
+        if (state is AttendanceLoading || _isProcessingPunch) {
           return const Center(child: ProcessingWidget());
         }
 

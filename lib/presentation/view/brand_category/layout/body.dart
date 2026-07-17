@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
@@ -30,37 +32,33 @@ class BrandCategoriesBody extends StatefulWidget {
   State<BrandCategoriesBody> createState() => BrandCategoriesBodyState();
 }
 
-/// Pages through products for one or more categories of [BrandCategoriesBody]'s
-/// brand, 10 at a time. The backend only exposes per-category pagination
-/// (product/by-brand/{brandId}/category/{categoryId}), not "every category of
-/// this brand" in one call — so the "All" chip is served by walking the
-/// category queue in order, exhausting each category's pages before moving to
-/// the next. A specific category chip is just a queue of one.
+/// Pages through products 10 at a time for [BrandCategoriesBody]'s brand.
+/// [fetchPage] is supplied by the caller and internally decides, on every
+/// call, whether to hit "every product for this brand" (the "All" chip) or
+/// "products in this one category" (a specific chip) — both are now plain
+/// single-source paginated endpoints, so this pager doesn't need to know
+/// which one it's talking to.
 class _ProductPager {
   static const int pageSize = 10;
 
   final Future<Either<GlobalErrorModel, ProductListingModel>> Function({
-    required String categoryId,
     required int page,
     required int limit,
     String? searchTerm,
-  }) fetchCategoryPage;
+  }) fetchPage;
   final VoidCallback onChanged;
 
-  _ProductPager({required this.fetchCategoryPage, required this.onChanged});
+  _ProductPager({required this.fetchPage, required this.onChanged});
 
   final List<ProductModel> items = [];
+  int page = 0; // 0 = nothing fetched yet this session/filter
+  int totalPages = 1;
   bool isInitialLoading = true;
   bool isLoadingMore = false;
   String? errorMessage;
   String? searchTerm;
 
-  List<String> _queue = [];
-  List<String> _lastCategoryIds = [];
-  String? _currentCategoryId;
-  int _currentPage = 1;
-  int _currentTotalPages = 1;
-  bool hasMore = true;
+  bool get hasMore => page < totalPages;
 
   final ScrollController scrollController = ScrollController();
 
@@ -80,81 +78,48 @@ class _ProductPager {
     }
   }
 
-  /// Starts (or restarts) browsing [categoryIds] in order from page 1.
-  Future<void> start(List<String> categoryIds, {String? searchTerm}) async {
-    _lastCategoryIds = categoryIds;
-    _queue = List.of(categoryIds);
+  /// Starts (or restarts) browsing from page 1 — call whenever the active
+  /// category chip or search term changes.
+  Future<void> start({String? searchTerm}) async {
     this.searchTerm = searchTerm;
     items.clear();
     errorMessage = null;
-    _currentCategoryId = null;
-    _currentPage = 1;
-    _currentTotalPages = 1;
-    hasMore = _queue.isNotEmpty;
+    page = 0;
+    totalPages = 1;
     isInitialLoading = true;
     onChanged();
     await loadMore();
   }
 
-  Future<void> refresh() => start(_lastCategoryIds, searchTerm: searchTerm);
+  Future<void> refresh() => start(searchTerm: searchTerm);
 
   Future<void> loadMore() async {
     if (!hasMore) return;
     isLoadingMore = true;
     onChanged();
 
-    // Keep advancing through the category queue as long as a fetch comes
-    // back empty (e.g. a search term with no matches in that particular
-    // category) but there's still more queued to check — otherwise a
-    // caller expecting "one loadMore() call = visible progress" would see
-    // an empty result and stop, even though a later category has matches.
-    // No onChanged() inside the loop so the UI doesn't flicker through
-    // each empty category — just the final outcome.
-    while (true) {
-      // Advance to the next queued category once the current one is exhausted.
-      if (_currentCategoryId == null || _currentPage > _currentTotalPages) {
-        if (_queue.isEmpty) {
-          hasMore = false;
-          break;
-        }
-        _currentCategoryId = _queue.removeAt(0);
-        _currentPage = 1;
-        _currentTotalPages = 1;
-      }
+    log("Fetch product page: ${page + 1}, searchTerm: $searchTerm");
+    final result =
+        await fetchPage(page: page + 1, limit: pageSize, searchTerm: searchTerm);
 
-      final result = await fetchCategoryPage(
-        categoryId: _currentCategoryId!,
-        page: _currentPage,
-        limit: pageSize,
-        searchTerm: searchTerm,
-      );
-
-      bool gotItems = false;
-      result.fold(
-        (l) => errorMessage = l.error.toString(),
-        (r) {
-          final data = r.data ?? [];
-          items.addAll(data);
-          _currentTotalPages = r.totalPages ?? 1;
-          _currentPage++;
-          gotItems = data.isNotEmpty;
-        },
-      );
-
-      hasMore = _queue.isNotEmpty || _currentPage <= _currentTotalPages;
-      if (gotItems || !hasMore) break;
-    }
+    result.fold(
+      (l) => errorMessage = l.error.toString(),
+      (r) {
+        items.addAll(r.data ?? []);
+        page = r.page ?? (page + 1);
+        totalPages = r.totalPages ?? page;
+      },
+    );
 
     isInitialLoading = false;
     isLoadingMore = false;
     onChanged();
 
     // If what we just loaded doesn't fill the viewport, no scroll event
-    // will ever fire to trigger the next page/category — without this, a
-    // short result set leaves `hasMore` true forever with the trailing
-    // "loading more" spinner spinning indefinitely for nothing (this is
-    // exactly the "loader stuck in the middle of the screen" glitch).
-    // Check once the list has actually rendered.
+    // will ever fire to trigger the next page — without this, a short
+    // result set leaves `hasMore` true forever with the trailing "loading
+    // more" spinner spinning indefinitely for nothing. Check once the list
+    // has actually rendered.
     WidgetsBinding.instance.addPostFrameCallback((_) => _fillViewportIfNeeded());
   }
 
@@ -190,18 +155,39 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
       onChanged: () {
         if (!_disposed && mounted) setState(() {});
       },
-      fetchCategoryPage: ({
-        required categoryId,
-        required page,
-        required limit,
-        searchTerm,
-      }) {
+      // Re-reads _selectedCategoryId fresh on every call, same as
+      // retailers_view.dart's fetchPage closures re-read their own active
+      // filters — so this doesn't need to be rebuilt when the chip changes.
+      fetchPage: ({required page, required limit, searchTerm}) {
+        final categoryId = _selectedCategoryId;
+
+        // A search term routes to the dedicated search endpoint (scoped to
+        // this brand, and to the active category chip if one is selected)
+        // — the by-brand/by-category browse endpoints don't implement
+        // search filtering server-side, which is why searching previously
+        // did nothing on the "All" chip.
+        if (searchTerm != null && searchTerm.isNotEmpty) {
+          return sl<BrandCategoryService>().searchProducts(
+            searchTerm: searchTerm,
+            brandId: widget.brand.id ?? '',
+            categoryId: categoryId,
+            page: page,
+            limit: limit,
+          );
+        }
+
+        if (categoryId == null) {
+          return sl<BrandCategoryService>().getProductsByBrand(
+            brandId: widget.brand.id ?? '',
+            page: page,
+            limit: limit,
+          );
+        }
         return sl<BrandCategoryService>().getProductsByBrandAndCategory(
           brandId: widget.brand.id ?? '',
           categoryID: categoryId,
           page: page,
           limit: limit,
-          searchTerm: searchTerm,
         );
       },
     );
@@ -269,21 +255,14 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
     _selectedCategoryId = categoryId;
     _isAllSelected = categoryId == null;
     setState(() {});
-
-    final categoryIds = categoryId != null
-        ? [categoryId]
-        : _categoryList.map((c) => c.id ?? '').where((id) => id.isNotEmpty).toList();
-    await _pager.start(categoryIds, searchTerm: _committedSearchTerm);
+    await _pager.start(searchTerm: _committedSearchTerm);
   }
 
   /// Fires only on keyboard-search submit, not on every keystroke.
   void _onSearchSubmitted(String value) {
     final trimmed = value.trim();
     _committedSearchTerm = trimmed.isEmpty ? null : trimmed;
-    final categoryIds = _selectedCategoryId != null
-        ? [_selectedCategoryId!]
-        : _categoryList.map((c) => c.id ?? '').where((id) => id.isNotEmpty).toList();
-    _pager.start(categoryIds, searchTerm: _committedSearchTerm);
+    _pager.start(searchTerm: _committedSearchTerm);
   }
 
   @override
@@ -441,8 +420,7 @@ class BrandCategoriesBodyState extends State<BrandCategoriesBody> {
                       child: widget.showCart
                           ? ProductCard(
                               model: product,
-                              showCtnBox: Provider.of<RetailerProvider>(
-                                          context,
+                              showCtnBox: Provider.of<RetailerProvider>(context,
                                           listen: false)
                                       .getRetailer()
                                       ?.customerType !=

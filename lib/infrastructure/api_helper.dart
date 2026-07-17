@@ -7,12 +7,17 @@ import 'package:dartz/dartz.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
-import '../application/connectivity_status.dart';
 import '../configurations/back_end_configs.dart';
 import 'model/error.dart';
 import 'services/session_manager.dart';
 
 var logger = Logger();
+
+// Shared across every request so the underlying connection to the backend
+// (TCP + TLS) can be kept alive and reused instead of each call paying for
+// a fresh handshake — http.get()/post()/etc. each open + close their own
+// client, which was adding ~1-2s of pure connection-setup latency per call.
+final http.Client _sharedHttpClient = http.Client();
 
 class ApiBaseHelper {
   Future<Either<GlobalErrorModel, dynamic>> getEither(
@@ -23,21 +28,13 @@ class ApiBaseHelper {
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          final response = await http.get(
-              Uri.parse(BackendConfigs.apiUrl + endPoint),
-              headers: isRequiredHeader ? header! : null);
-          responseJson = _returnResponseEither(response);
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
-        }
-      });
+      final response = await _sharedHttpClient.get(
+          Uri.parse(BackendConfigs.apiUrl + endPoint),
+          headers: isRequiredHeader ? header! : null);
+      responseJson = _returnResponseEither(response);
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -71,23 +68,15 @@ class ApiBaseHelper {
     Either<GlobalErrorModel, dynamic> responseJson;
 
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          final response = await http.post(
-              Uri.parse(BackendConfigs.apiUrl + endPoint),
-              headers: isRequiredHeader ? header! : null,
-              body: hasBody == true ? jsonEncode(body) : null);
+      final response = await _sharedHttpClient.post(
+          Uri.parse(BackendConfigs.apiUrl + endPoint),
+          headers: isRequiredHeader ? header! : null,
+          body: hasBody == true ? jsonEncode(body) : null);
 
-          responseJson = _returnResponseEither(response);
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Reason Phrase -> ${response.reasonPhrase.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
-        }
-      });
+      responseJson = _returnResponseEither(response);
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Reason Phrase -> ${response.reasonPhrase.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -120,22 +109,14 @@ class ApiBaseHelper {
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          final response = await http.delete(
-              Uri.parse(BackendConfigs.apiUrl + endPoint),
-              headers: isRequiredHeader ? header! : null,
-              body: hasBody == true ? jsonEncode(body) : null);
-          responseJson = _returnResponseEither(response);
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
-        }
-      });
+      final response = await _sharedHttpClient.delete(
+          Uri.parse(BackendConfigs.apiUrl + endPoint),
+          headers: isRequiredHeader ? header! : null,
+          body: hasBody == true ? jsonEncode(body) : null);
+      responseJson = _returnResponseEither(response);
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -168,22 +149,14 @@ class ApiBaseHelper {
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          final response = await http.patch(
-              Uri.parse(BackendConfigs.apiUrl + endPoint),
-              headers: isRequiredHeader ? header! : null,
-              body: hasBody == true ? jsonEncode(body) : null);
-          responseJson = _returnResponseEither(response);
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Reason Phrase -> ${response.reasonPhrase.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
-        }
-      });
+      final response = await _sharedHttpClient.patch(
+          Uri.parse(BackendConfigs.apiUrl + endPoint),
+          headers: isRequiredHeader ? header! : null,
+          body: hasBody == true ? jsonEncode(body) : null);
+      responseJson = _returnResponseEither(response);
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Reason Phrase -> ${response.reasonPhrase.toString()} || Response Time: ${DateTime.now().difference(executionTime).inMilliseconds} ms");
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -219,53 +192,45 @@ class ApiBaseHelper {
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          var request = http.MultipartRequest(
-              'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
+      var request = http.MultipartRequest(
+          'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
 
-          // FIX: body is dynamic but MultipartRequest.fields requires Map<String, String>.
-          // Convert every value to String explicitly so addAll never silently drops fields.
-          if (hasBody && body != null) {
-            final Map<String, String> stringFields = (body as Map).map(
-              (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
-            );
-            request.fields.addAll(stringFields);
-          }
+      // FIX: body is dynamic but MultipartRequest.fields requires Map<String, String>.
+      // Convert every value to String explicitly so addAll never silently drops fields.
+      if (hasBody && body != null) {
+        final Map<String, String> stringFields = (body as Map).map(
+          (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+        );
+        request.fields.addAll(stringFields);
+      }
 
-          // Only add Accept header — do NOT set Content-Type for multipart
-          // (http package sets multipart/form-data + boundary automatically)
-          if (isRequiredHeader && header != null) {
-            final safeHeaders = Map<String, String>.from(header)
-              ..remove('Content-Type')
-              ..remove('content-type');
-            request.headers.addAll(safeHeaders);
-          }
+      // Only add Accept header — do NOT set Content-Type for multipart
+      // (http package sets multipart/form-data + boundary automatically)
+      if (isRequiredHeader && header != null) {
+        final safeHeaders = Map<String, String>.from(header)
+          ..remove('Content-Type')
+          ..remove('content-type');
+        request.headers.addAll(safeHeaders);
+      }
 
-          log("📦 Fields being sent: ${request.fields}");
-          log("📎 Files being sent: ${request.files.map((f) => f.field).toList()}");
+      log("📦 Fields being sent: ${request.fields}");
+      log("📎 Files being sent: ${request.files.map((f) => f.field).toList()}");
 
-          if (hasFile && path != null) {
-            log('Sending file: $path');
-            // Use 'receiptPic' as the field name expected by the server
-            request.files.add(await http.MultipartFile.fromPath('image', path));
-          }
+      if (hasFile && path != null) {
+        log('Sending file: $path');
+        // Use 'receiptPic' as the field name expected by the server
+        request.files.add(await http.MultipartFile.fromPath('image', path));
+      }
 
-          http.StreamedResponse streamedResponse = await request.send();
-          final response = await http.Response.fromStream(streamedResponse);
+      http.StreamedResponse streamedResponse = await _sharedHttpClient.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
 
-          responseJson = _returnResponseEither(response);
+      responseJson = _returnResponseEither(response);
 
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Status Code -> ${response.reasonPhrase.toString()} || ${DateTime.now()}");
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Status Code -> ${response.reasonPhrase.toString()} || ${DateTime.now()}");
 
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
-        }
-      });
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -285,7 +250,6 @@ class ApiBaseHelper {
           error: "Sorry! We are unable to connect our servers.!"));
     } catch (e) {
       rethrow;
-      return Left(GlobalErrorModel(error: e.toString()));
     }
   }
 
@@ -302,43 +266,35 @@ class ApiBaseHelper {
     // ignore: prefer_typing_uninitialized_variables
     Either<GlobalErrorModel, dynamic> responseJson;
     try {
-      return await InternetConnectivityHelper.checkConnectivity()
-          .then((value) async {
-        if (value == true) {
-          var request = http.MultipartRequest(
-              'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
+      var request = http.MultipartRequest(
+          'POST', Uri.parse(BackendConfigs.apiUrl + endPoint));
 
-          // FIX: same cast applied here for consistency
-          if (hasBody && body != null) {
-            final Map<String, String> stringFields = (body as Map).map(
-              (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
-            );
-            request.fields.addAll(stringFields);
-          }
+      // FIX: same cast applied here for consistency
+      if (hasBody && body != null) {
+        final Map<String, String> stringFields = (body as Map).map(
+          (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+        );
+        request.fields.addAll(stringFields);
+      }
 
-          request.headers.addAll(header!);
-          if (hasFile) {
-            request.files
-                .add(await http.MultipartFile.fromPath('file', path![0]));
-            if (path.length > 1) {
-              request.files
-                  .add(await http.MultipartFile.fromPath('template', path[1]));
-            }
-          }
-          http.StreamedResponse streamedResponse = await request.send();
-          final response = await http.Response.fromStream(streamedResponse);
-
-          responseJson = _returnResponseEither(response);
-
-          logger.i(
-              "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Status Code -> ${response.reasonPhrase.toString()} || ${DateTime.now()}");
-
-          return responseJson.fold((l) => Left(l), (r) => Right(r));
-        } else {
-          return Left(GlobalErrorModel(
-              error: "Oops! It seems you are not connected to the internet."));
+      request.headers.addAll(header!);
+      if (hasFile) {
+        request.files
+            .add(await http.MultipartFile.fromPath('file', path![0]));
+        if (path.length > 1) {
+          request.files
+              .add(await http.MultipartFile.fromPath('template', path[1]));
         }
-      });
+      }
+      http.StreamedResponse streamedResponse = await _sharedHttpClient.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      responseJson = _returnResponseEither(response);
+
+      logger.i(
+          "BaseUrl -> ${BackendConfigs.baseUrl} || EndPoints -> $endPoint || Status Code -> ${response.statusCode.toString()} || Status Code -> ${response.reasonPhrase.toString()} || ${DateTime.now()}");
+
+      return responseJson.fold((l) => Left(l), (r) => Right(r));
     } on SocketException catch (e) {
       logger.i("Socket Exception");
       logger.e(e.message.toString());
@@ -358,7 +314,6 @@ class ApiBaseHelper {
           error: "Sorry! We are unable to connect our servers.!"));
     } catch (e) {
       rethrow;
-      return Left(GlobalErrorModel(error: e.toString()));
     }
   }
 
@@ -404,7 +359,6 @@ class ApiBaseHelper {
 
   Either<GlobalErrorModel, dynamic> _returnResponseEither(
       http.Response response) {
-    log(response.body.toString());
     try {
       if (response.statusCode == 200 || response.statusCode == 201) {
         var responseJson = json.decode(response.body.toString());

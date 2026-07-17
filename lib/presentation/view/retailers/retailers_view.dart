@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:dartz/dartz.dart' hide State;
 import 'package:extended_image/extended_image.dart';
@@ -59,7 +60,7 @@ class _Page<T> {
 }
 
 class _PaginatedTabState<T> {
-  static const int pageSize = 10;
+  static const int pageSize = 15;
 
   final Future<Either<GlobalErrorModel, _Page<T>>> Function(
       {required int page, required int limit, String? searchTerm}) fetchPage;
@@ -95,7 +96,16 @@ class _PaginatedTabState<T> {
     }
   }
 
-  Future<void> loadFirstPage() => _fetch(page: 1, replace: true);
+  // Set as soon as a load is kicked off (not when it completes) so this tab
+  // is only ever fetched once — callers (initial-active-tab load, and
+  // lazy load-on-tab-switch) don't need to coordinate with each other.
+  bool hasLoadedOnce = false;
+
+  Future<void> loadFirstPage() {
+    if (hasLoadedOnce) return Future.value();
+    hasLoadedOnce = true;
+    return _fetch(page: 1, replace: true);
+  }
 
   /// Pull-to-refresh — deliberately does NOT clear [items] first, so the old
   /// list stays visible under RefreshIndicator's own spinner instead of
@@ -190,6 +200,11 @@ class _RetailersViewState extends State<RetailersView>
 
   final Set<String> _updatingLocationIds = {};
 
+  // Covers the gap between picking a visit image and the brands screen
+  // appearing (GPS fetch + visitProvider.setStartVisit) — otherwise the
+  // screen just sits there with no feedback for that stretch.
+  bool _isStartingOrder = false;
+
   // ── Paginated tabs — warehouseManager sees Distributors/Wholesalers/
   // Retailers, orderBooker sees Wholesalers/Retailers. Each tab owns its own
   // scroll position, page, and on-submit search box (see _PaginatedTabState).
@@ -205,6 +220,14 @@ class _RetailersViewState extends State<RetailersView>
   // checked into any distributor — in both cases we fall back to showing
   // the unfiltered lists rather than an empty screen.
   String? _activeTownId;
+
+  // The framework calls didChangeDependencies right after initState, before
+  // _initPaginatedTabs' own async town resolution has settled — letting its
+  // refresh-on-town-change logic run there too would race the initial load
+  // and always look like a "change" (from unset to resolved), firing a
+  // redundant duplicate fetch for wholesalers/retailers. Skip that logic on
+  // this very first call; _initPaginatedTabs already covers the initial load.
+  bool _isFirstDependenciesChange = true;
 
   Future<void> _resolveActiveTownId() async {
     if (!mounted) return;
@@ -290,6 +313,8 @@ class _RetailersViewState extends State<RetailersView>
           limit: limit,
           searchTerm: searchTerm,
           town: isWarehouseManager ? _activeTownId : null,
+          lat: currentLocation?.latitude,
+          lng: currentLocation?.longitude,
           token: token,
         );
         return result.map((r) => _Page(
@@ -311,6 +336,8 @@ class _RetailersViewState extends State<RetailersView>
           limit: limit,
           searchTerm: searchTerm,
           town: isWarehouseManager ? _activeTownId : null,
+          lat: currentLocation?.latitude,
+          lng: currentLocation?.longitude,
           token: token,
         );
         return result.map((r) => _Page(
@@ -326,13 +353,30 @@ class _RetailersViewState extends State<RetailersView>
         Provider.of<UserProvider>(context, listen: false).getSalesUserDetails()?.role ?? '';
 
     // Resolve the checked-in-distributor town filter before the first fetch
-    // so wholesalers/retailers load already scoped to it, when applicable.
+    // so whichever tab loads first is already scoped to it, when applicable.
+    // Only the tab that's actually visible by default (index 0) loads here —
+    // the others load lazily the first time the user switches to them (see
+    // _handleTabChange), so opening "View All" doesn't pay for three API
+    // calls up front when the user only wants to look at one tab.
     _resolveActiveTownId().then((_) {
       if (!mounted) return;
-      if (role == 'warehouseManager') _distributorsTab.loadFirstPage();
-      _wholesalersTab.loadFirstPage();
-      _retailersTab.loadFirstPage();
+      if (role == 'warehouseManager') {
+        _distributorsTab.loadFirstPage();
+      } else if (role == 'orderBooker') {
+        _wholesalersTab.loadFirstPage();
+      }
     });
+  }
+
+  void _handleTabChange() {
+    if (_tabController.indexIsChanging) return;
+    final index = _tabController.index;
+    if (_tabRole == 'warehouseManager') {
+      if (index == 1) _wholesalersTab.loadFirstPage();
+      if (index == 2) _retailersTab.loadFirstPage();
+    } else if (_tabRole == 'orderBooker') {
+      if (index == 1) _retailersTab.loadFirstPage();
+    }
   }
 
   @override
@@ -340,6 +384,7 @@ class _RetailersViewState extends State<RetailersView>
     super.initState();
     // Default length 2; will be rebuilt in build() when role is known
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _initPaginatedTabs();
     determinePosition().then((value) {
       if (!mounted) return;
@@ -375,14 +420,21 @@ class _RetailersViewState extends State<RetailersView>
     super.didChangeDependencies();
 
     // Re-resolve the checked-in-distributor town filter on every dependency
-    // change (covers check-in/out elsewhere, and logout -> login), and
-    // refresh the wholesaler/retailer tabs if it actually changed.
-    final previousTownId = _activeTownId;
-    _resolveActiveTownId().then((_) {
-      if (!mounted || _activeTownId == previousTownId) return;
-      _wholesalersTab.refresh();
-      _retailersTab.refresh();
-    });
+    // change after the first (covers check-in/out elsewhere, and logout ->
+    // login), and refresh the wholesaler/retailer tabs if it actually
+    // changed. The very first call is skipped — _initPaginatedTabs already
+    // handles the initial load with the resolved town, so re-checking here
+    // too would just duplicate that fetch.
+    if (_isFirstDependenciesChange) {
+      _isFirstDependenciesChange = false;
+    } else {
+      final previousTownId = _activeTownId;
+      _resolveActiveTownId().then((_) {
+        if (!mounted || _activeTownId == previousTownId) return;
+        _wholesalersTab.refresh();
+        _retailersTab.refresh();
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final visitProvider = Provider.of<VisitProvider>(context, listen: false);
@@ -431,6 +483,7 @@ class _RetailersViewState extends State<RetailersView>
     if (_tabRole != role || _tabController.length != neededLength) {
       _tabController.dispose();
       _tabController = TabController(length: neededLength, vsync: this);
+      _tabController.addListener(_handleTabChange);
       _tabRole = role;
     }
 
@@ -498,7 +551,7 @@ class _RetailersViewState extends State<RetailersView>
           )
         : null;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(
           showTabs ? kToolbarHeight + kTextTabBarHeight : kToolbarHeight,
@@ -574,6 +627,17 @@ class _RetailersViewState extends State<RetailersView>
                     )
                   // ── other roles (TSM): original retailer BLoC flow ──
                   : _buildRetailerBlocView(context, user, search),
+    );
+
+    return Stack(
+      children: [
+        scaffold,
+        if (_isStartingOrder)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(child: ProcessingWidget()),
+          ),
+      ],
     );
   }
 
@@ -923,109 +987,119 @@ class _RetailersViewState extends State<RetailersView>
     }
 
     await showVisitBottomSheet(context, (selectedImage) async {
-      final visitProvider = Provider.of<VisitProvider>(context, listen: false);
-      final locationProvider =
-          Provider.of<LocationProvider>(context, listen: false);
-      final imagePath = selectedImage?.path;
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      AppLogger.debug("📍 Initial GPS location obtained");
-      AppLogger.debug(
-          "   Location: ${position.latitude}, ${position.longitude}");
-      AppLogger.debug("   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
-
-      await visitProvider.setStartVisit(
-        location: currentLocation!,
-        imagePath: imagePath,
-        accuracy: position.accuracy,
-        onLocationCheckCallback: () async {
-          if (visitProvider.startVisit == null ||
-              visitProvider.visitLocation == null) {
-            AppLogger.debug("⚠️ Visit data cleared - skipping callback");
-            return;
-          }
-
-          Position freshPosition;
-          try {
-            freshPosition = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-              timeLimit: const Duration(seconds: 5),
-            );
-            AppLogger.debug("📍 Fresh GPS location obtained in timer callback");
-            log("   Location: ${freshPosition.latitude}, ${freshPosition.longitude}");
-            log("   Accuracy: ${freshPosition.accuracy.toStringAsFixed(2)}m");
-          } catch (e) {
-            AppLogger.debug("❌ Failed to get fresh GPS location: $e");
-            return;
-          }
-
-          final currentLoc =
-              LatLng(freshPosition.latitude, freshPosition.longitude);
-          locationProvider.setLatLng(currentLoc);
-
-          await visitProvider.checkAndAutoLogVisit(
-            currentLocation: currentLoc,
-            currentAccuracy: freshPosition.accuracy,
-            onShowNotification: (message) {
-              if (context.mounted) {
-                getFlushBar(context, title: message);
-              }
-            },
-            onAutoLogVisit: () async {
-              if (visitProvider.startVisit == null) {
-                AppLogger.debug("⚠️ Visit cleared before auto-log");
-                return;
-              }
-
-              final retailerProvider =
-                  Provider.of<RetailerProvider>(context, listen: false);
-              final userProvider =
-                  Provider.of<UserProvider>(context, listen: false);
-              final selectedRetailer = retailerProvider.getRetailer();
-              final userDetails = userProvider.getSalesUserDetails()?.user;
-              final startVisit = await visitProvider.getStartVisit();
-
-              if (selectedRetailer != null &&
-                  userDetails != null &&
-                  startVisit != null) {
-                final visit = VisitModel(
-                  retailerId: selectedRetailer.id.toString(),
-                  salesPersonId: userDetails.id.toString(),
-                  startTime: startVisit.toIso8601String(),
-                  endTime: DateTime.now().toIso8601String(),
-                  date: DateTime.now().toString().split(' ')[0],
-                  image: visitProvider.visitImage ?? "",
-                );
-
-                if (context.mounted) {
-                  context.read<VisitBloc>().add(AddVisitEvent(visit));
-                  await visitProvider.clearVisitData();
-                  AppLogger.debug(
-                      "✅ Visit auto-logged via background monitoring");
-                }
-              }
-            },
-          );
-        },
-      );
-
-      Provider.of<RetailerProvider>(context, listen: false)
-          .saveRetailer(asRetailer);
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const CategoryListingView(showCart: true),
-        ),
-      );
-
-      if (mounted) {
-        getFlushBar(context, title: "Visit Started Successfully");
+      if (mounted) setState(() => _isStartingOrder = true);
+      try {
+        await _runStartOrderFlow(asRetailer, selectedImage);
+      } finally {
+        if (mounted) setState(() => _isStartingOrder = false);
       }
     });
+  }
+
+  Future<void> _runStartOrderFlow(
+      RetailerModel asRetailer, File? selectedImage) async {
+    final visitProvider = Provider.of<VisitProvider>(context, listen: false);
+    final locationProvider =
+        Provider.of<LocationProvider>(context, listen: false);
+    final imagePath = selectedImage?.path;
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    AppLogger.debug("📍 Initial GPS location obtained");
+    AppLogger.debug(
+        "   Location: ${position.latitude}, ${position.longitude}");
+    AppLogger.debug("   Accuracy: ${position.accuracy.toStringAsFixed(2)}m");
+
+    await visitProvider.setStartVisit(
+      location: currentLocation!,
+      imagePath: imagePath,
+      accuracy: position.accuracy,
+      onLocationCheckCallback: () async {
+        if (visitProvider.startVisit == null ||
+            visitProvider.visitLocation == null) {
+          AppLogger.debug("⚠️ Visit data cleared - skipping callback");
+          return;
+        }
+
+        Position freshPosition;
+        try {
+          freshPosition = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 5),
+          );
+          AppLogger.debug("📍 Fresh GPS location obtained in timer callback");
+          log("   Location: ${freshPosition.latitude}, ${freshPosition.longitude}");
+          log("   Accuracy: ${freshPosition.accuracy.toStringAsFixed(2)}m");
+        } catch (e) {
+          AppLogger.debug("❌ Failed to get fresh GPS location: $e");
+          return;
+        }
+
+        final currentLoc =
+            LatLng(freshPosition.latitude, freshPosition.longitude);
+        locationProvider.setLatLng(currentLoc);
+
+        await visitProvider.checkAndAutoLogVisit(
+          currentLocation: currentLoc,
+          currentAccuracy: freshPosition.accuracy,
+          onShowNotification: (message) {
+            if (context.mounted) {
+              getFlushBar(context, title: message);
+            }
+          },
+          onAutoLogVisit: () async {
+            if (visitProvider.startVisit == null) {
+              AppLogger.debug("⚠️ Visit cleared before auto-log");
+              return;
+            }
+
+            final retailerProvider =
+                Provider.of<RetailerProvider>(context, listen: false);
+            final userProvider =
+                Provider.of<UserProvider>(context, listen: false);
+            final selectedRetailer = retailerProvider.getRetailer();
+            final userDetails = userProvider.getSalesUserDetails()?.user;
+            final startVisit = await visitProvider.getStartVisit();
+
+            if (selectedRetailer != null &&
+                userDetails != null &&
+                startVisit != null) {
+              final visit = VisitModel(
+                retailerId: selectedRetailer.id.toString(),
+                salesPersonId: userDetails.id.toString(),
+                startTime: startVisit.toIso8601String(),
+                endTime: DateTime.now().toIso8601String(),
+                date: DateTime.now().toString().split(' ')[0],
+                image: visitProvider.visitImage ?? "",
+              );
+
+              if (context.mounted) {
+                context.read<VisitBloc>().add(AddVisitEvent(visit));
+                await visitProvider.clearVisitData();
+                AppLogger.debug(
+                    "✅ Visit auto-logged via background monitoring");
+              }
+            }
+          },
+        );
+      },
+    );
+
+    Provider.of<RetailerProvider>(context, listen: false)
+        .saveRetailer(asRetailer);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CategoryListingView(showCart: true),
+      ),
+    );
+
+    if (mounted) {
+      getFlushBar(context, title: "Visit Started Successfully");
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -109,17 +109,20 @@ class OrderSummaryTableView extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: SizedBox(
-                width: 800,
+                width: 1180,
                 child: Column(
                   children: [
                     _tableHeader(const [
-                      _Col('S.No', 50),
-                      _Col('Date', 170),
+                      _Col('Sr.', 40),
+                      _Col('Date', 130),
+                      _Col('TSM/Orderbooker', 140),
                       _Col('Distributor', 160),
-                      _Col('Items', 70),
-                      _Col('Total (PKR)', 110),
-                      _Col('Payment', 110),
-                      _Col('Status', 100),
+                      _Col('Town', 90),
+                      _Col('Shop Name', 160),
+                      _Col('Type', 90),
+                      _Col('Time', 90),
+                      _Col('Amount', 110),
+                      _Col('Items', 60),
                     ]),
                     Expanded(
                       child: ListView.separated(
@@ -130,23 +133,31 @@ class OrderSummaryTableView extends StatelessWidget {
                         itemBuilder: (context, i) {
                           final o = orders[i];
                           return _tableRow([
-                            _cell('${i + 1}', 50),
+                            _cell('${i + 1}', 40),
                             _cell(
                               o.createdAt != null
-                                  ? DateFormat('dd MMM yyyy, hh:mm a')
+                                  ? DateFormat('EEEE, MMMM d, yyyy')
                                       .format(o.createdAt!)
                                   : '-',
-                              170,
+                              130,
                             ),
+                            _cell(o.salesPerson?.name ?? '-', 140),
+                            _cell(o.distributorName ?? '-', 160),
+                            _cell(o.townName ?? '-', 90),
                             _cell(o.warehouseManager?.name ?? '-', 160),
-                            _cell('${o.items?.length ?? 0}', 70),
+                            _cell(o.warehouseManager?.customerType ?? '-', 90),
                             _cell(
-                              (o.total ?? 0).toStringAsFixed(2),
+                              o.createdAt != null
+                                  ? DateFormat('HH:mm:ss').format(o.createdAt!)
+                                  : '-',
+                              90,
+                            ),
+                            _cell(
+                              'PKR ${(o.total ?? 0).toStringAsFixed(2)}',
                               110,
                               bold: true,
                             ),
-                            _cell(o.paymentType ?? '-', 110),
-                            _cell(o.status ?? '-', 100),
+                            _cell('${o.items?.length ?? 0}', 60),
                           ]);
                         },
                       ),

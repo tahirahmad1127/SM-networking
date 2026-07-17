@@ -62,6 +62,8 @@ class OrderModel {
   final num? couponDiscount;    // ← Added
   final String? coupon;         // ← Added (coupon code)
   final String? orderType;      // ← Added, e.g. "market_booking"
+  final String? distributorName; // Order Summary table — flat string on the order itself
+  final String? townName;        // Order Summary table — flat string on the order itself
 
   OrderModel({
     this.id,
@@ -83,6 +85,8 @@ class OrderModel {
     this.couponDiscount,    // ← Added
     this.coupon,            // ← Added
     this.orderType,         // ← Added
+    this.distributorName,
+    this.townName,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -117,6 +121,8 @@ class OrderModel {
     couponDiscount: json["couponDiscount"],  // ← Added
     coupon: json["coupon"],                  // ← Added
     orderType: json["orderType"],            // ← Added
+    distributorName: json["distributorName"],
+    townName: json["townName"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -139,6 +145,8 @@ class OrderModel {
     "couponDiscount": couponDiscount,  // ← Added
     "coupon": coupon,                  // ← Added
     "orderType": orderType,            // ← Added
+    "distributorName": distributorName,
+    "townName": townName,
   };
 }
 
@@ -311,6 +319,7 @@ class RetailerUser {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int? v;
+  final String? customerType; // "Retailer" / "Wholesaler" / "Distributor" — Order Summary "Type" column
 
   RetailerUser({
     this.docId,
@@ -335,6 +344,7 @@ class RetailerUser {
     this.createdAt,
     this.updatedAt,
     this.v,
+    this.customerType,
   });
 
   factory RetailerUser.fromJson(Map<String, dynamic> json) => RetailerUser(
@@ -360,6 +370,7 @@ class RetailerUser {
     createdAt: json["createdAt"] == null ? null : DateTime.parse(json["createdAt"]),
     updatedAt: json["updatedAt"] == null ? null : DateTime.parse(json["updatedAt"]),
     v: json["__v"],
+    customerType: json["customerType"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -382,6 +393,7 @@ class RetailerUser {
     "shopAddress2": shopAddress2,
     "shopCategory": shopCategory,
     "shopName": shopName,
+    "customerType": customerType,
     "createdAt": createdAt?.toIso8601String(),
     "updatedAt": updatedAt?.toIso8601String(),
     "__v": v,

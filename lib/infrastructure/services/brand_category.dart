@@ -58,7 +58,37 @@ class BrandCategoryService {
     );
   }
 
-  /// GET /api/product/search?searchTerm=&brand=&category=&page=&limit=
+  /// GET product/by-brand-id?brandId=&page=&limit=&searchTerm=
+  /// Every product for a brand across all its categories, in one paginated
+  /// call — used for the "All" chip on the brand's product screen.
+  Future<Either<GlobalErrorModel, ProductListingModel>> getProductsByBrand({
+    required String brandId,
+    required int page,
+    int limit = 10,
+    String? searchTerm,
+  }) async {
+    final token = await getAuthToken();
+    final data = await ApiBaseHelper().getEither(
+      endPoint: ApiEndPoints.kGetProductsByBrandId(
+        brandId: brandId,
+        page: page,
+        limit: limit,
+        searchTerm: searchTerm,
+      ),
+      isRequiredHeader: true,
+      header: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        if (token != null) 'x-auth-token': token,
+      },
+    );
+    return data.fold(
+          (l) => Left(GlobalErrorModel(error: l.error.toString())),
+          (r) => Right(ProductListingModel.fromJson(r)),
+    );
+  }
+
+  /// GET /api/product/search?searchTerm=&brandId=&categoryId=&page=&limit=
   Future<Either<GlobalErrorModel, ProductListingModel>> searchProducts({
     required String searchTerm,
     String? brandId,

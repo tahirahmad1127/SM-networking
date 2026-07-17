@@ -49,26 +49,33 @@ abstract class RetailerRepository {
 
   Future<Either<GlobalErrorModel, RetailersListingModel>> getAllRetailersAndWholesalers();
 
-  /// GET wholesaler?page=&limit=&searchTerm=&zone=&town= — paginated,
-  /// replaces loading the full `wholesalers` array from the login response.
+  /// GET wholesaler?page=&limit=&searchTerm=&zone=&town=&lat=&lng= —
+  /// paginated, replaces loading the full `wholesalers` array from the
+  /// login response. lat/lng (OrderBooker's current position) sort results
+  /// by proximity, closest first.
   Future<Either<GlobalErrorModel, WholesalersListingModel>> getWholesalersPaginated({
     required int page,
     required int limit,
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
     required String token,
   });
 
-  /// GET retailer?page=&limit=&searchTerm=&zone=&town= — paginated, replaces
-  /// both the login-embedded `retailers` array and the old
-  /// retailer/city/{id}?limit=10000 hack.
+  /// GET retailer?page=&limit=&searchTerm=&zone=&town=&lat=&lng= —
+  /// paginated, replaces both the login-embedded `retailers` array and the
+  /// old retailer/city/{id}?limit=10000 hack. lat/lng sort by proximity,
+  /// same as [getWholesalersPaginated].
   Future<Either<GlobalErrorModel, WholesalersListingModel>> getRetailersPaginated({
     required int page,
     required int limit,
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
     required String token,
   });
 
@@ -167,6 +174,8 @@ class RetailerRepositoryImp extends RetailerRepository {
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
     required String token,
   }) async {
     try {
@@ -177,6 +186,8 @@ class RetailerRepositoryImp extends RetailerRepository {
           searchTerm: searchTerm,
           zone: zone,
           town: town,
+          lat: lat,
+          lng: lng,
         ),
         isRequiredHeader: true,
         header: _paginatedHeaders(token),
@@ -200,6 +211,8 @@ class RetailerRepositoryImp extends RetailerRepository {
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
     required String token,
   }) async {
     try {
@@ -210,6 +223,8 @@ class RetailerRepositoryImp extends RetailerRepository {
           searchTerm: searchTerm,
           zone: zone,
           town: town,
+          lat: lat,
+          lng: lng,
         ),
         isRequiredHeader: true,
         header: _paginatedHeaders(token),

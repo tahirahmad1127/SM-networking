@@ -65,13 +65,18 @@ class _SlideToCheckInSheetState extends State<SlideToCheckInSheet> {
                       );
                     });
                   },
-                  onHorizontalDragEnd: (details) async {
+                  onHorizontalDragEnd: (details) {
                     if (_progress > 0.9) {
                       setState(() {
                         _progress = 1.0;
                         _isCompleted = true;
                       });
-                      await Future.delayed(const Duration(milliseconds: 800));
+                      // No artificial delay here — that was 800ms of a
+                      // static "Processing..." label with no actual
+                      // spinner and no real work happening, which read as
+                      // a stall. Hand off to onComplete() immediately; the
+                      // caller's own loading indicator takes over right
+                      // as this sheet closes.
                       widget.onComplete();
                     } else {
                       setState(() => _progress = 0.0);
@@ -123,7 +128,7 @@ class _SlideToCheckInSheetState extends State<SlideToCheckInSheet> {
                         Center(
                           child: Text(
                             _isCompleted
-                                ? "Successfully Punched In"
+                                ? "Processing..."
                                 : "Swipe right to Punch In",
                             style: const TextStyle(
                               color: Colors.white,
@@ -207,13 +212,18 @@ class _SlideToCheckOutSheetState extends State<SlideToCheckOutSheet> {
                       );
                     });
                   },
-                  onHorizontalDragEnd: (details) async {
+                  onHorizontalDragEnd: (details) {
                     if (_progress > 0.9) {
                       setState(() {
                         _progress = 1.0;
                         _isCompleted = true;
                       });
-                      await Future.delayed(const Duration(milliseconds: 800));
+                      // No artificial delay here — that was 800ms of a
+                      // static "Processing..." label with no actual
+                      // spinner and no real work happening, which read as
+                      // a stall. Hand off to onComplete() immediately; the
+                      // caller's own loading indicator takes over right
+                      // as this sheet closes.
                       widget.onComplete();
                     } else {
                       setState(() => _progress = 0.0);
@@ -265,7 +275,7 @@ class _SlideToCheckOutSheetState extends State<SlideToCheckOutSheet> {
                         Center(
                           child: Text(
                             _isCompleted
-                                ? "Successfully Punched Out"
+                                ? "Processing..."
                                 : "Swipe right to Punch Out",
                             style: const TextStyle(
                               color: Colors.white,

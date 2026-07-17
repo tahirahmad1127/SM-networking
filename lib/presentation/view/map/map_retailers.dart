@@ -12,6 +12,7 @@ import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/application/visit_provider.dart';
 import 'package:sm_networking/configurations/frontend_configs.dart';
 import 'package:sm_networking/infrastructure/model/user.dart';
+import 'package:sm_networking/infrastructure/services/order_booker_activity.dart';
 import 'package:sm_networking/infrastructure/services/retailer.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
@@ -67,28 +68,211 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
   bool _markersInitialized =
       false; // flipped to true after first successful load
 
-  /// Loads markers for whichever tab is currently active.
-  /// Safe to call from didChangeDependencies and after add-screens return.
-  void _loadMarkersForCurrentTab() {
-    final u = Provider.of<UserProvider>(context, listen: false);
-    final role = u.getSalesUserDetails()?.role ?? '';
-    final isWarehouseManager = role == 'warehouseManager';
-    final index = _tabController.index;
+  // ── Marker pagination ──────────────────────────────────────────────────
+  // Rendering every distributor/wholesaler/retailer as a marker at once was
+  // the actual cause of the map slowing down for large territories. Markers
+  // now load a page at a time from the same paginated endpoints already
+  // used by retailers_view.dart, with a "Load More" button to pull the
+  // next batch instead of dumping everything on the map up front.
+  static const int _markerPageSize = 25;
+  int _markerPage = 0; // 0 = nothing fetched yet this session/tab
+  int _markerTotalPages = 1;
+  bool _isLoadingMarkers = false;
+  bool _isLoadingMoreMarkers = false;
+  String? _markersError;
 
-    if (isWarehouseManager) {
-      if (index == 0) {
-        _buildDistributorMarkers(u.getSalesUserDetails()?.distributors ?? []);
-      } else if (index == 1) {
-        _buildWholesalerMarkers(u.getSalesUserDetails()?.wholesalers ?? []);
-      } else {
-        _buildWholesalerMarkers(u.getSalesUserDetails()?.retailers ?? []);
-      }
+  // Covers the gap between picking a visit image and the brands screen
+  // appearing (GPS fetch + visitProvider.setStartVisit) for the "Company
+  // Order" / "Start Market Booking" buttons below — otherwise the screen
+  // just sits there with no feedback for that stretch.
+  bool _isStartingOrder = false;
+
+  // Records fetched from the backend that had no usable lat/lng — those can
+  // never become markers and are simply dropped. Records that DID have a
+  // location but arrived past this call's pageSize quota (because we had
+  // to keep fetching further pages to make up for others in the same
+  // backend page lacking a location) are kept here for the *next* call
+  // instead of showing an inconsistently-sized batch now. Holds
+  // Distributor or Wholesaler objects.
+  final List<dynamic> _markerOverflow = [];
+
+  bool get _hasMoreMarkers =>
+      _markerPage < _markerTotalPages || _markerOverflow.isNotEmpty;
+
+  /// Loads markers for whichever tab is currently active — [replace] starts
+  /// over from page 1 (tab switch, add-screen return, pull-to-refresh
+  /// equivalents); otherwise this pulls however many more backend pages it
+  /// takes to add exactly [_markerPageSize] new markers (or genuinely runs
+  /// out). [tabIndexOverride] is used right after a tab tap, where
+  /// `_tabController.index` may not have updated yet.
+  Future<void> _loadMarkers({
+    required bool replace,
+    int? tabIndexOverride,
+  }) async {
+    if (_isLoadingMarkers || _isLoadingMoreMarkers) return;
+
+    final u = Provider.of<UserProvider>(context, listen: false);
+    final details = u.getSalesUserDetails();
+    final role = details?.role ?? '';
+    final isWarehouseManager = role == 'warehouseManager';
+    final index = tabIndexOverride ?? _tabController.index;
+
+    if (replace) {
+      _markerPage = 0;
+      _markerTotalPages = 1;
+      markerSet.clear();
+      _markerOverflow.clear();
+      _selectedDistributor = null;
+      _selectedWholesaler = null;
+      _isLoadingMarkers = true;
     } else {
-      // orderBooker: 0 = Wholesalers, 1 = Retailers
-      _buildWholesalerMarkers(index == 0
-          ? (u.getSalesUserDetails()?.wholesalers ?? [])
-          : (u.getSalesUserDetails()?.retailers ?? []));
+      if (!_hasMoreMarkers) return;
+      _isLoadingMoreMarkers = true;
     }
+    _markersError = null;
+    setState(() {});
+
+    await _ensureDestinationIcon();
+
+    var addedCount = 0;
+
+    // Drain anything left over from a previous over-fetch first.
+    while (addedCount < _markerPageSize && _markerOverflow.isNotEmpty) {
+      final item = _markerOverflow.removeAt(0);
+      if (item is Distributor) {
+        _addDistributorMarker(item);
+      } else if (item is Wholesaler) {
+        _addWholesalerMarker(item);
+      }
+      addedCount++;
+    }
+
+    final isDistributorTab = isWarehouseManager && index == 0;
+    final isRetailerTab = isWarehouseManager ? index == 2 : index == 1;
+    final tsmId = details?.user?.id ?? '';
+    final token = details?.token ?? '';
+
+    try {
+      // Keep pulling backend pages until this batch reaches a full
+      // [_markerPageSize] *markers* or genuinely runs out — a backend page
+      // can contain entries with no pinned location, which used to just
+      // silently shrink the visible batch (10 fetched, only 3-5 actually
+      // shown), making "Load More" inconsistent.
+      while (addedCount < _markerPageSize && _markerPage < _markerTotalPages) {
+        final nextPage = _markerPage + 1;
+
+        if (isDistributorTab) {
+          final result = await OrderBookerActivityRepositoryImp()
+              .getDistributorsForTsm(
+                  tsmId: tsmId,
+                  page: nextPage,
+                  limit: _markerPageSize,
+                  token: token);
+          var stop = false;
+          result.fold(
+            (l) {
+              _markersError = l.error.toString();
+              stop = true;
+            },
+            (r) {
+              _markerPage = r.page;
+              _markerTotalPages = r.totalPages;
+              for (final d in r.data) {
+                if (d.shopLocation?.lat == null ||
+                    d.shopLocation?.lng == null) {
+                  continue;
+                }
+                if (addedCount < _markerPageSize) {
+                  _addDistributorMarker(d);
+                  addedCount++;
+                } else {
+                  _markerOverflow.add(d);
+                }
+              }
+            },
+          );
+          if (stop) break;
+        } else {
+          final result = isRetailerTab
+              ? await RetailerRepositoryImp().getRetailersPaginated(
+                  page: nextPage,
+                  limit: _markerPageSize,
+                  lat: currentLocation?.latitude,
+                  lng: currentLocation?.longitude,
+                  token: token)
+              : await RetailerRepositoryImp().getWholesalersPaginated(
+                  page: nextPage,
+                  limit: _markerPageSize,
+                  lat: currentLocation?.latitude,
+                  lng: currentLocation?.longitude,
+                  token: token);
+          var stop = false;
+          result.fold(
+            (l) {
+              _markersError = l.error.toString();
+              stop = true;
+            },
+            (r) {
+              _markerPage = r.page;
+              _markerTotalPages = r.totalPages;
+              for (final w in r.data) {
+                final lat = w.shopLocation?.lat ?? w.addressFromGoogle?.lat;
+                final lng = w.shopLocation?.lng ?? w.addressFromGoogle?.lng;
+                if (lat == null || lng == null) continue;
+                if (addedCount < _markerPageSize) {
+                  _addWholesalerMarker(w);
+                  addedCount++;
+                } else {
+                  _markerOverflow.add(w);
+                }
+              }
+            },
+          );
+          if (stop) break;
+        }
+      }
+    } finally {
+      _isLoadingMarkers = false;
+      _isLoadingMoreMarkers = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _loadMoreMarkers() => _loadMarkers(replace: false);
+
+  void _addDistributorMarker(Distributor d) {
+    final lat = d.shopLocation?.lat;
+    final lng = d.shopLocation?.lng;
+    if (lat == null || lng == null) return;
+    markerSet.add(
+      Marker(
+        markerId: MarkerId(d.id ?? d.salesId ?? UniqueKey().toString()),
+        position: LatLng(lat.toDouble(), lng.toDouble()),
+        icon: destinationIcon!,
+        onTap: () => setState(() {
+          _selectedDistributor = d;
+          _selectedWholesaler = null;
+        }),
+      ),
+    );
+  }
+
+  void _addWholesalerMarker(Wholesaler w) {
+    // Prefer shopLocation (manually pinned); fall back to addressFromGoogle (set by backend)
+    final lat = w.shopLocation?.lat ?? w.addressFromGoogle?.lat;
+    final lng = w.shopLocation?.lng ?? w.addressFromGoogle?.lng;
+    if (lat == null || lng == null) return;
+    markerSet.add(
+      Marker(
+        markerId: MarkerId(w.id ?? UniqueKey().toString()),
+        position: LatLng(lat.toDouble(), lng.toDouble()),
+        icon: destinationIcon!,
+        onTap: () => setState(() {
+          _selectedWholesaler = w;
+          _selectedDistributor = null;
+        }),
+      ),
+    );
   }
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
@@ -101,60 +285,13 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
         .asUint8List();
   }
 
-  Future setSourceAndDestinationIcons() async {
+  /// The marker icon is a static asset — decoding it fresh on every marker
+  /// rebuild (as before) was wasted work; it only needs to happen once.
+  Future<void> _ensureDestinationIcon() async {
+    if (destinationIcon != null) return;
     final Uint8List icon =
         await getBytesFromAsset('assets/images/marker.png', 70);
     destinationIcon = BitmapDescriptor.fromBytes(icon);
-    return destinationIcon;
-  }
-
-  /// Build markers from the distributors list (TSM / warehouseManager).
-  Future<void> _buildDistributorMarkers(List<Distributor> distributors) async {
-    await setSourceAndDestinationIcons();
-    markerSet.clear();
-    for (final d in distributors) {
-      final lat = d.shopLocation?.lat;
-      final lng = d.shopLocation?.lng;
-      if (lat == null || lng == null) continue;
-      markerSet.add(
-        Marker(
-          markerId: MarkerId(d.id ?? d.salesId ?? UniqueKey().toString()),
-          position: LatLng(lat.toDouble(), lng.toDouble()),
-          icon: destinationIcon!,
-          onTap: () => setState(() {
-            _selectedDistributor = d;
-            _selectedWholesaler = null;
-          }),
-        ),
-      );
-    }
-    setState(() {});
-  }
-
-  /// Build markers from a wholesalers or retailers list (orderBooker).
-  Future<void> _buildWholesalerMarkers(List<Wholesaler> list) async {
-    await setSourceAndDestinationIcons();
-    markerSet.clear();
-    _selectedWholesaler = null;
-    _selectedDistributor = null;
-    for (final w in list) {
-      // Prefer shopLocation (manually pinned); fall back to addressFromGoogle (set by backend)
-      final lat = w.shopLocation?.lat ?? w.addressFromGoogle?.lat;
-      final lng = w.shopLocation?.lng ?? w.addressFromGoogle?.lng;
-      if (lat == null || lng == null) continue;
-      markerSet.add(
-        Marker(
-          markerId: MarkerId(w.id ?? UniqueKey().toString()),
-          position: LatLng(lat.toDouble(), lng.toDouble()),
-          icon: destinationIcon!,
-          onTap: () => setState(() {
-            _selectedWholesaler = w;
-            _selectedDistributor = null;
-          }),
-        ),
-      );
-    }
-    setState(() {});
   }
 
   @override
@@ -165,7 +302,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     _tabController.addListener(() {
       // Only fire on index changes, not animation mid-swipe
       if (_tabController.indexIsChanging) return;
-      _loadMarkersForCurrentTab();
+      _loadMarkers(replace: true);
     });
     _loadCheckInStatus();
 
@@ -192,7 +329,6 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
 
   @override
   void dispose() {
-    _tabController.removeListener(_loadMarkersForCurrentTab);
     _tabController.dispose();
     super.dispose();
   }
@@ -219,7 +355,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     if (hasData && !_markersInitialized) {
       _markersInitialized = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadMarkersForCurrentTab();
+        if (mounted) _loadMarkers(replace: true);
       });
     }
   }
@@ -246,19 +382,18 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     // ── Rebuild TabController if role changed (e.g. logout → re-login) ──
     final neededLength = hasThreeTabs ? 3 : 2;
     if (_tabRole != role || _tabController.length != neededLength) {
-      _tabController.removeListener(_loadMarkersForCurrentTab);
       _tabController.dispose();
       _tabController = TabController(length: neededLength, vsync: this);
       _tabController.addListener(() {
         if (_tabController.indexIsChanging) return;
-        _loadMarkersForCurrentTab();
+        _loadMarkers(replace: true);
       });
       _tabRole = role;
       _markersInitialized = false; // allow reload for new role
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _markersInitialized = true;
-          _loadMarkersForCurrentTab();
+          _loadMarkers(replace: true);
         }
       });
     }
@@ -282,7 +417,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
             Tab(text: "Retailers"),
           ];
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
@@ -311,29 +446,9 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                   fontWeight: FontWeight.w500,
                 ),
                 onTap: (index) {
-                  final u = Provider.of<UserProvider>(context, listen: false);
-                  if (isWarehouseManager) {
-                    if (index == 0) {
-                      final distributors =
-                          u.getSalesUserDetails()?.distributors ?? [];
-                      _buildDistributorMarkers(distributors);
-                    } else if (index == 1) {
-                      final wholesalers =
-                          u.getSalesUserDetails()?.wholesalers ?? [];
-                      _buildWholesalerMarkers(wholesalers);
-                    } else {
-                      final retailers =
-                          u.getSalesUserDetails()?.retailers ?? [];
-                      _buildWholesalerMarkers(retailers);
-                    }
-                  } else {
-                    // orderBooker: 0 = Wholesalers, 1 = Retailers
-                    final wholesalers =
-                        u.getSalesUserDetails()?.wholesalers ?? [];
-                    final retailers = u.getSalesUserDetails()?.retailers ?? [];
-                    _buildWholesalerMarkers(
-                        index == 0 ? wholesalers : retailers);
-                  }
+                  // Pass the tapped index explicitly — _tabController.index
+                  // may not have updated to it yet at this exact callback.
+                  _loadMarkers(replace: true, tabIndexOverride: index);
                 },
                 tabs: tabs,
               )
@@ -381,15 +496,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         builder: (_) =>
                                             const AddWholesalerView()),
                                   );
-                                  if (mounted) {
-                                    final wholesalers =
-                                        Provider.of<UserProvider>(context,
-                                                    listen: false)
-                                                .getSalesUserDetails()
-                                                ?.wholesalers ??
-                                            [];
-                                    _buildWholesalerMarkers(wholesalers);
-                                  }
+                                  if (mounted) _loadMarkers(replace: true);
                                 } else {
                                   // Retailers tab
                                   await Navigator.push(
@@ -398,15 +505,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         builder: (_) =>
                                             const AddRetailerView()),
                                   );
-                                  if (mounted) {
-                                    final retailers = Provider.of<UserProvider>(
-                                                context,
-                                                listen: false)
-                                            .getSalesUserDetails()
-                                            ?.retailers ??
-                                        [];
-                                    _buildWholesalerMarkers(retailers);
-                                  }
+                                  if (mounted) _loadMarkers(replace: true);
                                 }
                               } else if (isWarehouseManager) {
                                 // warehouseManager tabs: 0 = Distributors, 1 = Wholesalers, 2 = Retailers
@@ -418,15 +517,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         builder: (_) =>
                                             const AddWholesalerView()),
                                   );
-                                  if (mounted) {
-                                    final wholesalers =
-                                        Provider.of<UserProvider>(context,
-                                                    listen: false)
-                                                .getSalesUserDetails()
-                                                ?.wholesalers ??
-                                            [];
-                                    _buildWholesalerMarkers(wholesalers);
-                                  }
+                                  if (mounted) _loadMarkers(replace: true);
                                 } else if (tabIndex == 2) {
                                   // Retailers tab
                                   await Navigator.push(
@@ -435,15 +526,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                         builder: (_) =>
                                             const AddRetailerView()),
                                   );
-                                  if (mounted) {
-                                    final retailers = Provider.of<UserProvider>(
-                                                context,
-                                                listen: false)
-                                            .getSalesUserDetails()
-                                            ?.retailers ??
-                                        [];
-                                    _buildWholesalerMarkers(retailers);
-                                  }
+                                  if (mounted) _loadMarkers(replace: true);
                                 } else {
                                   // Distributors tab (tab 0)
                                   final added = await Navigator.push(
@@ -453,13 +536,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                             const AddDistributorView()),
                                   );
                                   if (added == true && mounted) {
-                                    final distributors =
-                                        Provider.of<UserProvider>(context,
-                                                    listen: false)
-                                                .getSalesUserDetails()
-                                                ?.distributors ??
-                                            [];
-                                    _buildDistributorMarkers(distributors);
+                                    _loadMarkers(replace: true);
                                   }
                                 }
                               } else {
@@ -471,13 +548,7 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                           const AddDistributorView()),
                                 );
                                 if (added == true && mounted) {
-                                  final distributors =
-                                      Provider.of<UserProvider>(context,
-                                                  listen: false)
-                                              .getSalesUserDetails()
-                                              ?.distributors ??
-                                          [];
-                                  _buildDistributorMarkers(distributors);
+                                  _loadMarkers(replace: true);
                                 }
                               }
                             }
@@ -541,10 +612,88 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                           child: _buildWholesalerCard(context),
                         ),
                       ),
+                    // "Load More" markers — hidden while a marker's detail
+                    // card is showing (same bottom-center spot) or while
+                    // there's genuinely nothing more to load.
+                    if (_selectedDistributor == null &&
+                        _selectedWholesaler == null &&
+                        (_hasMoreMarkers || _isLoadingMoreMarkers))
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 16,
+                        child: Center(child: _buildLoadMoreButton()),
+                      ),
+                    if (_markersError != null &&
+                        _selectedDistributor == null &&
+                        _selectedWholesaler == null)
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        top: 12,
+                        child: Material(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            child: Text(
+                              _markersError!,
+                              style: TextStyle(
+                                  color: Colors.red.shade700, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 );
               },
             ),
+    );
+
+    // Stack the loader on top instead of replacing `scaffold` outright —
+    // swapping the whole subtree for a different one here would deactivate
+    // whichever button/card is mid-flow (GPS fetch, visitProvider calls)
+    // and still holding a reference to its own now-torn-down context,
+    // crashing with "Looking up a deactivated widget's ancestor is unsafe."
+    return Stack(
+      children: [
+        scaffold,
+        if (_isStartingOrder)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(child: ProcessingWidget()),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLoadMoreButton() {
+    return Material(
+      elevation: 3,
+      color: FrontendConfigs.kPrimaryColor,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: _isLoadingMoreMarkers ? null : _loadMoreMarkers,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: _isLoadingMoreMarkers
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text(
+                  "Load More",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
+                ),
+        ),
+      ),
     );
   }
 
@@ -848,6 +997,10 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
 
                           await showVisitBottomSheet(context,
                               (selectedImage) async {
+                            if (mounted) {
+                              setState(() => _isStartingOrder = true);
+                            }
+                            try {
                             final visitProvider = Provider.of<VisitProvider>(
                                 context,
                                 listen: false);
@@ -988,6 +1141,11 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                             if (mounted) {
                               getFlushBar(context,
                                   title: "Visit Started Successfully");
+                            }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isStartingOrder = false);
+                              }
                             }
                           });
                         },
@@ -1204,30 +1362,25 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                                                                 .address
                                                                 ?.toString());
                                                   }
-                                                  final updatedList = isRetailerTab
-                                                      ? (userProv
-                                                              .getSalesUserDetails()
-                                                              ?.retailers ??
-                                                          [])
-                                                      : (userProv
-                                                              .getSalesUserDetails()
-                                                              ?.wholesalers ??
-                                                          []);
-                                                  _buildWholesalerMarkers(
-                                                      updatedList);
-                                                  Wholesaler? refreshed;
-                                                  for (final x in updatedList) {
-                                                    if (x.id == id) {
-                                                      refreshed = x;
-                                                      break;
-                                                    }
-                                                  }
-                                                  if (refreshed != null) {
-                                                    setState(() {
-                                                      _selectedWholesaler =
-                                                          refreshed;
-                                                    });
-                                                  }
+                                                  // Patch just this one
+                                                  // marker in place rather
+                                                  // than rebuilding the
+                                                  // whole (now paginated,
+                                                  // partially-loaded) set
+                                                  // from a full list.
+                                                  final refreshed = whol.copyWith(
+                                                      shopLocation:
+                                                          DistributorLocation(
+                                                              lat: lat,
+                                                              lng: lng));
+                                                  setState(() {
+                                                    markerSet.removeWhere((m) =>
+                                                        m.markerId.value == id);
+                                                    _addWholesalerMarker(
+                                                        refreshed);
+                                                    _selectedWholesaler =
+                                                        refreshed;
+                                                  });
                                                   getFlushBar(context,
                                                       title:
                                                           'Location updated for ${whol.name ?? 'customer'}');
@@ -1363,6 +1516,10 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                       }
                       await showVisitBottomSheet(context,
                           (selectedImage) async {
+                        if (mounted) {
+                          setState(() => _isStartingOrder = true);
+                        }
+                        try {
                         String? imagePath;
                         if (selectedImage != null) {
                           imagePath = await _openProEditor(selectedImage.path);
@@ -1408,6 +1565,11 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                         if (mounted) {
                           getFlushBar(context,
                               title: "Visit Started Successfully");
+                        }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isStartingOrder = false);
+                          }
                         }
                       });
                     },

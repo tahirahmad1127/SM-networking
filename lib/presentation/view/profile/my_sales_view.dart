@@ -179,6 +179,15 @@ class _MySalesViewState extends State<MySalesView> {
     final salePersonId = details?.user?.id ?? '';
     final token = details?.token ?? '';
 
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
+
     try {
       final uri =
       Uri.parse('${BackendConfigs.apiUrl}order/by-salesperson-date');
@@ -252,6 +261,15 @@ class _MySalesViewState extends State<MySalesView> {
     final salePersonId = details?.user?.id ?? '';
     final token = details?.token ?? '';
 
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
+
     try {
       final uri = Uri.parse('${BackendConfigs.apiUrl}order/load-form');
       final response = await http.post(
@@ -296,6 +314,15 @@ class _MySalesViewState extends State<MySalesView> {
     final details = user.getSalesUserDetails();
     final salePersonId = details?.user?.id ?? '';
     final token = details?.token ?? '';
+
+    if (salePersonId.isEmpty) {
+      if (mounted) {
+        getFlushBar(context,
+            title:
+            'Your session is missing required user info. Please log out and log back in.');
+      }
+      return;
+    }
 
     try {
       final uri = Uri.parse('${BackendConfigs.apiUrl}order/report');

@@ -207,25 +207,43 @@ class ApiEndPoints {
   }) =>
       "warehouse-manager/$tsmId/distributors?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
 
-  /// wholesaler?page=&limit=&searchTerm=&zone=&town=
+  /// wholesaler?page=&limit=&searchTerm=&zone=&town=&lat=&lng=
+  /// lat/lng (OrderBooker's current GPS position) sort results by proximity,
+  /// closest first — falls back to the OrderBooker's latest live-tracked
+  /// location server-side if omitted, but passing it is recommended.
   static String kGetWholesalersPaginated({
     required int page,
     required int limit,
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
   }) =>
-      "wholesaler?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'zone': zone, 'town': town})}";
+      "wholesaler?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {
+            'zone': zone,
+            'town': town,
+            'lat': lat?.toString(),
+            'lng': lng?.toString(),
+          })}";
 
-  /// retailer?page=&limit=&searchTerm=&zone=&town=
+  /// retailer?page=&limit=&searchTerm=&zone=&town=&lat=&lng=
+  /// See [kGetWholesalersPaginated] — same proximity-sort behavior.
   static String kGetRetailersPaginated({
     required int page,
     required int limit,
     String? searchTerm,
     String? zone,
     String? town,
+    double? lat,
+    double? lng,
   }) =>
-      "retailer?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'zone': zone, 'town': town})}";
+      "retailer?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {
+            'zone': zone,
+            'town': town,
+            'lat': lat?.toString(),
+            'lng': lng?.toString(),
+          })}";
 
   /// product/category/{categoryId}?page=&limit=&searchTerm=
   static String kGetProductsByCategoryPaginated({
@@ -246,7 +264,19 @@ class ApiEndPoints {
   }) =>
       "$kGetProductsByBrandAndCategory$brandId/category/$categoryId?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
 
-  /// product/search?searchTerm=&brand=&category=&page=&limit=
+  /// product/by-brand-id?brandId=&page=&limit=&searchTerm=
+  /// Every product for a brand across all its categories, paginated — used
+  /// for the "All" chip so it no longer has to walk each category one by
+  /// one to assemble a page.
+  static String kGetProductsByBrandId({
+    required String brandId,
+    required int page,
+    required int limit,
+    String? searchTerm,
+  }) =>
+      "product/by-brand-id?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'brandId': brandId})}";
+
+  /// product/search?searchTerm=&brandId=&categoryId=&page=&limit=
   static String kProductSearch({
     required String searchTerm,
     String? brandId,
@@ -254,5 +284,5 @@ class ApiEndPoints {
     required int page,
     required int limit,
   }) =>
-      "product/search?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'brand': brandId, 'category': categoryId})}";
+      "product/search?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {'brandId': brandId, 'categoryId': categoryId})}";
 }

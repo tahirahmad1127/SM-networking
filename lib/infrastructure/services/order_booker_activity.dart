@@ -42,14 +42,18 @@ abstract class OrderBookerActivityRepository {
     required String token,
   });
 
-  /// GET warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm= —
-  /// paginated, replaces loading the full `distributors` array embedded in
-  /// the login response.
+  /// GET warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm=&lat=&lng=
+  /// — paginated, replaces loading the full `distributors` array embedded
+  /// in the login response. lat/lng (TSM's current GPS position) sort
+  /// results by proximity, closest first — same behavior as
+  /// getWholesalersPaginated/getRetailersPaginated.
   Future<Either<GlobalErrorModel, DistributorsListingModel>> getDistributorsForTsm({
     required String tsmId,
     required int page,
     required int limit,
     String? searchTerm,
+    double? lat,
+    double? lng,
     required String token,
   });
 
@@ -203,6 +207,8 @@ class OrderBookerActivityRepositoryImp
     required int page,
     required int limit,
     String? searchTerm,
+    double? lat,
+    double? lng,
     required String token,
   }) async {
     try {
@@ -212,6 +218,8 @@ class OrderBookerActivityRepositoryImp
           page: page,
           limit: limit,
           searchTerm: searchTerm,
+          lat: lat,
+          lng: lng,
         ),
         isRequiredHeader: true,
         header: _headers(token),

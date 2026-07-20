@@ -315,6 +315,8 @@ class _RetailersViewState extends State<RetailersView>
           page: page,
           limit: limit,
           searchTerm: searchTerm,
+          lat: currentLocation?.latitude,
+          lng: currentLocation?.longitude,
           token: token,
         );
         return result.map((r) => _Page(
@@ -1476,14 +1478,6 @@ class _RetailersViewState extends State<RetailersView>
                     // Add Recovery
                     InkWell(
                       onTap: () {
-                        if (Provider.of<OfflineModeProvider>(context,
-                                listen: false)
-                            .isOffline) {
-                          getFlushBar(context,
-                              title:
-                                  "Add Recovery requires an internet connection.");
-                          return;
-                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -1644,14 +1638,6 @@ class _RetailersViewState extends State<RetailersView>
                     // Add Recovery
                     InkWell(
                       onTap: () {
-                        if (Provider.of<OfflineModeProvider>(context,
-                                listen: false)
-                            .isOffline) {
-                          getFlushBar(context,
-                              title:
-                                  "Add Recovery requires an internet connection.");
-                          return;
-                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -1807,14 +1793,6 @@ class _RetailersViewState extends State<RetailersView>
                               const SizedBox(height: 8),
                               InkWell(
                                 onTap: () {
-                                  if (Provider.of<OfflineModeProvider>(context,
-                                          listen: false)
-                                      .isOffline) {
-                                    getFlushBar(context,
-                                        title:
-                                            "Add Recovery requires an internet connection.");
-                                    return;
-                                  }
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(

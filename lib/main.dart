@@ -25,6 +25,7 @@ import 'package:workmanager/workmanager.dart';
 import 'application/retailer_provider.dart';
 import 'application/draft_provider.dart';
 import 'application/offline_mode_provider.dart';
+import 'application/pending_recovery_provider.dart';
 import 'application/pending_sync_provider.dart';
 import 'application/wholesaler_retailer_provider.dart';
 import 'infrastructure/services/background_location.dart';
@@ -149,6 +150,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WholesalerRetailerProvider()),
         ChangeNotifierProvider(create: (_) => DraftProvider()),
         ChangeNotifierProvider(create: (_) => PendingSyncProvider()),
+        ChangeNotifierProvider(create: (_) => PendingRecoveryProvider()),
         ChangeNotifierProvider(create: (_) => OfflineModeProvider()),
       ],
       child: BlocProvider(

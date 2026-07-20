@@ -198,14 +198,21 @@ class ApiEndPoints {
         .join('&');
   }
 
-  /// warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm=
+  /// warehouse-manager/{tsmId}/distributors?page=&limit=&searchTerm=&lat=&lng=
+  /// See [kGetWholesalersPaginated] — same proximity-sort behavior (falls
+  /// back to the TSM's latest live-tracked location server-side if omitted).
   static String kGetDistributorsForTsm({
     required String tsmId,
     required int page,
     required int limit,
     String? searchTerm,
+    double? lat,
+    double? lng,
   }) =>
-      "warehouse-manager/$tsmId/distributors?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm)}";
+      "warehouse-manager/$tsmId/distributors?${_pagedQuery(page: page, limit: limit, searchTerm: searchTerm, extra: {
+            'lat': lat?.toString(),
+            'lng': lng?.toString(),
+          })}";
 
   /// wholesaler?page=&limit=&searchTerm=&zone=&town=&lat=&lng=
   /// lat/lng (OrderBooker's current GPS position) sort results by proximity,

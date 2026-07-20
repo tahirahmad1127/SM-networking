@@ -5,6 +5,7 @@ import 'package:sm_networking/injection_container.dart';
 
 import '../../../application/checkIn_provider.dart';
 import '../../../application/offline_mode_provider.dart';
+import '../../../application/pending_recovery_provider.dart';
 import '../../../application/pending_sync_provider.dart';
 import 'package:provider/provider.dart';
 import '../../../application/user_provider.dart';
@@ -26,9 +27,11 @@ class _AttendanceViewState extends State<AttendanceView> {
   @override
   void initState() {
     super.initState();
-    // PendingSyncProvider is registered globally in main.dart, so it's
-    // already available here via Provider.of — just trigger an initial load.
+    // PendingSyncProvider/PendingRecoveryProvider are registered globally in
+    // main.dart, so they're already available here via Provider.of — just
+    // trigger an initial load.
     Provider.of<PendingSyncProvider>(context, listen: false).load();
+    Provider.of<PendingRecoveryProvider>(context, listen: false).load();
   }
 
   Future<void> _openSyncScreen(BuildContext context) async {
@@ -36,9 +39,10 @@ class _AttendanceViewState extends State<AttendanceView> {
       context,
       MaterialPageRoute(builder: (_) => const PendingSyncView()),
     );
-    // Refresh the badge count in case orders were synced/deleted there.
+    // Refresh the badge count in case orders/recoveries were synced/deleted there.
     if (mounted) {
       Provider.of<PendingSyncProvider>(context, listen: false).load();
+      Provider.of<PendingRecoveryProvider>(context, listen: false).load();
     }
   }
 
@@ -46,15 +50,19 @@ class _AttendanceViewState extends State<AttendanceView> {
     final offlineMode = Provider.of<OfflineModeProvider>(context, listen: false);
 
     if (offlineMode.isOffline) {
-      final pendingCount =
+      final pendingOrders =
           Provider.of<PendingSyncProvider>(context, listen: false).count;
+      final pendingRecoveries =
+          Provider.of<PendingRecoveryProvider>(context, listen: false).count;
+      final pendingCount = pendingOrders + pendingRecoveries;
       if (pendingCount > 0) {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text("Turn off Offline Mode?"),
             content: Text(
-                "You have $pendingCount order${pendingCount == 1 ? '' : 's'} waiting to sync. "
+                "You have $pendingOrders order${pendingOrders == 1 ? '' : 's'} and "
+                "$pendingRecoveries recover${pendingRecoveries == 1 ? 'y' : 'ies'} waiting to sync. "
                 "They'll stay queued and sync when you tap Sync."),
             actions: [
               TextButton(
@@ -197,8 +205,9 @@ class _AttendanceViewState extends State<AttendanceView> {
             ),
             floatingActionButton: Padding(
               padding: EdgeInsets.only(bottom: isWarehouseManager ? 0 : 110),
-              child: Consumer<PendingSyncProvider>(
-                builder: (context, provider, _) {
+              child: Consumer2<PendingSyncProvider, PendingRecoveryProvider>(
+                builder: (context, provider, recoveryProvider, _) {
+                  final combinedCount = provider.count + recoveryProvider.count;
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -212,7 +221,7 @@ class _AttendanceViewState extends State<AttendanceView> {
                               color: Colors.white, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      if (provider.count > 0)
+                      if (combinedCount > 0)
                         Positioned(
                           top: -4,
                           right: -4,
@@ -226,9 +235,9 @@ class _AttendanceViewState extends State<AttendanceView> {
                                 minWidth: 22, minHeight: 22),
                             child: Center(
                               child: Text(
-                                provider.count > 99
+                                combinedCount > 99
                                     ? '99+'
-                                    : '${provider.count}',
+                                    : '$combinedCount',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,

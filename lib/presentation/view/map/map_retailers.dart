@@ -171,6 +171,8 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
                   tsmId: tsmId,
                   page: nextPage,
                   limit: _markerPageSize,
+                  lat: currentLocation?.latitude,
+                  lng: currentLocation?.longitude,
                   token: token);
           var stop = false;
           result.fold(
@@ -242,7 +244,34 @@ class _GoogleMpaViewState extends State<GoogleMpaView>
     }
   }
 
-  Future<void> _loadMoreMarkers() => _loadMarkers(replace: false);
+  /// "Load More" fetches the next page from proximity-sorted endpoints
+  /// (retailers/wholesalers are sorted by distance from [currentLocation]
+  /// server-side), so it must use where the user actually is *now* — not
+  /// wherever they were when the map first opened or last refreshed.
+  /// Without this, a user who moves between "Load More" taps keeps getting
+  /// results sorted around their old position.
+  Future<void> _loadMoreMarkers() async {
+    await _refreshCurrentLocationBeforeLoadMore();
+    await _loadMarkers(replace: false);
+  }
+
+  /// Best-effort GPS refresh — if a fresh fix can't be obtained quickly,
+  /// falls back to the last known [currentLocation] rather than blocking
+  /// "Load More" entirely.
+  Future<void> _refreshCurrentLocationBeforeLoadMore() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      if (!mounted) return;
+      final updated = LatLng(position.latitude, position.longitude);
+      currentLocation = updated;
+      Provider.of<LocationProvider>(context, listen: false).setLatLng(updated);
+    } catch (e) {
+      log("Could not refresh location before Load More: $e");
+    }
+  }
 
   void _addDistributorMarker(Distributor d) {
     final lat = d.shopLocation?.lat;

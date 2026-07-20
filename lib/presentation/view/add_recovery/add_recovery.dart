@@ -12,11 +12,18 @@ import 'package:sm_networking/presentation/elements/custom_appbar.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../application/offline_mode_provider.dart';
+import '../../../application/pending_recovery_provider.dart';
 import '../../../application/user_provider.dart';
 import '../../../configurations/frontend_configs.dart';
 import '../../../infrastructure/model/add_recovery.dart';
+import '../../../infrastructure/model/pending_recovery_order.dart';
 import '../../../infrastructure/model/user.dart';
+import '../../../infrastructure/services/offline_cache_service.dart';
+import '../../../infrastructure/services/offline_recovery_image_store.dart';
+import '../../../infrastructure/services/pending_recovery.dart';
 import '../../../injection_container.dart';
 import '../../elements/custom_text.dart';
 import '../../elements/processing_widget.dart';
@@ -105,7 +112,11 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
 
   /// Reads the entity matching [widget.distributorId] from UserProvider.
   /// Searches distributors first, then wholesalers, then retailers, so that
-  /// the same screen works for all three customer types.
+  /// the same screen works for all three customer types. Falls back to the
+  /// Offline Mode cache (below) when none of those match and Offline Mode
+  /// is on — UserProvider's wholesalers/retailers lists are frequently
+  /// empty (only populated at login for some roles), so this fallback is
+  /// what actually makes offline recoveries reliable, not just distributors.
   void _autoFetchDistributorDetails() {
     final userModel = context.read<UserProvider>().getSalesUserDetails();
     final id = widget.distributorId;
@@ -159,6 +170,69 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
         _zoneName = ret.zone?.name;
         _townId = ret.town?.id;
         _townName = ret.town?.name;
+      });
+      return;
+    }
+
+    // 4. Offline fallback — see doc comment above.
+    if (context.read<OfflineModeProvider>().isOffline) {
+      _autoFetchFromOfflineCache(id);
+    }
+  }
+
+  Future<void> _autoFetchFromOfflineCache(String id) async {
+    final cachedDistributors = await OfflineCacheService.getCachedDistributors();
+    final cd = cachedDistributors.cast<Distributor?>().firstWhere(
+          (d) => d?.id == id || d?.salesId == id,
+      orElse: () => null,
+    );
+    if (cd != null) {
+      if (!mounted) return;
+      setState(() {
+        _distributorId = cd.id;
+        _distributorName = (cd.distributionName?.isNotEmpty == true)
+            ? cd.distributionName
+            : (cd.name ?? '');
+        _zoneId = cd.zone?.id;
+        _zoneName = cd.zone?.name;
+        _townId = cd.town?.id;
+        _townName = cd.town?.name;
+      });
+      return;
+    }
+
+    final cachedWholesalers = await OfflineCacheService.getCachedWholesalers();
+    final cw = cachedWholesalers.cast<Wholesaler?>().firstWhere(
+          (w) => w?.id == id,
+      orElse: () => null,
+    );
+    if (cw != null) {
+      if (!mounted) return;
+      setState(() {
+        _distributorId = cw.id;
+        _distributorName = cw.name ?? '';
+        _zoneId = cw.zone?.id;
+        _zoneName = cw.zone?.name;
+        _townId = cw.town?.id;
+        _townName = cw.town?.name;
+      });
+      return;
+    }
+
+    final cachedRetailers = await OfflineCacheService.getCachedRetailers();
+    final cr = cachedRetailers.cast<Wholesaler?>().firstWhere(
+          (r) => r?.id == id,
+      orElse: () => null,
+    );
+    if (cr != null) {
+      if (!mounted) return;
+      setState(() {
+        _distributorId = cr.id;
+        _distributorName = cr.name ?? '';
+        _zoneId = cr.zone?.id;
+        _zoneName = cr.zone?.name;
+        _townId = cr.town?.id;
+        _townName = cr.town?.name;
       });
     }
   }
@@ -699,6 +773,11 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
       return;
     }
 
+    if (context.read<OfflineModeProvider>().isOffline) {
+      _saveOffline(tsmId: tsmId, amount: amount);
+      return;
+    }
+
     final model = AddRecoveryModel(
       distributionName: _distributorName!,
       zone: _zoneId!,
@@ -729,6 +808,63 @@ class _AddRecoveryViewState extends State<AddRecoveryView> {
     );
 
     _retailerBloc.add(AddRecoveryEvent(model, token));
+  }
+
+  /// Offline Mode path — queues this recovery locally instead of calling
+  /// the API, exactly like "Add to Drafts" queues an order. Synced later
+  /// (via RetailerRepositoryImp.addRecovery, same call online mode uses)
+  /// when the salesperson taps Sync.
+  Future<void> _saveOffline({required String tsmId, required double amount}) async {
+    String? persistedPath;
+    if (receiptImage != null) {
+      persistedPath = await persistRecoveryImageIfOffline(receiptImage!.path);
+    }
+
+    final model = AddRecoveryModel(
+      distributionName: _distributorName!,
+      zone: _zoneId!,
+      town: _townId!,
+      tsm: tsmId,
+      recordedBy: tsmId,
+      amount: amount,
+      date: selectedDate.toIso8601String(),
+      paymentMode: selectedPaymentMode!,
+      bankName: _requiresBankDetails
+          ? _bankNameController.text.trim()
+          : 'null',
+      branchCode: _requiresBankDetails
+          ? _branchCodeController.text.trim()
+          : 'null',
+      beneficiaryAccountNumber: _requiresBankDetails
+          ? _beneficiaryAccountNumberController.text.trim()
+          : 'null',
+      beneficiaryAccountName: _requiresBankDetails
+          ? _beneficiaryAccountNameController.text.trim()
+          : 'null',
+      beneficiaryBankName: _requiresBankDetails
+          ? _beneficiaryBankNameController.text.trim()
+          : 'null',
+      receiptPic: persistedPath,
+      paymentType: widget.paymentType,
+      customerType: widget.customerType,
+    );
+
+    await PendingRecoveryService.add(PendingRecoveryOrder(
+      localId: const Uuid().v4(),
+      model: model,
+      createdAt: DateTime.now(),
+    ));
+
+    if (!mounted) return;
+    context.read<PendingRecoveryProvider>().load();
+    getFlushBar(context, title: "Recovery saved locally — will sync when online.");
+    final nav = Navigator.of(context);
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        nav.pop();
+        nav.pop();
+      }
+    });
   }
 
   // ── Custom wheel date picker (no future dates) ───────────────────────────

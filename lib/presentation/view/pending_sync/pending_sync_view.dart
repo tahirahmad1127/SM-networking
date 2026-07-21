@@ -42,7 +42,7 @@ class _PendingSyncViewState extends State<PendingSyncView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: customAppBar(context),
+      appBar: customAppBar(context, text: "Sync", showText: true),
       body: Column(
         children: [
           TabBar(

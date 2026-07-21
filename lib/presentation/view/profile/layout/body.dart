@@ -12,6 +12,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
+import 'package:sm_networking/application/offline_mode_provider.dart';
+import 'package:sm_networking/application/pending_recovery_provider.dart';
+import 'package:sm_networking/application/pending_sync_provider.dart';
 import 'package:sm_networking/application/user_provider.dart';
 import 'package:sm_networking/infrastructure/api_helper.dart';
 import 'package:sm_networking/configurations/end_points.dart';
@@ -22,6 +25,7 @@ import 'package:sm_networking/configurations/translation_helper.dart';
 import 'package:sm_networking/presentation/elements/flush_bar.dart';
 import 'package:sm_networking/presentation/elements/navigation_dialog.dart';
 import 'package:sm_networking/presentation/elements/processing_widget.dart';
+import 'package:sm_networking/presentation/elements/sync_actions.dart';
 import 'package:sm_networking/presentation/view/auth/log_in/log_in_view.dart';
 import 'package:sm_networking/presentation/view/profile/my_recoveries_view.dart';
 import 'package:sm_networking/presentation/view/profile/my_sales_view.dart';
@@ -54,6 +58,10 @@ class _ProfileBodyState extends State<ProfileBody> {
   void initState() {
     super.initState();
     _loadAppVersion();
+    // Populates the "Sync Up" tile's badge count on first visit — mirrors
+    // what the old Attendance-screen FAB used to do in its own initState.
+    Provider.of<PendingSyncProvider>(context, listen: false).load();
+    Provider.of<PendingRecoveryProvider>(context, listen: false).load();
   }
 
   Future<void> _loadAppVersion() async {
@@ -228,6 +236,24 @@ class _ProfileBodyState extends State<ProfileBody> {
                       color: Colors.grey.shade500,
                     ),
                   ),
+
+                const SizedBox(height: 12),
+
+                // ── Sync Down (was the "Offline Mode" FAB on Attendance) ────
+                InkWell(
+                  borderRadius: FrontendConfigs.kAppBorder,
+                  onTap: () => toggleOfflineMode(context),
+                  child: _SyncDownCard(),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Sync Up (was the "Sync" FAB on Attendance) ──────────────
+                InkWell(
+                  borderRadius: FrontendConfigs.kAppBorder,
+                  onTap: () => openSyncScreen(context),
+                  child: _SyncUpCard(),
+                ),
 
                 const SizedBox(height: 12),
 
@@ -639,5 +665,141 @@ class _ProfileBodyState extends State<ProfileBody> {
     }
 
     return null;
+  }
+}
+
+/// "Sync Down" tile — was the "Offline Mode" FAB on the Attendance screen.
+/// Same ProfileCard styling, with a trailing status indicator instead of
+/// just a chevron (spinner while caching, "ON" badge once enabled).
+class _SyncDownCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<OfflineModeProvider>(
+      builder: (context, offlineMode, _) {
+        return Container(
+          height: 50,
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+              borderRadius: FrontendConfigs.kAppBorder,
+              color: FrontendConfigs.kTextFieldColor),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CustomText(
+                  text: "Sync Down",
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+                Row(
+                  children: [
+                    if (offlineMode.isCaching) ...[
+                      const SizedBox(
+                        height: 14,
+                        width: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      CustomText(
+                        text: "Preparing...",
+                        fontSize: 12,
+                        color: FrontendConfigs.kAuthTextColor,
+                      ),
+                    ] else if (offlineMode.isOffline) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade600,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          "ON",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 18,
+                      color: FrontendConfigs.kAuthTextColor,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// "Sync Up" tile — was the "Sync" FAB on the Attendance screen. Same
+/// ProfileCard styling, with a trailing badge counting orders + recoveries
+/// still queued locally (combines PendingSyncProvider + PendingRecoveryProvider,
+/// same as the old FAB badge).
+class _SyncUpCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<PendingSyncProvider, PendingRecoveryProvider>(
+      builder: (context, provider, recoveryProvider, _) {
+        final combinedCount = provider.count + recoveryProvider.count;
+        return Container(
+          height: 50,
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+              borderRadius: FrontendConfigs.kAppBorder,
+              color: FrontendConfigs.kTextFieldColor),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CustomText(
+                  text: "Sync Up",
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+                Row(
+                  children: [
+                    if (combinedCount > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.all(Radius.circular(6)),
+                        ),
+                        child: Text(
+                          combinedCount > 99 ? '99+' : '$combinedCount',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 18,
+                      color: FrontendConfigs.kAuthTextColor,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
